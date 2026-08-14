@@ -1,5 +1,3 @@
-// web/src/domain/calculateBalances.ts
-
 import type { LedgerEvent } from "./ledger";
 
 export interface PositionBalance {
@@ -12,6 +10,8 @@ export interface PortfolioBalances {
   cnyCash: number;
   usdCash: number;
   positions: PositionBalance[];
+  realizedPnlUsd: number;
+  totalFeesUsd: number;
 }
 
 export function calculateBalances(
@@ -19,6 +19,8 @@ export function calculateBalances(
 ): PortfolioBalances {
   let cnyCash = 0;
   let usdCash = 0;
+  let realizedPnlUsd = 0;
+  let totalFeesUsd = 0;
 
   const positions = new Map<string, PositionBalance>();
 
@@ -49,6 +51,7 @@ export function calculateBalances(
       case "BUY": {
         const tradeCost = event.quantity * event.priceUsd + event.feeUsd;
         usdCash -= tradeCost;
+        totalFeesUsd += event.feeUsd;
 
         const position = positions.get(event.symbol) ?? {
           symbol: event.symbol,
@@ -72,10 +75,14 @@ export function calculateBalances(
         }
 
         const averageCostUsd = position.costUsd / position.quantity;
-        position.quantity -= event.quantity;
-        position.costUsd -= averageCostUsd * event.quantity;
+        const soldCostUsd = averageCostUsd * event.quantity;
+        const saleProceedsUsd = event.quantity * event.priceUsd - event.feeUsd;
 
-        usdCash += event.quantity * event.priceUsd - event.feeUsd;
+        position.quantity -= event.quantity;
+        position.costUsd -= soldCostUsd;
+        usdCash += saleProceedsUsd;
+        realizedPnlUsd += saleProceedsUsd - soldCostUsd;
+        totalFeesUsd += event.feeUsd;
 
         if (position.quantity === 0) {
           positions.delete(event.symbol);
@@ -95,6 +102,7 @@ export function calculateBalances(
 
       case "FEE":
         usdCash -= event.amountUsd;
+        totalFeesUsd += event.amountUsd;
         break;
     }
   }
@@ -105,5 +113,7 @@ export function calculateBalances(
     positions: [...positions.values()].sort((a, b) =>
       a.symbol.localeCompare(b.symbol),
     ),
+    realizedPnlUsd,
+    totalFeesUsd,
   };
 }

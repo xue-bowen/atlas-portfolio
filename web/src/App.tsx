@@ -50,6 +50,12 @@ export default function App() {
         <li>USD cash: {usd.format(balances.usdCash)}</li>
       </ul>
 
+      <h2>Realized result</h2>
+      <ul>
+        <li>Realized P&amp;L: {usd.format(balances.realizedPnlUsd)}</li>
+        <li>Accumulated trading fees: {usd.format(balances.totalFeesUsd)}</li>
+      </ul>
+
       <h2>Open positions</h2>
       <ul>
         {balances.positions.map((position) => (
