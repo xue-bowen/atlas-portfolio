@@ -1,5 +1,3 @@
-// web/src/data/sampleLedger.ts
-
 import type { LedgerEvent } from "../domain/ledger";
 
 export const sampleLedger: LedgerEvent[] = [
@@ -45,7 +43,18 @@ export const sampleLedger: LedgerEvent[] = [
     accountId: "ibkr-main",
     type: "DIVIDEND",
     symbol: "VOO",
-    grossAmountUsd: 6.20,
+    grossAmountUsd: 6.2,
     withholdingTaxUsd: 0.84,
+  },
+  {
+    id: "evt-006",
+    occurredAt: "2026-08-12",
+    accountId: "ibkr-main",
+    type: "SELL",
+    symbol: "GOOGL",
+    quantity: 1,
+    priceUsd: 199,
+    feeUsd: 0.35,
+    note: "Anonymous realized P&L test",
   },
 ];
