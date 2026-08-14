@@ -1,6 +1,17 @@
 import "./App.css";
 import { sampleLedger } from "./data/sampleLedger";
+import { calculateBalances } from "./domain/calculateBalances";
 import type { LedgerEvent } from "./domain/ledger";
+
+const usd = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+});
+
+const cny = new Intl.NumberFormat("zh-CN", {
+  style: "currency",
+  currency: "CNY",
+});
 
 function describeEvent(event: LedgerEvent): string {
   switch (event.type) {
@@ -26,14 +37,30 @@ function describeEvent(event: LedgerEvent): string {
 }
 
 export default function App() {
+  const balances = calculateBalances(sampleLedger);
+
   return (
     <main>
       <h1>Atlas Portfolio</h1>
-      <p>Multi-currency portfolio tracker · development preview</p>
+      <p>Anonymous ledger calculation preview</p>
+
+      <h2>Current balances</h2>
+      <ul>
+        <li>CNY cash: {cny.format(balances.cnyCash)}</li>
+        <li>USD cash: {usd.format(balances.usdCash)}</li>
+      </ul>
+
+      <h2>Open positions</h2>
+      <ul>
+        {balances.positions.map((position) => (
+          <li key={position.symbol}>
+            {position.symbol}: {position.quantity} shares · cost{" "}
+            {usd.format(position.costUsd)}
+          </li>
+        ))}
+      </ul>
 
       <h2>Anonymous test ledger</h2>
-      <p>{sampleLedger.length} events loaded</p>
-
       <ol>
         {sampleLedger.map((event) => (
           <li key={event.id}>
