@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import "./App.css";
-import { loadLedger } from "./data/ledgerStorage";
+import { loadLedger, saveLedger } from "./data/ledgerStorage";
 import { calculateBalances } from "./domain/calculateBalances";
 import type { LedgerEvent } from "./domain/ledger";
 
@@ -38,13 +38,74 @@ function describeEvent(event: LedgerEvent): string {
 }
 
 export default function App() {
-  const [ledger] = useState(loadLedger);
+  const [ledger, setLedger] = useState(loadLedger);
+  const [depositDate, setDepositDate] = useState(() =>
+    new Date().toISOString().slice(0, 10),
+  );
+  const [depositAmount, setDepositAmount] = useState("");
+  const [message, setMessage] = useState("");
+
   const balances = calculateBalances(ledger);
+
+  function addCnyDeposit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const amountCny = Number(depositAmount);
+
+    if (!depositDate || !Number.isFinite(amountCny) || amountCny <= 0) {
+      setMessage("Please enter a valid date and a positive CNY amount.");
+      return;
+    }
+
+    const deposit: LedgerEvent = {
+      id: `deposit-${Date.now()}`,
+      occurredAt: depositDate,
+      accountId: "personal-main",
+      type: "CNY_DEPOSIT",
+      amountCny,
+      note: "Manual CNY deposit",
+    };
+
+    const nextLedger = [...ledger, deposit];
+    setLedger(nextLedger);
+    saveLedger(nextLedger);
+    setDepositAmount("");
+    setMessage("Deposit saved locally in this browser.");
+  }
 
   return (
     <main>
       <h1>Atlas Portfolio</h1>
       <p>Anonymous ledger calculation preview</p>
+
+      <h2>Add CNY deposit</h2>
+      <form onSubmit={addCnyDeposit}>
+        <p>
+          <label>
+            Date{" "}
+            <input
+              type="date"
+              value={depositDate}
+              onChange={(event) => setDepositDate(event.target.value)}
+            />
+          </label>
+        </p>
+        <p>
+          <label>
+            Amount (CNY){" "}
+            <input
+              type="number"
+              min="0.01"
+              step="0.01"
+              value={depositAmount}
+              onChange={(event) => setDepositAmount(event.target.value)}
+              placeholder="e.g. 1000"
+            />
+          </label>
+        </p>
+        <button type="submit">Add deposit</button>
+      </form>
+      {message && <p>{message}</p>}
 
       <h2>Current balances</h2>
       <ul>
