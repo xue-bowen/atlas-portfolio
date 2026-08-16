@@ -1,5 +1,6 @@
+import { useState } from "react";
 import "./App.css";
-import { sampleLedger } from "./data/sampleLedger";
+import { loadLedger } from "./data/ledgerStorage";
 import { calculateBalances } from "./domain/calculateBalances";
 import type { LedgerEvent } from "./domain/ledger";
 
@@ -37,7 +38,8 @@ function describeEvent(event: LedgerEvent): string {
 }
 
 export default function App() {
-  const balances = calculateBalances(sampleLedger);
+  const [ledger] = useState(loadLedger);
+  const balances = calculateBalances(ledger);
 
   return (
     <main>
@@ -68,7 +70,7 @@ export default function App() {
 
       <h2>Anonymous test ledger</h2>
       <ol>
-        {sampleLedger.map((event) => (
+        {ledger.map((event) => (
           <li key={event.id}>
             <strong>{event.occurredAt}</strong> — {describeEvent(event)}
           </li>
