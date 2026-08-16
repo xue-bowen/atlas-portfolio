@@ -1,6 +1,11 @@
 import { useState, type FormEvent } from "react";
 import "./App.css";
-import { loadLedger, saveLedger } from "./data/ledgerStorage";
+import {
+  hasInitializedPersonalLedger,
+  initializeEmptyPersonalLedger,
+  loadLedger,
+  saveLedger,
+} from "./data/ledgerStorage";
 import { calculateBalances } from "./domain/calculateBalances";
 import type { LedgerEvent } from "./domain/ledger";
 
@@ -39,6 +44,9 @@ function describeEvent(event: LedgerEvent): string {
 
 export default function App() {
   const [ledger, setLedger] = useState(loadLedger);
+  const [isPersonalLedger, setIsPersonalLedger] = useState(
+    hasInitializedPersonalLedger,
+  );
   const [depositDate, setDepositDate] = useState(() =>
     new Date().toISOString().slice(0, 10),
   );
@@ -46,6 +54,20 @@ export default function App() {
   const [message, setMessage] = useState("");
 
   const balances = calculateBalances(ledger);
+
+  function startEmptyPersonalLedger() {
+    const confirmed = window.confirm(
+      "This will replace the local demo/test ledger with an empty personal ledger. Continue?",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setLedger(initializeEmptyPersonalLedger());
+    setIsPersonalLedger(true);
+    setMessage("Empty personal ledger initialized locally in this browser.");
+  }
 
   function addCnyDeposit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -76,35 +98,57 @@ export default function App() {
   return (
     <main>
       <h1>Atlas Portfolio</h1>
-      <p>Anonymous ledger calculation preview</p>
+      <p>
+        {isPersonalLedger
+          ? "Personal ledger saved only in this browser."
+          : "Demo ledger for calculation and development tests."}
+      </p>
 
-      <h2>Add CNY deposit</h2>
-      <form onSubmit={addCnyDeposit}>
-        <p>
-          <label>
-            Date{" "}
-            <input
-              type="date"
-              value={depositDate}
-              onChange={(event) => setDepositDate(event.target.value)}
-            />
-          </label>
-        </p>
-        <p>
-          <label>
-            Amount (CNY){" "}
-            <input
-              type="number"
-              min="0.01"
-              step="0.01"
-              value={depositAmount}
-              onChange={(event) => setDepositAmount(event.target.value)}
-              placeholder="e.g. 1000"
-            />
-          </label>
-        </p>
-        <button type="submit">Add deposit</button>
-      </form>
+      {!isPersonalLedger && (
+        <section>
+          <h2>Start personal ledger</h2>
+          <p>
+            The current records are anonymous demo data. Start with an empty
+            personal ledger before entering real transactions.
+          </p>
+          <button type="button" onClick={startEmptyPersonalLedger}>
+            Start with an empty personal ledger
+          </button>
+        </section>
+      )}
+
+      {isPersonalLedger && (
+        <section>
+          <h2>Add CNY deposit</h2>
+          <form onSubmit={addCnyDeposit}>
+            <p>
+              <label>
+                Date{" "}
+                <input
+                  type="date"
+                  value={depositDate}
+                  onChange={(event) => setDepositDate(event.target.value)}
+                />
+              </label>
+            </p>
+            <p>
+              <label>
+                Amount (CNY){" "}
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={depositAmount}
+                  onChange={(event) => setDepositAmount(event.target.value)}
+                  placeholder="e.g. 1000"
+                />
+              </label>
+            </p>
+            <button type="submit">Add deposit</button>
+          </form>
+        </section>
+      )}
+
       {message && <p>{message}</p>}
 
       <h2>Current balances</h2>
@@ -120,23 +164,31 @@ export default function App() {
       </ul>
 
       <h2>Open positions</h2>
-      <ul>
-        {balances.positions.map((position) => (
-          <li key={position.symbol}>
-            {position.symbol}: {position.quantity} shares · cost{" "}
-            {usd.format(position.costUsd)}
-          </li>
-        ))}
-      </ul>
+      {balances.positions.length === 0 ? (
+        <p>No open positions.</p>
+      ) : (
+        <ul>
+          {balances.positions.map((position) => (
+            <li key={position.symbol}>
+              {position.symbol}: {position.quantity} shares · cost{" "}
+              {usd.format(position.costUsd)}
+            </li>
+          ))}
+        </ul>
+      )}
 
-      <h2>Anonymous test ledger</h2>
-      <ol>
-        {ledger.map((event) => (
-          <li key={event.id}>
-            <strong>{event.occurredAt}</strong> — {describeEvent(event)}
-          </li>
-        ))}
-      </ol>
+      <h2>{isPersonalLedger ? "Personal ledger" : "Anonymous test ledger"}</h2>
+      {ledger.length === 0 ? (
+        <p>No transactions recorded yet.</p>
+      ) : (
+        <ol>
+          {ledger.map((event) => (
+            <li key={event.id}>
+              <strong>{event.occurredAt}</strong> — {describeEvent(event)}
+            </li>
+          ))}
+        </ol>
+      )}
     </main>
   );
 }
