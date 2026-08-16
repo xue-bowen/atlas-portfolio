@@ -1,10 +1,13 @@
-import { useState, type FormEvent } from "react";
+import { useState, type ChangeEvent, type FormEvent } from "react";
 import "./App.css";
 import {
   hasInitializedPersonalLedger,
   initializeEmptyPersonalLedger,
   loadLedger,
+  parseLedgerBackup,
   saveLedger,
+  savePersonalLedger,
+  serializeLedgerBackup,
 } from "./data/ledgerStorage";
 import { calculateBalances } from "./domain/calculateBalances";
 import type { LedgerEvent } from "./domain/ledger";
@@ -140,6 +143,45 @@ export default function App() {
     setMessage("FX conversion saved locally in this browser.");
   }
 
+  function exportLedgerBackup() {
+    const backupJson = serializeLedgerBackup(ledger);
+    const backupBlob = new Blob([backupJson], {
+      type: "application/json",
+    });
+    const backupUrl = URL.createObjectURL(backupBlob);
+    const downloadLink = document.createElement("a");
+
+    downloadLink.href = backupUrl;
+    downloadLink.download = `atlas-portfolio-ledger-${new Date()
+      .toISOString()
+      .slice(0, 10)}.json`;
+    downloadLink.click();
+    URL.revokeObjectURL(backupUrl);
+    setMessage("Ledger backup exported as a local JSON file.");
+  }
+
+  async function importLedgerBackup(event: ChangeEvent<HTMLInputElement>) {
+    const fileInput = event.currentTarget;
+    const backupFile = fileInput.files?.[0];
+
+    if (!backupFile) {
+      return;
+    }
+
+    try {
+      const importedLedger = parseLedgerBackup(await backupFile.text());
+
+      savePersonalLedger(importedLedger);
+      setLedger(importedLedger);
+      setIsPersonalLedger(true);
+      setMessage(`Imported ${importedLedger.length} ledger event(s).`);
+    } catch {
+      setMessage("Could not import this file. Please choose a valid backup.");
+    } finally {
+      fileInput.value = "";
+    }
+  }
+
   return (
     <main>
       <h1>Atlas Portfolio</h1>
@@ -240,6 +282,27 @@ export default function App() {
       )}
 
       {message && <p>{message}</p>}
+
+      <section>
+        <h2>Local backup</h2>
+        <p>
+          Export before entering more history. Imported files replace the local
+          browser ledger.
+        </p>
+        <button type="button" onClick={exportLedgerBackup}>
+          Export JSON backup
+        </button>
+        <p>
+          <label>
+            Import JSON backup{" "}
+            <input
+              type="file"
+              accept="application/json,.json"
+              onChange={importLedgerBackup}
+            />
+          </label>
+        </p>
+      </section>
 
       <h2>Current balances</h2>
       <ul>
