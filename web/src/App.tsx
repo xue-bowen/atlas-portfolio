@@ -51,6 +51,11 @@ export default function App() {
     new Date().toISOString().slice(0, 10),
   );
   const [depositAmount, setDepositAmount] = useState("");
+  const [fxDate, setFxDate] = useState(() =>
+    new Date().toISOString().slice(0, 10),
+  );
+  const [fxAmountCny, setFxAmountCny] = useState("");
+  const [fxAmountUsd, setFxAmountUsd] = useState("");
   const [message, setMessage] = useState("");
 
   const balances = calculateBalances(ledger);
@@ -93,6 +98,46 @@ export default function App() {
     saveLedger(nextLedger);
     setDepositAmount("");
     setMessage("Deposit saved locally in this browser.");
+  }
+
+  function addFxToUsd(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const amountCny = Number(fxAmountCny);
+    const amountUsd = Number(fxAmountUsd);
+
+    if (
+      !fxDate ||
+      !Number.isFinite(amountCny) ||
+      amountCny <= 0 ||
+      !Number.isFinite(amountUsd) ||
+      amountUsd <= 0
+    ) {
+      setMessage("Please enter a valid date, CNY amount, and USD amount.");
+      return;
+    }
+
+    if (amountCny > balances.cnyCash) {
+      setMessage("CNY spent cannot exceed current CNY cash.");
+      return;
+    }
+
+    const fxConversion: LedgerEvent = {
+      id: `fx-usd-${Date.now()}`,
+      occurredAt: fxDate,
+      accountId: "personal-main",
+      type: "FX_TO_USD",
+      amountCny,
+      amountUsd,
+      note: "Manual CNY to USD conversion",
+    };
+
+    const nextLedger = [...ledger, fxConversion];
+    setLedger(nextLedger);
+    saveLedger(nextLedger);
+    setFxAmountCny("");
+    setFxAmountUsd("");
+    setMessage("FX conversion saved locally in this browser.");
   }
 
   return (
@@ -145,6 +190,51 @@ export default function App() {
               </label>
             </p>
             <button type="submit">Add deposit</button>
+          </form>
+        </section>
+      )}
+
+      {isPersonalLedger && (
+        <section>
+          <h2>Add CNY to USD conversion</h2>
+          <form onSubmit={addFxToUsd}>
+            <p>
+              <label>
+                Date{" "}
+                <input
+                  type="date"
+                  value={fxDate}
+                  onChange={(event) => setFxDate(event.target.value)}
+                />
+              </label>
+            </p>
+            <p>
+              <label>
+                CNY spent{" "}
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={fxAmountCny}
+                  onChange={(event) => setFxAmountCny(event.target.value)}
+                  placeholder="e.g. 10000"
+                />
+              </label>
+            </p>
+            <p>
+              <label>
+                USD received{" "}
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={fxAmountUsd}
+                  onChange={(event) => setFxAmountUsd(event.target.value)}
+                  placeholder="e.g. 1380"
+                />
+              </label>
+            </p>
+            <button type="submit">Add FX conversion</button>
           </form>
         </section>
       )}
