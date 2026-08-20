@@ -66,6 +66,13 @@ export default function App() {
   const [buyQuantity, setBuyQuantity] = useState("");
   const [buyPriceUsd, setBuyPriceUsd] = useState("");
   const [buyFeeUsd, setBuyFeeUsd] = useState("0");
+  const [sellDate, setSellDate] = useState(() =>
+    new Date().toISOString().slice(0, 10),
+  );
+  const [sellSymbol, setSellSymbol] = useState("");
+  const [sellQuantity, setSellQuantity] = useState("");
+  const [sellPriceUsd, setSellPriceUsd] = useState("");
+  const [sellFeeUsd, setSellFeeUsd] = useState("0");
   const [message, setMessage] = useState("");
 
   const balances = calculateBalances(ledger);
@@ -201,6 +208,61 @@ export default function App() {
     setBuyPriceUsd("");
     setBuyFeeUsd("0");
     setMessage("Buy transaction saved locally in this browser.");
+  }
+
+  function addSell(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const symbol = sellSymbol.trim().toUpperCase();
+    const quantity = Number(sellQuantity);
+    const priceUsd = Number(sellPriceUsd);
+    const feeUsd = Number(sellFeeUsd);
+
+    if (
+      !sellDate ||
+      !symbol ||
+      !Number.isFinite(quantity) ||
+      quantity <= 0 ||
+      !Number.isFinite(priceUsd) ||
+      priceUsd <= 0 ||
+      !Number.isFinite(feeUsd) ||
+      feeUsd < 0
+    ) {
+      setMessage(
+        "Please enter a valid date, symbol, quantity, USD price, and fee.",
+      );
+      return;
+    }
+
+    const position = balances.positions.find(
+      (currentPosition) => currentPosition.symbol === symbol,
+    );
+
+    if (!position || quantity > position.quantity) {
+      setMessage("Sell quantity cannot exceed the current position.");
+      return;
+    }
+
+    const sell: LedgerEvent = {
+      id: `sell-${Date.now()}`,
+      occurredAt: sellDate,
+      accountId: "personal-main",
+      type: "SELL",
+      symbol,
+      quantity,
+      priceUsd,
+      feeUsd,
+      note: "Manual security sale",
+    };
+
+    const nextLedger = [...ledger, sell];
+    setLedger(nextLedger);
+    saveLedger(nextLedger);
+    setSellSymbol("");
+    setSellQuantity("");
+    setSellPriceUsd("");
+    setSellFeeUsd("0");
+    setMessage("Sell transaction saved locally in this browser.");
   }
 
   function exportLedgerBackup() {
@@ -410,6 +472,75 @@ export default function App() {
         </section>
       )}
 
+      {isPersonalLedger && (
+        <section>
+          <h2>Add USD security sale</h2>
+          <form onSubmit={addSell}>
+            <p>
+              <label>
+                Date{" "}
+                <input
+                  type="date"
+                  value={sellDate}
+                  onChange={(event) => setSellDate(event.target.value)}
+                />
+              </label>
+            </p>
+            <p>
+              <label>
+                Symbol{" "}
+                <input
+                  type="text"
+                  value={sellSymbol}
+                  onChange={(event) => setSellSymbol(event.target.value)}
+                  placeholder="e.g. VOO"
+                />
+              </label>
+            </p>
+            <p>
+              <label>
+                Quantity{" "}
+                <input
+                  type="number"
+                  min="0.000001"
+                  step="any"
+                  value={sellQuantity}
+                  onChange={(event) => setSellQuantity(event.target.value)}
+                  placeholder="e.g. 1"
+                />
+              </label>
+            </p>
+            <p>
+              <label>
+                Price (USD per share){" "}
+                <input
+                  type="number"
+                  min="0.000001"
+                  step="0.000001"
+                  value={sellPriceUsd}
+                  onChange={(event) => setSellPriceUsd(event.target.value)}
+                  placeholder="e.g. 550"
+                />
+              </label>
+            </p>
+            <p>
+              <label>
+                Fee (USD){" "}
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={sellFeeUsd}
+                  onChange={(event) => setSellFeeUsd(event.target.value)}
+                  placeholder="e.g. 1.23"
+                />
+              </label>
+            </p>
+            <button type="submit">Add sale</button>
+          </form>
+        </section>
+      )}
+
       {message && <p>{message}</p>}
 
       <section>
@@ -453,7 +584,8 @@ export default function App() {
           {balances.positions.map((position) => (
             <li key={position.symbol}>
               {position.symbol}: {position.quantity} shares · cost{" "}
-              {usd.format(position.costUsd)}
+              {usd.format(position.costUsd)} · average cost{" "}
+              {usd.format(position.costUsd / position.quantity)} per share
             </li>
           ))}
         </ul>
