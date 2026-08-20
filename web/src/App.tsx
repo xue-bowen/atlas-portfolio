@@ -73,6 +73,13 @@ export default function App() {
   const [sellQuantity, setSellQuantity] = useState("");
   const [sellPriceUsd, setSellPriceUsd] = useState("");
   const [sellFeeUsd, setSellFeeUsd] = useState("0");
+  const [dividendDate, setDividendDate] = useState(() =>
+    new Date().toISOString().slice(0, 10),
+  );
+  const [dividendSymbol, setDividendSymbol] = useState("");
+  const [dividendGrossAmountUsd, setDividendGrossAmountUsd] = useState("");
+  const [dividendWithholdingTaxUsd, setDividendWithholdingTaxUsd] =
+    useState("0");
   const [message, setMessage] = useState("");
 
   const balances = calculateBalances(ledger);
@@ -263,6 +270,48 @@ export default function App() {
     setSellPriceUsd("");
     setSellFeeUsd("0");
     setMessage("Sell transaction saved locally in this browser.");
+  }
+
+  function addDividend(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const symbol = dividendSymbol.trim().toUpperCase();
+    const grossAmountUsd = Number(dividendGrossAmountUsd);
+    const withholdingTaxUsd = Number(dividendWithholdingTaxUsd);
+
+    if (
+      !dividendDate ||
+      !symbol ||
+      !Number.isFinite(grossAmountUsd) ||
+      grossAmountUsd <= 0 ||
+      !Number.isFinite(withholdingTaxUsd) ||
+      withholdingTaxUsd < 0 ||
+      withholdingTaxUsd > grossAmountUsd
+    ) {
+      setMessage(
+        "Please enter a valid date, symbol, gross USD amount, and withholding tax.",
+      );
+      return;
+    }
+
+    const dividend: LedgerEvent = {
+      id: `dividend-${Date.now()}`,
+      occurredAt: dividendDate,
+      accountId: "personal-main",
+      type: "DIVIDEND",
+      symbol,
+      grossAmountUsd,
+      withholdingTaxUsd,
+      note: "Manual dividend payment",
+    };
+
+    const nextLedger = [...ledger, dividend];
+    setLedger(nextLedger);
+    saveLedger(nextLedger);
+    setDividendSymbol("");
+    setDividendGrossAmountUsd("");
+    setDividendWithholdingTaxUsd("0");
+    setMessage("Dividend saved locally in this browser.");
   }
 
   function exportLedgerBackup() {
@@ -537,6 +586,66 @@ export default function App() {
               </label>
             </p>
             <button type="submit">Add sale</button>
+          </form>
+        </section>
+      )}
+
+      {isPersonalLedger && (
+        <section>
+          <h2>Add USD dividend</h2>
+          <form onSubmit={addDividend}>
+            <p>
+              <label>
+                Date{" "}
+                <input
+                  type="date"
+                  value={dividendDate}
+                  onChange={(event) => setDividendDate(event.target.value)}
+                />
+              </label>
+            </p>
+            <p>
+              <label>
+                Symbol{" "}
+                <input
+                  type="text"
+                  value={dividendSymbol}
+                  onChange={(event) => setDividendSymbol(event.target.value)}
+                  placeholder="e.g. VOO"
+                />
+              </label>
+            </p>
+            <p>
+              <label>
+                Gross amount (USD){" "}
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={dividendGrossAmountUsd}
+                  onChange={(event) =>
+                    setDividendGrossAmountUsd(event.target.value)
+                  }
+                  placeholder="e.g. 6.20"
+                />
+              </label>
+            </p>
+            <p>
+              <label>
+                Withholding tax (USD){" "}
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={dividendWithholdingTaxUsd}
+                  onChange={(event) =>
+                    setDividendWithholdingTaxUsd(event.target.value)
+                  }
+                  placeholder="e.g. 0.62"
+                />
+              </label>
+            </p>
+            <button type="submit">Add dividend</button>
           </form>
         </section>
       )}
