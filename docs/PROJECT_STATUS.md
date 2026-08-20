@@ -1,10 +1,10 @@
-# Atlas Portfolio — Project Status
+# Atlas Portfolio - Project Status
 
 ## Current stable checkpoint
 
 Latest committed and pushed version:
 
-`d3502a6 feat: initialize empty personal ledger`
+`ffa8a7d feat: calculate dividend reinvestment shares`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -12,29 +12,62 @@ Windows local path:
 
 `C:\Users\28301\atlas-portfolio`
 
+Last updated: 2026-08-21
+
+The working tree was clean after the latest commit. Personal ledger data is
+browser-local and is never committed to GitHub.
+
 ## Confirmed product rules
 
 - Desktop-first React + TypeScript + Vite web app.
-- CNY is the funding and wealth-view currency.
-- USD is the investment and holding currency.
-- Flow: CNY deposit → FX conversion → USD cash → buy/sell/dividend.
-- Sales and dividends remain USD cash until an explicit USD-to-CNY conversion.
+- CNY is the funding and wealth-view currency; USD is the investment and
+  holding currency.
 - Ledger events are the single source of truth.
-- Personal records are browser-local only; never commit them to GitHub.
-- Do not use `git add .`; explicitly list files when staging.
+- Core flow: CNY deposit -> CNY to USD FX -> USD cash -> buy/sell/dividend.
+- Sales and cash dividends remain USD cash until an explicit USD-to-CNY
+  conversion.
+- MVP cost method is moving-average USD cost. FIFO and specific lots are
+  deferred; future buy records should retain traceable lot data before adding
+  lot selection to sales.
+- Personal records are browser-local only. Never commit real transactions,
+  account details, exports, backups, or secrets.
+- Do not use `git add .`; explicitly list every staged file.
 
 ## Implemented and verified
 
-- Typed ledger events: deposits, withdrawals, FX, buy/sell, dividends, interest, fees.
-- CNY/USD cash calculation.
-- Open positions with moving-average USD cost basis.
+- Typed ledger events for deposits, withdrawals, FX, buy/sell, dividends,
+  interest, and fees.
+- CNY and USD cash calculation.
+- Open positions with moving-average USD cost, total cost, and average cost
+  per share.
 - Realized USD P&L and cumulative trading fees.
-- Anonymous demo ledger for calculation tests.
-- Browser localStorage read/write.
-- Explicit separation of demo data and empty personal ledger.
-- Personal CNY-deposit form, retained after browser refresh.
+- Browser localStorage read/write, plus local JSON export/import backup.
+- Explicit separation of anonymous demo data and an empty personal ledger.
+- Personal CNY deposit and CNY-to-USD FX forms.
+- Manual USD security buy form with USD cash validation.
+- Manual USD security sell form with position-quantity validation.
+- Manual USD dividend form with gross amount and withholding tax.
+- Cash dividends: net amount enters USD cash.
+- Dividend reinvestment: records a dividend followed by a zero-fee buy using
+  all net dividend proceeds. The user enters the reinvestment price; the app
+  calculates the fractional shares automatically.
 
-The local CNY 100 record is test data only and is not in Git.
+Anonymous browser tests verified balance updates and persistence after refresh.
+The latest reinvestment test confirmed that buying below the existing average
+cost lowers the average cost per share.
+
+## Key ledger behavior
+
+- BUY reduces USD cash by `quantity * price + fee` and adds that amount to
+  position cost.
+- SELL increases USD cash by `quantity * price - fee`, removes the sold
+  moving-average cost, and records realized P&L.
+- DIVIDEND adds `gross amount - withholding tax` to USD cash.
+- Reinvested dividends append a DIVIDEND event followed by a BUY event on the
+  same date, so USD cash returns to its pre-dividend amount and the position
+  gains the automatically calculated fractional shares.
+- A reinvestment price below the current average cost can lower the remaining
+  average cost; a higher price can increase it.
 
 ## Development workflow
 
@@ -50,24 +83,24 @@ From the `web` directory:
 
 `npm run dev`
 
-After browser verification:
+For each small feature:
 
-`git add <explicit-file-paths>`
-
-`git commit -m "type: short description"`
-
-`git push`
-
-`git status`
+1. Implement only the scoped change.
+2. Test with anonymous data in an isolated local browser origin.
+3. Verify refresh persistence and expected balances.
+4. Run `npm run build`, `git diff --check`, `git diff`, and `git status`.
+5. Stage explicit paths only, commit, push, and confirm a clean worktree.
 
 ## Next task
 
-Add a manual FX conversion form:
+Implement a manual USD interest form:
 
 - date
-- CNY amount spent
-- USD amount received
-- save to local ledger
-- verify both cash balances change correctly and persist after refresh
+- amount received in USD
+- save as an `INTEREST` ledger event
+- increase USD cash without changing positions or trading P&L
+- verify persistence after refresh with anonymous data
 
-Before entering substantial real history, implement local JSON export/import backup.
+After interest, continue with independent USD fees and CNY withdrawal. Do not
+start recording substantial real history until the user has manually tested the
+current workflow and exported a local JSON backup.
