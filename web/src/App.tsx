@@ -80,6 +80,11 @@ export default function App() {
   const [dividendGrossAmountUsd, setDividendGrossAmountUsd] = useState("");
   const [dividendWithholdingTaxUsd, setDividendWithholdingTaxUsd] =
     useState("0");
+  const [dividendPaymentMethod, setDividendPaymentMethod] = useState("CASH");
+  const [dividendReinvestmentQuantity, setDividendReinvestmentQuantity] =
+    useState("");
+  const [dividendReinvestmentPriceUsd, setDividendReinvestmentPriceUsd] =
+    useState("");
   const [message, setMessage] = useState("");
 
   const balances = calculateBalances(ledger);
@@ -278,6 +283,8 @@ export default function App() {
     const symbol = dividendSymbol.trim().toUpperCase();
     const grossAmountUsd = Number(dividendGrossAmountUsd);
     const withholdingTaxUsd = Number(dividendWithholdingTaxUsd);
+    const reinvestmentQuantity = Number(dividendReinvestmentQuantity);
+    const reinvestmentPriceUsd = Number(dividendReinvestmentPriceUsd);
 
     if (
       !dividendDate ||
@@ -294,6 +301,24 @@ export default function App() {
       return;
     }
 
+    const netDividendUsd = grossAmountUsd - withholdingTaxUsd;
+    const isReinvested = dividendPaymentMethod === "REINVEST";
+    const reinvestmentCostUsd = reinvestmentQuantity * reinvestmentPriceUsd;
+
+    if (
+      isReinvested &&
+      (!Number.isFinite(reinvestmentQuantity) ||
+        reinvestmentQuantity <= 0 ||
+        !Number.isFinite(reinvestmentPriceUsd) ||
+        reinvestmentPriceUsd <= 0 ||
+        reinvestmentCostUsd > netDividendUsd)
+    ) {
+      setMessage(
+        "Reinvestment shares and price must use no more than the net dividend.",
+      );
+      return;
+    }
+
     const dividend: LedgerEvent = {
       id: `dividend-${Date.now()}`,
       occurredAt: dividendDate,
@@ -302,16 +327,39 @@ export default function App() {
       symbol,
       grossAmountUsd,
       withholdingTaxUsd,
-      note: "Manual dividend payment",
+      note: isReinvested
+        ? "Manual dividend payment with reinvestment"
+        : "Manual cash dividend payment",
     };
 
-    const nextLedger = [...ledger, dividend];
+    const reinvestment: LedgerEvent[] = isReinvested
+      ? [
+          {
+            id: `dividend-reinvest-${Date.now()}`,
+            occurredAt: dividendDate,
+            accountId: "personal-main",
+            type: "BUY",
+            symbol,
+            quantity: reinvestmentQuantity,
+            priceUsd: reinvestmentPriceUsd,
+            feeUsd: 0,
+            note: "Automatic dividend reinvestment",
+          },
+        ]
+      : [];
+    const nextLedger = [...ledger, dividend, ...reinvestment];
     setLedger(nextLedger);
     saveLedger(nextLedger);
     setDividendSymbol("");
     setDividendGrossAmountUsd("");
     setDividendWithholdingTaxUsd("0");
-    setMessage("Dividend saved locally in this browser.");
+    setDividendReinvestmentQuantity("");
+    setDividendReinvestmentPriceUsd("");
+    setMessage(
+      isReinvested
+        ? "Dividend and reinvestment saved locally in this browser."
+        : "Cash dividend saved locally in this browser.",
+    );
   }
 
   function exportLedgerBackup() {
@@ -645,6 +693,54 @@ export default function App() {
                 />
               </label>
             </p>
+            <p>
+              <label>
+                Payment method{" "}
+                <select
+                  value={dividendPaymentMethod}
+                  onChange={(event) =>
+                    setDividendPaymentMethod(event.target.value)
+                  }
+                >
+                  <option value="CASH">Cash dividend</option>
+                  <option value="REINVEST">Reinvest dividend</option>
+                </select>
+              </label>
+            </p>
+            {dividendPaymentMethod === "REINVEST" && (
+              <>
+                <p>
+                  <label>
+                    Reinvestment shares{" "}
+                    <input
+                      type="number"
+                      min="0.000001"
+                      step="any"
+                      value={dividendReinvestmentQuantity}
+                      onChange={(event) =>
+                        setDividendReinvestmentQuantity(event.target.value)
+                      }
+                      placeholder="e.g. 0.01"
+                    />
+                  </label>
+                </p>
+                <p>
+                  <label>
+                    Reinvestment price (USD per share){" "}
+                    <input
+                      type="number"
+                      min="0.000001"
+                      step="0.000001"
+                      value={dividendReinvestmentPriceUsd}
+                      onChange={(event) =>
+                        setDividendReinvestmentPriceUsd(event.target.value)
+                      }
+                      placeholder="e.g. 500"
+                    />
+                  </label>
+                </p>
+              </>
+            )}
             <button type="submit">Add dividend</button>
           </form>
         </section>
