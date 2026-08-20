@@ -81,13 +81,15 @@ export default function App() {
   const [dividendWithholdingTaxUsd, setDividendWithholdingTaxUsd] =
     useState("0");
   const [dividendPaymentMethod, setDividendPaymentMethod] = useState("CASH");
-  const [dividendReinvestmentQuantity, setDividendReinvestmentQuantity] =
-    useState("");
   const [dividendReinvestmentPriceUsd, setDividendReinvestmentPriceUsd] =
     useState("");
   const [message, setMessage] = useState("");
 
   const balances = calculateBalances(ledger);
+  const netDividendUsd =
+    Number(dividendGrossAmountUsd) - Number(dividendWithholdingTaxUsd);
+  const reinvestmentShares =
+    netDividendUsd / Number(dividendReinvestmentPriceUsd);
 
   function startEmptyPersonalLedger() {
     const confirmed = window.confirm(
@@ -283,7 +285,6 @@ export default function App() {
     const symbol = dividendSymbol.trim().toUpperCase();
     const grossAmountUsd = Number(dividendGrossAmountUsd);
     const withholdingTaxUsd = Number(dividendWithholdingTaxUsd);
-    const reinvestmentQuantity = Number(dividendReinvestmentQuantity);
     const reinvestmentPriceUsd = Number(dividendReinvestmentPriceUsd);
 
     if (
@@ -303,18 +304,16 @@ export default function App() {
 
     const netDividendUsd = grossAmountUsd - withholdingTaxUsd;
     const isReinvested = dividendPaymentMethod === "REINVEST";
-    const reinvestmentCostUsd = reinvestmentQuantity * reinvestmentPriceUsd;
+    const reinvestmentQuantity = netDividendUsd / reinvestmentPriceUsd;
 
     if (
       isReinvested &&
-      (!Number.isFinite(reinvestmentQuantity) ||
-        reinvestmentQuantity <= 0 ||
-        !Number.isFinite(reinvestmentPriceUsd) ||
+      (!Number.isFinite(reinvestmentPriceUsd) ||
         reinvestmentPriceUsd <= 0 ||
-        reinvestmentCostUsd > netDividendUsd)
+        netDividendUsd <= 0)
     ) {
       setMessage(
-        "Reinvestment shares and price must use no more than the net dividend.",
+        "Reinvestment requires a positive net dividend and USD price.",
       );
       return;
     }
@@ -353,7 +352,6 @@ export default function App() {
     setDividendSymbol("");
     setDividendGrossAmountUsd("");
     setDividendWithholdingTaxUsd("0");
-    setDividendReinvestmentQuantity("");
     setDividendReinvestmentPriceUsd("");
     setMessage(
       isReinvested
@@ -711,21 +709,6 @@ export default function App() {
               <>
                 <p>
                   <label>
-                    Reinvestment shares{" "}
-                    <input
-                      type="number"
-                      min="0.000001"
-                      step="any"
-                      value={dividendReinvestmentQuantity}
-                      onChange={(event) =>
-                        setDividendReinvestmentQuantity(event.target.value)
-                      }
-                      placeholder="e.g. 0.01"
-                    />
-                  </label>
-                </p>
-                <p>
-                  <label>
                     Reinvestment price (USD per share){" "}
                     <input
                       type="number"
@@ -738,6 +721,13 @@ export default function App() {
                       placeholder="e.g. 500"
                     />
                   </label>
+                </p>
+                <p>
+                  Reinvestment shares: {" "}
+                  {Number.isFinite(reinvestmentShares) &&
+                  reinvestmentShares > 0
+                    ? reinvestmentShares.toFixed(6)
+                    : "Not available"}
                 </p>
               </>
             )}
