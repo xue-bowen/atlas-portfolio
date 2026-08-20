@@ -59,6 +59,13 @@ export default function App() {
   );
   const [fxAmountCny, setFxAmountCny] = useState("");
   const [fxAmountUsd, setFxAmountUsd] = useState("");
+  const [buyDate, setBuyDate] = useState(() =>
+    new Date().toISOString().slice(0, 10),
+  );
+  const [buySymbol, setBuySymbol] = useState("");
+  const [buyQuantity, setBuyQuantity] = useState("");
+  const [buyPriceUsd, setBuyPriceUsd] = useState("");
+  const [buyFeeUsd, setBuyFeeUsd] = useState("0");
   const [message, setMessage] = useState("");
 
   const balances = calculateBalances(ledger);
@@ -141,6 +148,59 @@ export default function App() {
     setFxAmountCny("");
     setFxAmountUsd("");
     setMessage("FX conversion saved locally in this browser.");
+  }
+
+  function addBuy(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const symbol = buySymbol.trim().toUpperCase();
+    const quantity = Number(buyQuantity);
+    const priceUsd = Number(buyPriceUsd);
+    const feeUsd = Number(buyFeeUsd);
+
+    if (
+      !buyDate ||
+      !symbol ||
+      !Number.isFinite(quantity) ||
+      quantity <= 0 ||
+      !Number.isFinite(priceUsd) ||
+      priceUsd <= 0 ||
+      !Number.isFinite(feeUsd) ||
+      feeUsd < 0
+    ) {
+      setMessage(
+        "Please enter a valid date, symbol, quantity, USD price, and fee.",
+      );
+      return;
+    }
+
+    const tradeCost = quantity * priceUsd + feeUsd;
+
+    if (tradeCost > balances.usdCash) {
+      setMessage("Trade cost cannot exceed current USD cash.");
+      return;
+    }
+
+    const buy: LedgerEvent = {
+      id: `buy-${Date.now()}`,
+      occurredAt: buyDate,
+      accountId: "personal-main",
+      type: "BUY",
+      symbol,
+      quantity,
+      priceUsd,
+      feeUsd,
+      note: "Manual security purchase",
+    };
+
+    const nextLedger = [...ledger, buy];
+    setLedger(nextLedger);
+    saveLedger(nextLedger);
+    setBuySymbol("");
+    setBuyQuantity("");
+    setBuyPriceUsd("");
+    setBuyFeeUsd("0");
+    setMessage("Buy transaction saved locally in this browser.");
   }
 
   function exportLedgerBackup() {
@@ -277,6 +337,75 @@ export default function App() {
               </label>
             </p>
             <button type="submit">Add FX conversion</button>
+          </form>
+        </section>
+      )}
+
+      {isPersonalLedger && (
+        <section>
+          <h2>Add USD security purchase</h2>
+          <form onSubmit={addBuy}>
+            <p>
+              <label>
+                Date{" "}
+                <input
+                  type="date"
+                  value={buyDate}
+                  onChange={(event) => setBuyDate(event.target.value)}
+                />
+              </label>
+            </p>
+            <p>
+              <label>
+                Symbol{" "}
+                <input
+                  type="text"
+                  value={buySymbol}
+                  onChange={(event) => setBuySymbol(event.target.value)}
+                  placeholder="e.g. VOO"
+                />
+              </label>
+            </p>
+            <p>
+              <label>
+                Quantity{" "}
+                <input
+                  type="number"
+                  min="0.000001"
+                  step="any"
+                  value={buyQuantity}
+                  onChange={(event) => setBuyQuantity(event.target.value)}
+                  placeholder="e.g. 2"
+                />
+              </label>
+            </p>
+            <p>
+              <label>
+                Price (USD per share){" "}
+                <input
+                  type="number"
+                  min="0.000001"
+                  step="0.000001"
+                  value={buyPriceUsd}
+                  onChange={(event) => setBuyPriceUsd(event.target.value)}
+                  placeholder="e.g. 500"
+                />
+              </label>
+            </p>
+            <p>
+              <label>
+                Fee (USD){" "}
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={buyFeeUsd}
+                  onChange={(event) => setBuyFeeUsd(event.target.value)}
+                  placeholder="e.g. 1.23"
+                />
+              </label>
+            </p>
+            <button type="submit">Add purchase</button>
           </form>
         </section>
       )}
