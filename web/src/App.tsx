@@ -34,6 +34,8 @@ const currencyFormatters: Record<Currency, Intl.NumberFormat> = {
   USD: usd,
 };
 
+type ExpenseCategory = "ADR_FEE" | "OTHER";
+
 function describeEvent(event: LedgerEvent): string {
   switch (event.type) {
     case "CNY_DEPOSIT":
@@ -59,7 +61,13 @@ function describeEvent(event: LedgerEvent): string {
         event.currency
       ].format(event.amount)}`;
     case "FEE":
-      return `${event.category}: $${event.amountUsd.toFixed(2)}`;
+      return `${
+        event.category === "ADR_FEE"
+          ? "ADR custody fee"
+          : event.category === "COMMISSION"
+            ? "Commission"
+            : "Other USD expense"
+      }: ${usd.format(event.amountUsd)}`;
   }
 }
 
@@ -106,6 +114,12 @@ export default function App() {
   );
   const [interestCurrency, setInterestCurrency] = useState<Currency>("USD");
   const [interestAmount, setInterestAmount] = useState("");
+  const [expenseDate, setExpenseDate] = useState(() =>
+    new Date().toISOString().slice(0, 10),
+  );
+  const [expenseCategory, setExpenseCategory] =
+    useState<ExpenseCategory>("ADR_FEE");
+  const [expenseAmountUsd, setExpenseAmountUsd] = useState("");
   const [message, setMessage] = useState("");
 
   const balances = calculateBalances(ledger);
@@ -410,6 +424,45 @@ export default function App() {
     setInterestAmount("");
     setMessage(
       `${interestCurrency} interest saved locally as an after-tax amount.`,
+    );
+  }
+
+  function addUsdExpense(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const amountUsd = Number(expenseAmountUsd);
+
+    if (!expenseDate || !Number.isFinite(amountUsd) || amountUsd <= 0) {
+      setMessage("Please enter a valid date and a positive USD amount.");
+      return;
+    }
+
+    if (amountUsd > balances.usdCash) {
+      setMessage("USD expense cannot exceed current USD cash.");
+      return;
+    }
+
+    const expense: LedgerEvent = {
+      id: `fee-${Date.now()}`,
+      occurredAt: expenseDate,
+      accountId: "personal-main",
+      type: "FEE",
+      amountUsd,
+      category: expenseCategory,
+      note:
+        expenseCategory === "ADR_FEE"
+          ? "Manual ADR custody fee"
+          : "Manual other USD expense",
+    };
+
+    const nextLedger = [...ledger, expense];
+    setLedger(nextLedger);
+    saveLedger(nextLedger);
+    setExpenseAmountUsd("");
+    setMessage(
+      expenseCategory === "ADR_FEE"
+        ? "ADR custody fee saved locally in this browser."
+        : "Other USD expense saved locally in this browser.",
     );
   }
 
@@ -836,6 +889,56 @@ export default function App() {
         </section>
       )}
 
+      {isPersonalLedger && (
+        <section>
+          <h2>Add USD expense</h2>
+          <p>
+            Record ADR custody fees or other USD cash deductions. Trading
+            commissions belong in the related buy or sell transaction.
+          </p>
+          <form onSubmit={addUsdExpense}>
+            <p>
+              <label>
+                Date{" "}
+                <input
+                  type="date"
+                  value={expenseDate}
+                  onChange={(event) => setExpenseDate(event.target.value)}
+                />
+              </label>
+            </p>
+            <p>
+              <label>
+                Expense category{" "}
+                <select
+                  value={expenseCategory}
+                  onChange={(event) =>
+                    setExpenseCategory(event.target.value as ExpenseCategory)
+                  }
+                >
+                  <option value="ADR_FEE">ADR custody fee</option>
+                  <option value="OTHER">Other USD expense</option>
+                </select>
+              </label>
+            </p>
+            <p>
+              <label>
+                Amount paid (USD){" "}
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={expenseAmountUsd}
+                  onChange={(event) => setExpenseAmountUsd(event.target.value)}
+                  placeholder="e.g. 2.50"
+                />
+              </label>
+            </p>
+            <button type="submit">Add USD expense</button>
+          </form>
+        </section>
+      )}
+
       {message && <p>{message}</p>}
 
       <section>
@@ -869,7 +972,9 @@ export default function App() {
       <h2>Realized result</h2>
       <ul>
         <li>Realized P&amp;L: {usd.format(balances.realizedPnlUsd)}</li>
-        <li>Accumulated trading fees: {usd.format(balances.totalFeesUsd)}</li>
+        <li>
+          Accumulated fees and USD expenses: {usd.format(balances.totalFeesUsd)}
+        </li>
       </ul>
 
       <h2>USD cash transaction history</h2>
