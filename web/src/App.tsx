@@ -83,6 +83,10 @@ export default function App() {
   const [dividendPaymentMethod, setDividendPaymentMethod] = useState("CASH");
   const [dividendReinvestmentPriceUsd, setDividendReinvestmentPriceUsd] =
     useState("");
+  const [interestDate, setInterestDate] = useState(() =>
+    new Date().toISOString().slice(0, 10),
+  );
+  const [interestAmountUsd, setInterestAmountUsd] = useState("");
   const [message, setMessage] = useState("");
 
   const balances = calculateBalances(ledger);
@@ -358,6 +362,32 @@ export default function App() {
         ? "Dividend and reinvestment saved locally in this browser."
         : "Cash dividend saved locally in this browser.",
     );
+  }
+
+  function addInterest(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const amountUsd = Number(interestAmountUsd);
+
+    if (!interestDate || !Number.isFinite(amountUsd) || amountUsd <= 0) {
+      setMessage("Please enter a valid date and a positive USD amount.");
+      return;
+    }
+
+    const interest: LedgerEvent = {
+      id: `interest-${Date.now()}`,
+      occurredAt: interestDate,
+      accountId: "personal-main",
+      type: "INTEREST",
+      amountUsd,
+      note: "Manual USD interest payment",
+    };
+
+    const nextLedger = [...ledger, interest];
+    setLedger(nextLedger);
+    saveLedger(nextLedger);
+    setInterestAmountUsd("");
+    setMessage("USD interest saved locally in this browser.");
   }
 
   function exportLedgerBackup() {
@@ -732,6 +762,40 @@ export default function App() {
               </>
             )}
             <button type="submit">Add dividend</button>
+          </form>
+        </section>
+      )}
+
+      {isPersonalLedger && (
+        <section>
+          <h2>Add USD interest</h2>
+          <form onSubmit={addInterest}>
+            <p>
+              <label>
+                Date{" "}
+                <input
+                  type="date"
+                  value={interestDate}
+                  onChange={(event) => setInterestDate(event.target.value)}
+                />
+              </label>
+            </p>
+            <p>
+              <label>
+                Amount received (USD){" "}
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={interestAmountUsd}
+                  onChange={(event) =>
+                    setInterestAmountUsd(event.target.value)
+                  }
+                  placeholder="e.g. 12.34"
+                />
+              </label>
+            </p>
+            <button type="submit">Add interest</button>
           </form>
         </section>
       )}
