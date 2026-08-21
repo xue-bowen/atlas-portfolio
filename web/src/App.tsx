@@ -80,6 +80,10 @@ export default function App() {
     new Date().toISOString().slice(0, 10),
   );
   const [depositAmount, setDepositAmount] = useState("");
+  const [withdrawalDate, setWithdrawalDate] = useState(() =>
+    new Date().toISOString().slice(0, 10),
+  );
+  const [withdrawalAmount, setWithdrawalAmount] = useState("");
   const [fxDate, setFxDate] = useState(() =>
     new Date().toISOString().slice(0, 10),
   );
@@ -167,6 +171,37 @@ export default function App() {
     saveLedger(nextLedger);
     setDepositAmount("");
     setMessage("Deposit saved locally in this browser.");
+  }
+
+  function addCnyWithdrawal(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const amountCny = Number(withdrawalAmount);
+
+    if (!withdrawalDate || !Number.isFinite(amountCny) || amountCny <= 0) {
+      setMessage("Please enter a valid date and a positive CNY amount.");
+      return;
+    }
+
+    if (amountCny > balances.cnyCash) {
+      setMessage("Withdrawal cannot exceed current CNY cash.");
+      return;
+    }
+
+    const withdrawal: LedgerEvent = {
+      id: `withdrawal-${Date.now()}`,
+      occurredAt: withdrawalDate,
+      accountId: "personal-main",
+      type: "CNY_WITHDRAWAL",
+      amountCny,
+      note: "Manual CNY withdrawal",
+    };
+
+    const nextLedger = [...ledger, withdrawal];
+    setLedger(nextLedger);
+    saveLedger(nextLedger);
+    setWithdrawalAmount("");
+    setMessage("CNY withdrawal saved locally in this browser.");
   }
 
   function addFxToUsd(event: FormEvent<HTMLFormElement>) {
@@ -555,6 +590,38 @@ export default function App() {
               </label>
             </p>
             <button type="submit">Add deposit</button>
+          </form>
+        </section>
+      )}
+
+      {isPersonalLedger && (
+        <section>
+          <h2>Add CNY withdrawal</h2>
+          <form onSubmit={addCnyWithdrawal}>
+            <p>
+              <label>
+                Date{" "}
+                <input
+                  type="date"
+                  value={withdrawalDate}
+                  onChange={(event) => setWithdrawalDate(event.target.value)}
+                />
+              </label>
+            </p>
+            <p>
+              <label>
+                Amount withdrawn (CNY){" "}
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={withdrawalAmount}
+                  onChange={(event) => setWithdrawalAmount(event.target.value)}
+                  placeholder="e.g. 500"
+                />
+              </label>
+            </p>
+            <button type="submit">Add withdrawal</button>
           </form>
         </section>
       )}
