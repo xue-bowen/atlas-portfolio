@@ -4,7 +4,7 @@
 
 Latest stable feature checkpoint before this documentation update:
 
-`d12aff7 feat: add CNY withdrawal form`
+`306295f feat: define market data provider contract`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -58,6 +58,9 @@ browser-local and is never committed to GitHub.
   entry is intentionally excluded because trading commission belongs to the
   related buy or sell.
 - Manual CNY withdrawal with current-cash validation.
+- Provider-neutral market-data contract with separate stock/ETF quote and FX
+  provider capabilities, standardized provenance/timestamps/delay metadata,
+  and typed provider failures. No external API is connected yet.
 
 Anonymous browser tests verified balance updates and persistence after refresh.
 The latest reinvestment test confirmed that buying below the existing average
@@ -130,7 +133,8 @@ For each small feature:
 
 ## Next task
 
-Perform a focused manual review of the current ledger workflow and export a
-local JSON backup. After that checkpoint, begin the Free-First market-data
-foundation with the provider-neutral data contract and IndexedDB market cache.
-Do not start recording substantial real history before the review and backup.
+Implement the IndexedDB market cache behind the provider-neutral contract,
+including deterministic cache keys, expiry timestamps, and explicit stale-data
+handling. Do not connect an external provider yet. A focused manual ledger
+review and local JSON backup remain required before recording substantial real
+history.
