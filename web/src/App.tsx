@@ -10,6 +10,7 @@ import {
   serializeLedgerBackup,
 } from "./data/ledgerStorage";
 import { calculateBalances } from "./domain/calculateBalances";
+import { calculateUsdCashHistory } from "./domain/calculateUsdCashHistory";
 import type { Currency, LedgerEvent } from "./domain/ledger";
 
 const usd = new Intl.NumberFormat("en-US", {
@@ -108,6 +109,7 @@ export default function App() {
   const [message, setMessage] = useState("");
 
   const balances = calculateBalances(ledger);
+  const usdCashHistory = calculateUsdCashHistory(ledger);
   const netDividendUsd =
     Number(dividendGrossAmountUsd) - Number(dividendWithholdingTaxUsd);
   const reinvestmentShares =
@@ -869,6 +871,44 @@ export default function App() {
         <li>Realized P&amp;L: {usd.format(balances.realizedPnlUsd)}</li>
         <li>Accumulated trading fees: {usd.format(balances.totalFeesUsd)}</li>
       </ul>
+
+      <h2>USD cash transaction history</h2>
+      {usdCashHistory.length === 0 ? (
+        <p>No USD cash movements recorded yet.</p>
+      ) : (
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Type</th>
+              <th>Description</th>
+              <th>Inflow</th>
+              <th>Outflow</th>
+              <th>Balance</th>
+            </tr>
+          </thead>
+          <tbody>
+            {usdCashHistory.map((transaction) => (
+              <tr key={transaction.id}>
+                <td>{transaction.occurredAt}</td>
+                <td>{transaction.eventType}</td>
+                <td>{transaction.description}</td>
+                <td>
+                  {transaction.inflowUsd > 0
+                    ? usd.format(transaction.inflowUsd)
+                    : "—"}
+                </td>
+                <td>
+                  {transaction.outflowUsd > 0
+                    ? usd.format(transaction.outflowUsd)
+                    : "—"}
+                </td>
+                <td>{usd.format(transaction.balanceUsd)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
 
       <h2>Open positions</h2>
       {balances.positions.length === 0 ? (
