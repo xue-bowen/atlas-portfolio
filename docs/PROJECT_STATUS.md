@@ -120,6 +120,11 @@ For each small feature:
   benchmark candidates are US Treasury, China government bond, and China
   one-year term-deposit return series, normalized to a common starting value
   with explicit currency and compounding assumptions.
+- Phase 3 also includes SPX beta-adjusted portfolio exposure: SPX Dollar Delta,
+  SPX Equivalent Delta, and market-value coverage. The first version covers
+  stocks and ETFs; options Greeks are deferred until the ledger supports
+  options. Missing price/beta inputs must remain visible rather than being
+  treated as zero exposure.
 
 ## Next task
 

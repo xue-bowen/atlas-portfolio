@@ -28,6 +28,7 @@
 | 卖出与分红现金 | 暂留 USD 现金池，不自动兑换为 CNY |
 | 主财富口径 | CNY 净资产、累计收益、CNY XIRR |
 | 辅助投资口径 | USD 投资表现、USD TWR、证券交易损益 |
+| 组合风险口径 | 展示 SPX Dollar Delta 与 SPX Equivalent Delta；第一版对股票/ETF 使用相对 SPX beta，期权 Greeks 在支持期权账本后纳入 |
 | 成本法 | MVP 默认移动平均成本；数据结构预留 FIFO/特定批次 |
 | 汇率来源 | 实际换汇使用成交汇率；每日估值可录入 Google 汇率或指定银行牌价 |
 | 证券识别 | ticker 自动匹配公司名称；以 ticker + 交易所 + 币种作为资产标识，支持人工修正 |
@@ -85,6 +86,27 @@ P\&L_{CNY}=NAV_{CNY}-\sum CNY\ 入金+\sum CNY\ 出金
 - **CNY XIRR（主指标）**：以 CNY 入金/出金与当前 CNY 净资产为现金流，反映个人真实资金回报。
 - **USD TWR（辅助指标）**：按估值时点与外部资金流计算，尽量剔除入金时点影响，反映投资决策表现。
 - MVP 先完成累计收益和 CNY XIRR；在具备每日估值快照后加入严格 USD TWR。
+
+### 3.4 SPX Delta 风险暴露
+
+SPX Delta 用于估计整个投资组合对标普500指数变动的方向性敏感度，不代表保证发生的盈亏，也不替代压力测试。
+
+第一版支持股票和 ETF：
+
+\[
+SPX\ Dollar\ Delta=\sum_i MarketValue_{USD,i}\times Beta_{i,SPX}
+\]
+
+\[
+SPX\ Equivalent\ Delta=\frac{SPX\ Dollar\ Delta}{SPX\ Reference\ Level}
+\]
+
+- 多头股票/ETF 的原始 delta 为 1；现金 delta 为 0。当前账本不支持空头，未来支持后按负方向处理。
+- `Beta_{i,SPX}` 使用统一频率和观察窗口的历史收益率估计；初始默认可采用约 252 个交易日日收益，但窗口必须可配置并在界面显示。
+- 若资产 beta、资产价格或 SPX 参考点位缺失，该资产标记为未覆盖；组合指标必须同时显示已覆盖市值占比，不能把缺失值静默当作 0。
+- 每次结果保存 `as_of`、beta 窗口、样本数、数据 provider、原始机构/基准、抓取时间和是否过期。
+- 未来加入期权账本后，单个期权先计算 `contracts × multiplier × option_delta × underlying_price × underlying_beta`，再汇总为 SPX Dollar Delta；期权 delta 必须带时间戳，允许人工覆盖，并明确盘中过期风险。
+- 页面同时展示未调整的净股票市值、SPX Dollar Delta、SPX Equivalent Delta 和覆盖率，避免把 beta-adjusted 指标误解为实际市值。
 
 ## 4. MVP 功能范围
 
@@ -144,6 +166,7 @@ P\&L_{CNY}=NAV_{CNY}-\sum CNY\ 入金+\sum CNY\ 出金
 | `market_data_cache` | instrument_id, value, currency, market_timestamp, fetched_at, provider, source_institution, expires_at | 统一缓存股票、ETF、汇率和未来基准数据 |
 | `portfolio_snapshots` | date, cash_by_currency, securities_value, NAV_CNY, P&L, FX_effect | 保存每日组合状态，支撑历史净值和走势图 |
 | `provider_usage` | provider, date, request_count, request_budget, last_error | 控制免费 API 调用预算并记录限流/失败情况 |
+| `risk_factor_snapshots` | instrument_id, benchmark, beta, window, observations, as_of, provider, fetched_at | 保存可审计的 SPX beta 与未来其他因子暴露 |
 
 ### 5.2 事件类型
 
@@ -262,9 +285,9 @@ Atlas 不采购付费 API、付费行情订阅或专业实时行情。若免费�
 
 ### Phase 3 — 回报率与报告
 
-**交付：** CNY XIRR、USD TWR、历史净值与收益率折线、按资产/年份/收益来源的归因报表、CSV 导出，以及可配置的基准比较。第一批基准候选为美国国债、中国国债和中国一年期定期存款；所有曲线统一以 100 为起点并明确币种、汇率、复利和数据来源假设。
+**交付：** CNY XIRR、USD TWR、历史净值与收益率折线、按资产/年份/收益来源的归因报表、CSV 导出、SPX Dollar Delta / SPX Equivalent Delta 风险卡片，以及可配置的基准比较。第一批基准候选为美国国债、中国国债和中国一年期定期存款；所有曲线统一以 100 为起点并明确币种、汇率、复利和数据来源假设。
 
-**验收：** 外部入金不会被误算成投资收益；XIRR 与同一现金流的独立表格计算一致；组合与基准采用一致日期范围和清晰的币种口径，不能把某日利率直接冒充累计收益。
+**验收：** 外部入金不会被误算成投资收益；XIRR 与同一现金流的独立表格计算一致；组合与基准采用一致日期范围和清晰的币种口径，不能把某日利率直接冒充累计收益；SPX Delta 与独立计算样例一致，并显示估值日期、beta 窗口、样本数、数据新鲜度和市值覆盖率，缺失因子时不得输出看似完整的组合风险值。
 
 ### Phase 4 — IBKR 导入与数据适配器
 
