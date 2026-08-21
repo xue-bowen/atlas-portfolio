@@ -8,6 +8,7 @@ export interface PositionBalance {
 
 export interface PortfolioBalances {
   cnyCash: number;
+  hkdCash: number;
   usdCash: number;
   positions: PositionBalance[];
   realizedPnlUsd: number;
@@ -18,6 +19,7 @@ export function calculateBalances(
   events: LedgerEvent[],
 ): PortfolioBalances {
   let cnyCash = 0;
+  let hkdCash = 0;
   let usdCash = 0;
   let realizedPnlUsd = 0;
   let totalFeesUsd = 0;
@@ -97,7 +99,15 @@ export function calculateBalances(
         break;
 
       case "INTEREST":
-        usdCash += event.amountUsd;
+        if ("amountUsd" in event) {
+          usdCash += event.amountUsd;
+        } else if (event.currency === "CNY") {
+          cnyCash += event.amount;
+        } else if (event.currency === "HKD") {
+          hkdCash += event.amount;
+        } else {
+          usdCash += event.amount;
+        }
         break;
 
       case "FEE":
@@ -109,6 +119,7 @@ export function calculateBalances(
 
   return {
     cnyCash,
+    hkdCash,
     usdCash,
     positions: [...positions.values()].sort((a, b) =>
       a.symbol.localeCompare(b.symbol),

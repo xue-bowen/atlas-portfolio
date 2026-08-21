@@ -78,7 +78,13 @@ function isLedgerEvent(value: unknown): value is LedgerEvent {
       );
 
     case "INTEREST":
-      return isPositiveNumber(value.amountUsd);
+      return (
+        isPositiveNumber(value.amountUsd) ||
+        ((value.currency === "CNY" ||
+          value.currency === "HKD" ||
+          value.currency === "USD") &&
+          isPositiveNumber(value.amount))
+      );
 
     case "FEE":
       return (

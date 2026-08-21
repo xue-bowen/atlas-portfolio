@@ -1,6 +1,6 @@
 // web/src/domain/ledger.ts
 
-export type Currency = "CNY" | "USD";
+export type Currency = "CNY" | "HKD" | "USD";
 
 export type LedgerEventType =
   | "CNY_DEPOSIT"
@@ -58,10 +58,18 @@ export interface Dividend extends BaseLedgerEvent {
   withholdingTaxUsd: number;
 }
 
-export interface Interest extends BaseLedgerEvent {
+export type Interest = BaseLedgerEvent & {
   type: "INTEREST";
-  amountUsd: number;
-}
+} & (
+    | {
+        currency: Currency;
+        amount: number;
+      }
+    | {
+        currency?: never;
+        amountUsd: number;
+      }
+  );
 
 export interface Fee extends BaseLedgerEvent {
   type: "FEE";
@@ -78,4 +86,3 @@ export type LedgerEvent =
   | Dividend
   | Interest
   | Fee;
-  

@@ -10,7 +10,7 @@ import {
   serializeLedgerBackup,
 } from "./data/ledgerStorage";
 import { calculateBalances } from "./domain/calculateBalances";
-import type { LedgerEvent } from "./domain/ledger";
+import type { Currency, LedgerEvent } from "./domain/ledger";
 
 const usd = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -21,6 +21,17 @@ const cny = new Intl.NumberFormat("zh-CN", {
   style: "currency",
   currency: "CNY",
 });
+
+const hkd = new Intl.NumberFormat("en-HK", {
+  style: "currency",
+  currency: "HKD",
+});
+
+const currencyFormatters: Record<Currency, Intl.NumberFormat> = {
+  CNY: cny,
+  HKD: hkd,
+  USD: usd,
+};
 
 function describeEvent(event: LedgerEvent): string {
   switch (event.type) {
@@ -39,7 +50,13 @@ function describeEvent(event: LedgerEvent): string {
     case "DIVIDEND":
       return `${event.symbol} dividend: $${event.grossAmountUsd.toFixed(2)} gross`;
     case "INTEREST":
-      return `Interest: $${event.amountUsd.toFixed(2)}`;
+      if ("amountUsd" in event) {
+        return `Interest received after tax: ${usd.format(event.amountUsd)}`;
+      }
+
+      return `Interest received after tax: ${currencyFormatters[
+        event.currency
+      ].format(event.amount)}`;
     case "FEE":
       return `${event.category}: $${event.amountUsd.toFixed(2)}`;
   }
@@ -86,7 +103,8 @@ export default function App() {
   const [interestDate, setInterestDate] = useState(() =>
     new Date().toISOString().slice(0, 10),
   );
-  const [interestAmountUsd, setInterestAmountUsd] = useState("");
+  const [interestCurrency, setInterestCurrency] = useState<Currency>("USD");
+  const [interestAmount, setInterestAmount] = useState("");
   const [message, setMessage] = useState("");
 
   const balances = calculateBalances(ledger);
@@ -367,10 +385,10 @@ export default function App() {
   function addInterest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const amountUsd = Number(interestAmountUsd);
+    const amount = Number(interestAmount);
 
-    if (!interestDate || !Number.isFinite(amountUsd) || amountUsd <= 0) {
-      setMessage("Please enter a valid date and a positive USD amount.");
+    if (!interestDate || !Number.isFinite(amount) || amount <= 0) {
+      setMessage("Please enter a valid date and a positive amount received.");
       return;
     }
 
@@ -379,15 +397,18 @@ export default function App() {
       occurredAt: interestDate,
       accountId: "personal-main",
       type: "INTEREST",
-      amountUsd,
-      note: "Manual USD interest payment",
+      currency: interestCurrency,
+      amount,
+      note: "Manual interest payment received after tax",
     };
 
     const nextLedger = [...ledger, interest];
     setLedger(nextLedger);
     saveLedger(nextLedger);
-    setInterestAmountUsd("");
-    setMessage("USD interest saved locally in this browser.");
+    setInterestAmount("");
+    setMessage(
+      `${interestCurrency} interest saved locally as an after-tax amount.`,
+    );
   }
 
   function exportLedgerBackup() {
@@ -768,7 +789,7 @@ export default function App() {
 
       {isPersonalLedger && (
         <section>
-          <h2>Add USD interest</h2>
+          <h2>Add interest income</h2>
           <form onSubmit={addInterest}>
             <p>
               <label>
@@ -782,20 +803,33 @@ export default function App() {
             </p>
             <p>
               <label>
-                Amount received (USD){" "}
+                Currency{" "}
+                <select
+                  value={interestCurrency}
+                  onChange={(event) =>
+                    setInterestCurrency(event.target.value as Currency)
+                  }
+                >
+                  <option value="USD">USD</option>
+                  <option value="HKD">HKD</option>
+                  <option value="CNY">CNY</option>
+                </select>
+              </label>
+            </p>
+            <p>
+              <label>
+                Amount received after tax ({interestCurrency}){" "}
                 <input
                   type="number"
                   min="0.01"
                   step="0.01"
-                  value={interestAmountUsd}
-                  onChange={(event) =>
-                    setInterestAmountUsd(event.target.value)
-                  }
+                  value={interestAmount}
+                  onChange={(event) => setInterestAmount(event.target.value)}
                   placeholder="e.g. 12.34"
                 />
               </label>
             </p>
-            <button type="submit">Add interest</button>
+            <button type="submit">Add interest income</button>
           </form>
         </section>
       )}
@@ -826,6 +860,7 @@ export default function App() {
       <h2>Current balances</h2>
       <ul>
         <li>CNY cash: {cny.format(balances.cnyCash)}</li>
+        <li>HKD cash: {hkd.format(balances.hkdCash)}</li>
         <li>USD cash: {usd.format(balances.usdCash)}</li>
       </ul>
 
