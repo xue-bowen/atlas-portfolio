@@ -2,9 +2,9 @@
 
 ## Current stable checkpoint
 
-Latest committed and pushed version:
+Latest stable feature checkpoint before this documentation update:
 
-`ffa8a7d feat: calculate dividend reinvestment shares`
+`5314626 feat: add USD expense form`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -51,6 +51,12 @@ browser-local and is never committed to GitHub.
 - Dividend reinvestment: records a dividend followed by a zero-fee buy using
   all net dividend proceeds. The user enters the reinvestment price; the app
   calculates the fractional shares automatically.
+- Multi-currency after-tax interest entry for USD, HKD, and CNY.
+- Separate HKD cash balance.
+- USD cash transaction history with inflow, outflow, and running balance.
+- Manual ADR custody fee and other USD expense entry; standalone commission
+  entry is intentionally excluded because trading commission belongs to the
+  related buy or sell.
 
 Anonymous browser tests verified balance updates and persistence after refresh.
 The latest reinvestment test confirmed that buying below the existing average
@@ -91,16 +97,33 @@ For each small feature:
 4. Run `npm run build`, `git diff --check`, `git diff`, and `git status`.
 5. Stage explicit paths only, commit, push, and confirm a clean worktree.
 
+## Confirmed market-data direction
+
+- Free-First: reliable delayed/EOD data is preferred over unnecessary paid
+  real-time data.
+- Paid APIs and paid market-data subscriptions are out of scope. If free
+  providers cannot cover an asset, Atlas uses cache or manual input instead of
+  upgrading to a paid source.
+- Stock/ETF and FX providers are separate behind a replaceable
+  `MarketDataProvider` layer.
+- All pages share an IndexedDB market cache with TTL; historical data is
+  downloaded once and incrementally extended.
+- Initial refresh behavior is launch-time refresh plus manual refresh.
+- Provider, original source institution, market timestamp, fetch timestamp,
+  delay status, and manual overrides remain traceable.
+- Provider fallback, explicit stale-data display, API request budgets, license
+  review, and manual price input are mandatory parts of the market-data phase.
+- Frankfurter is the first FX candidate; stock provider candidates must be
+  re-evaluated against official pricing, market coverage, delay, and license
+  terms immediately before integration.
+- Phase 3 includes portfolio return charts and benchmark comparison. Initial
+  benchmark candidates are US Treasury, China government bond, and China
+  one-year term-deposit return series, normalized to a common starting value
+  with explicit currency and compounding assumptions.
+
 ## Next task
 
-Implement a manual USD interest form:
-
-- date
-- amount received in USD
-- save as an `INTEREST` ledger event
-- increase USD cash without changing positions or trading P&L
-- verify persistence after refresh with anonymous data
-
-After interest, continue with independent USD fees and CNY withdrawal. Do not
-start recording substantial real history until the user has manually tested the
-current workflow and exported a local JSON backup.
+Continue Phase 1 with a manual CNY withdrawal form, then perform a focused
+manual review of the current ledger workflow before beginning the Free-First
+market-data foundation. Do not start recording substantial real history until
+the user has exported a local JSON backup.

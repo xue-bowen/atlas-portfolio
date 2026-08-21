@@ -1,7 +1,9 @@
 # Atlas Portfolio 开发方案
 
-**版本：** v0.2（产品定义已确认；本地账本 MVP 已启动）  
-**最近更新：** 2026-08-16  
+**版本：** v0.3（补充 Free-First 市场数据与基准比较策略）
+
+**最近更新：** 2026-08-21
+
 **产品形态：** 桌面优先、移动端适配、可安装的个人投资 Web App  
 **目标用户：** 第一阶段仅个人使用；管理海外证券、美元现金与人民币资金来源。验证成熟后再开放源代码至 GitHub。
 
@@ -30,6 +32,7 @@
 | 汇率来源 | 实际换汇使用成交汇率；每日估值可录入 Google 汇率或指定银行牌价 |
 | 证券识别 | ticker 自动匹配公司名称；以 ticker + 交易所 + 币种作为资产标识，支持人工修正 |
 | 数据策略 | 本地优先；导入、导出和备份优先于账户注册与云同步 |
+| 市场数据策略 | Free-First 且不采用付费 API；低频更新、本地缓存、供应商可替换，可靠的免费延迟/EOD 数据优先于来源不明的实时行情 |
 
 ## 3. 核心资金模型
 
@@ -138,6 +141,9 @@ P\&L_{CNY}=NAV_{CNY}-\sum CNY\ 入金+\sum CNY\ 出金
 | `position_lots` | asset_id, quantity, USD_cost, CNY_cost, acquisition_fx | 支撑未来 FIFO / 特定批次与审计 |
 | `price_snapshots` | asset_id, date, price, currency, source | 计算估值、历史净值和 TWR |
 | `fx_snapshots` | pair, date, rate, source, rate_type | 记录 Google/银行/实际成交三类口径 |
+| `market_data_cache` | instrument_id, value, currency, market_timestamp, fetched_at, provider, source_institution, expires_at | 统一缓存股票、ETF、汇率和未来基准数据 |
+| `portfolio_snapshots` | date, cash_by_currency, securities_value, NAV_CNY, P&L, FX_effect | 保存每日组合状态，支撑历史净值和走势图 |
+| `provider_usage` | provider, date, request_count, request_budget, last_error | 控制免费 API 调用预算并记录限流/失败情况 |
 
 ### 5.2 事件类型
 
@@ -164,7 +170,72 @@ P\&L_{CNY}=NAV_{CNY}-\sum CNY\ 入金+\sum CNY\ 出金
 
 私有 GitHub 仓库只包含：源代码、匿名模拟数据、导入模板、测试用例、部署说明和隐私说明；真实数据目录通过 `.gitignore` 排除。完成安全检查、备份能力和使用文档后，再决定是否公开。
 
-### 6.3 后续扩展
+### 6.3 Free-First 市场数据策略
+
+Atlas 是个人长期投资账户管理工具，不是专业交易终端。市场数据模块遵循以下顺序：
+
+1. 免费公开数据；
+2. 无需 Key 的免费 API；
+3. 有免费额度且无需付费的 API；
+4. 免费来源不可用时使用本地缓存或手动录入。
+
+Atlas 不采购付费 API、付费行情订阅或专业实时行情。若免费数据无法覆盖某项资产，该资产使用人工价格和明确的数据新鲜度标记，不以付费升级作为解决方案。
+
+当前估值、未实现损益、累计收益和历史增长分析允许使用延迟行情、小时级更新或上一交易日收盘价。MVP 不需要 tick、Level II、秒级 WebSocket 或交易所直连数据。
+
+#### 6.3.1 架构边界
+
+- 建立统一 `MarketDataProvider` 接口；Portfolio Engine 只接收标准化数据，不依赖供应商字段。
+- 股票/ETF 与 FX 使用独立 provider，不要求同一服务覆盖所有市场。
+- 标准返回至少包含：`instrument_id`、`symbol/pair`、`value`、`currency`、`market_timestamp`、`fetched_at`、`provider`、`source_institution` 和 `is_delayed`。
+- Provider 配置、TTL 和每日请求预算不得硬编码进 Portfolio Engine。
+- API Key 仅保存在本地安全配置中，不写入源码、备份、日志或 GitHub。
+
+#### 6.3.2 刷新、缓存与失败降级
+
+第一阶段只提供“启动时按需刷新一次 + 用户手动刷新”。所有页面共享本地缓存，不因页面切换重复调用 API。
+
+初始 TTL 原则：
+
+| 数据 | 初始策略 |
+|---|---|
+| 股票/ETF 最新价 | 30–60 分钟；若供应商仅提供 EOD，则按交易日更新 |
+| FX 参考汇率 | 6–24 小时 |
+| 已确认的历史日线/历史汇率 | 永久保存，只追加缺失日期 |
+
+失败降级链固定为：Primary Provider → Secondary Provider → 未过期缓存 → 过期缓存并明确标记 → Manual Override。任何自动值和人工值都必须保留来源、市场时间和抓取时间。
+
+#### 6.3.3 数据源选择与许可
+
+- FX 首选免费、公开且可追溯到官方机构的参考汇率服务；Frankfurter 作为第一候选，接入时分别保存数据服务和原始机构。
+- 股票/ETF 第一轮验证候选为 Alpha Vantage、Twelve Data 或届时更合适的合法延迟/EOD provider。
+- 具体免费额度、市场覆盖、延迟级别和许可条款会变化；每次正式接入前必须重新查阅官方文档，不把当前额度写成永久产品假设。
+- 不把网页 HTML scraping 作为核心行情来源；开源或公开部署前重新审核 API 条款、缓存许可和再分发限制。
+- 数据源评价顺序：合法性、正确性、稳定性、成本、覆盖范围、更新速度。
+
+截至 2026-08-21，Frankfurter 官方文档说明公共 API 无需 Key、提供历史汇率和 provider attribution；这支持其作为 FX 架构验证候选，但实际所需 USD/CNY、USD/HKD 覆盖及来源机构仍须在接入验收时逐项确认。
+
+#### 6.3.4 API 预算与免费边界
+
+- 初始目标预算：Stock API ≤ 20 次/日，FX API ≤ 5 次/日，AI API 默认 0 次。
+- 即使服务没有硬性日限额，也按低频预算运行，减少限流和供应商依赖。
+- 免费调用量不足、市场无法覆盖或服务中断时，依次使用请求合并、延长 TTL、备用免费 provider、缓存和 Manual Override。
+- 若未来需求必须依赖付费数据，该功能保持未实现并重新讨论产品范围；不得自动启用试用、订阅或产生费用。
+
+#### 6.3.5 市场数据实施顺序
+
+1. `MarketDataProvider` 抽象接口与统一返回模型；
+2. IndexedDB 本地 Market Cache；
+3. 免费 FX Provider；
+4. 免费/免费额度 Stock Provider；
+5. Refresh、TTL、数据新鲜度展示；
+6. API 使用预算与错误记录；
+7. Portfolio Valuation；
+8. Daily Portfolio Snapshot；
+9. Provider fallback 与 Manual Override；
+10. 定期复核免费来源的覆盖、许可和稳定性；无法覆盖的项目保留 Manual Override。
+
+### 6.4 后续扩展
 
 - PWA 离线缓存、主屏幕安装与本地加密。
 - 可选加密云备份与多设备同步。
@@ -183,15 +254,17 @@ P\&L_{CNY}=NAV_{CNY}-\sum CNY\ 入金+\sum CNY\ 出金
 **交付：** 交易录入、编辑/删除、CNY/USD 现金余额、持仓和移动平均成本。  
 **验收：** 任何一笔交易变更后，现金、持仓数量和成本基础均可追溯；导出后可恢复同一结果。
 
-### Phase 2 — 估值与收益归因
+### Phase 2 — Free-First 市场数据、估值与收益归因
 
-**交付：** 价格/汇率快照、CNY 净资产、证券损益、分红、费用、USD 现金汇兑影响。  
-**验收：** USD 现金在不买证券时仍会随 USD/CNY 变化影响 CNY 净资产；不发生实际换汇时不虚构 USD 现金流。
+**交付：** Provider 抽象、本地缓存、免费 FX/股票 provider、TTL/手动刷新、API 预算、价格/汇率快照、CNY 净资产、证券损益、分红、费用、USD 现金汇兑影响和每日组合快照。
+
+**验收：** 页面切换不会重复调用 API；历史数据只追加缺失日期；provider 失败时可使用有明确新鲜度标记的缓存或人工价格；USD 现金在不买证券时仍会随 USD/CNY 变化影响 CNY 净资产；不发生实际换汇时不虚构 USD 现金流。
 
 ### Phase 3 — 回报率与报告
 
-**交付：** CNY XIRR、历史净值、按资产/年份/收益来源的归因报表、CSV 导出。  
-**验收：** 外部入金不会被误算成投资收益；XIRR 与同一现金流的独立表格计算一致。
+**交付：** CNY XIRR、USD TWR、历史净值与收益率折线、按资产/年份/收益来源的归因报表、CSV 导出，以及可配置的基准比较。第一批基准候选为美国国债、中国国债和中国一年期定期存款；所有曲线统一以 100 为起点并明确币种、汇率、复利和数据来源假设。
+
+**验收：** 外部入金不会被误算成投资收益；XIRR 与同一现金流的独立表格计算一致；组合与基准采用一致日期范围和清晰的币种口径，不能把某日利率直接冒充累计收益。
 
 ### Phase 4 — IBKR 导入与数据适配器
 
