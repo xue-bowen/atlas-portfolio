@@ -28,7 +28,7 @@
 | 卖出与分红现金 | 暂留 USD 现金池，不自动兑换为 CNY |
 | 主财富口径 | CNY 净资产、累计收益、CNY XIRR |
 | 辅助投资口径 | USD 投资表现、USD TWR、证券交易损益 |
-| 组合风险口径 | 展示 SPX Dollar Delta 与 SPX Equivalent Delta；第一版对股票/ETF 使用相对 SPX beta，期权 Greeks 在支持期权账本后纳入 |
+| 组合风险口径 | SPX Delta 表示组合收益率相对 SPX 收益率的估算敏感度；同时展示 SPX ±1% 情景下的组合百分比和金额变化 |
 | 成本法 | MVP 默认移动平均成本；数据结构预留 FIFO/特定批次 |
 | 汇率来源 | 实际换汇使用成交汇率；每日估值可录入 Google 汇率或指定银行牌价 |
 | 证券识别 | ticker 自动匹配公司名称；以 ticker + 交易所 + 币种作为资产标识，支持人工修正 |
@@ -89,24 +89,26 @@ P\&L_{CNY}=NAV_{CNY}-\sum CNY\ 入金+\sum CNY\ 出金
 
 ### 3.4 SPX Delta 风险暴露
 
-SPX Delta 用于估计整个投资组合对标普500指数变动的方向性敏感度，不代表保证发生的盈亏，也不替代压力测试。
+SPX Delta 用于估计整个投资组合收益率相对标普500指数收益率的变动敏感度，不代表保证发生的盈亏，也不替代压力测试。
 
 第一版支持股票和 ETF：
 
 \[
-SPX\ Dollar\ Delta=\sum_i MarketValue_{USD,i}\times Beta_{i,SPX}
+SPX\ Delta=\frac{\sum_i MarketValue_{USD,i}\times Beta_{i,SPX}}{PortfolioNAV_{USD}}
 \]
 
 \[
-SPX\ Equivalent\ Delta=\frac{SPX\ Dollar\ Delta}{SPX\ Reference\ Level}
+Expected\ Portfolio\ Change_{USD}=PortfolioNAV_{USD}\times SPX\ Delta\times SPX\ Return
 \]
 
-- 多头股票/ETF 的原始 delta 为 1；现金 delta 为 0。当前账本不支持空头，未来支持后按负方向处理。
+- `SPX Delta = 1.2` 表示 SPX 变动 1% 时，组合预计同方向变动约 1.2%；`SPX Delta = 0.7` 表示组合敏感度较低。
+- 多头股票/ETF 的原始 delta 为 1；现金 beta 为 0，但现金包含在 `PortfolioNAV_USD` 分母中，因此会降低整个组合的 SPX Delta。当前账本不支持空头，未来支持后按负方向处理。
 - `Beta_{i,SPX}` 使用统一频率和观察窗口的历史收益率估计；初始默认可采用约 252 个交易日日收益，但窗口必须可配置并在界面显示。
 - 若资产 beta、资产价格或 SPX 参考点位缺失，该资产标记为未覆盖；组合指标必须同时显示已覆盖市值占比，不能把缺失值静默当作 0。
 - 每次结果保存 `as_of`、beta 窗口、样本数、数据 provider、原始机构/基准、抓取时间和是否过期。
-- 未来加入期权账本后，单个期权先计算 `contracts × multiplier × option_delta × underlying_price × underlying_beta`，再汇总为 SPX Dollar Delta；期权 delta 必须带时间戳，允许人工覆盖，并明确盘中过期风险。
-- 页面同时展示未调整的净股票市值、SPX Dollar Delta、SPX Equivalent Delta 和覆盖率，避免把 beta-adjusted 指标误解为实际市值。
+- 未来加入期权账本后，单个期权先计算 `contracts × multiplier × option_delta × underlying_price × underlying_beta` 的 SPX 敏感金额，再纳入组合 SPX Delta；期权 delta 必须带时间戳，允许人工覆盖，并明确盘中过期风险。
+- 页面主要展示 SPX Delta，并辅助展示 SPX 上涨/下跌 1% 时组合预计变动的百分比和美元金额、未调整净股票市值及覆盖率。
+- “组合实际收益率 − SPX 实际收益率”属于相对收益，不得与 SPX Delta 混为同一指标。
 
 ## 4. MVP 功能范围
 
@@ -285,7 +287,7 @@ Atlas 不采购付费 API、付费行情订阅或专业实时行情。若免费�
 
 ### Phase 3 — 回报率与报告
 
-**交付：** CNY XIRR、USD TWR、历史净值与收益率折线、按资产/年份/收益来源的归因报表、CSV 导出、SPX Dollar Delta / SPX Equivalent Delta 风险卡片，以及可配置的基准比较。第一批基准候选为美国国债、中国国债和中国一年期定期存款；所有曲线统一以 100 为起点并明确币种、汇率、复利和数据来源假设。
+**交付：** CNY XIRR、USD TWR、历史净值与收益率折线、按资产/年份/收益来源的归因报表、CSV 导出、SPX Delta 及 SPX ±1% 情景风险卡片，以及可配置的基准比较。第一批基准候选为美国国债、中国国债和中国一年期定期存款；所有曲线统一以 100 为起点并明确币种、汇率、复利和数据来源假设。
 
 **验收：** 外部入金不会被误算成投资收益；XIRR 与同一现金流的独立表格计算一致；组合与基准采用一致日期范围和清晰的币种口径，不能把某日利率直接冒充累计收益；SPX Delta 与独立计算样例一致，并显示估值日期、beta 窗口、样本数、数据新鲜度和市值覆盖率，缺失因子时不得输出看似完整的组合风险值。
 

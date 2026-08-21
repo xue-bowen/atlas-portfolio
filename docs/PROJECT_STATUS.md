@@ -4,7 +4,7 @@
 
 Latest stable feature checkpoint before this documentation update:
 
-`5314626 feat: add USD expense form`
+`d12aff7 feat: add CNY withdrawal form`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -57,6 +57,7 @@ browser-local and is never committed to GitHub.
 - Manual ADR custody fee and other USD expense entry; standalone commission
   entry is intentionally excluded because trading commission belongs to the
   related buy or sell.
+- Manual CNY withdrawal with current-cash validation.
 
 Anonymous browser tests verified balance updates and persistence after refresh.
 The latest reinvestment test confirmed that buying below the existing average
@@ -120,15 +121,16 @@ For each small feature:
   benchmark candidates are US Treasury, China government bond, and China
   one-year term-deposit return series, normalized to a common starting value
   with explicit currency and compounding assumptions.
-- Phase 3 also includes SPX beta-adjusted portfolio exposure: SPX Dollar Delta,
-  SPX Equivalent Delta, and market-value coverage. The first version covers
-  stocks and ETFs; options Greeks are deferred until the ledger supports
-  options. Missing price/beta inputs must remain visible rather than being
-  treated as zero exposure.
+- Phase 3 also includes SPX Delta, defined as the estimated percentage change
+  in total portfolio NAV for a 1% change in SPX. It will also show estimated
+  portfolio percentage and USD changes for SPX +/-1% scenarios and market-value
+  coverage. The first version covers stocks and ETFs; options Greeks are
+  deferred until the ledger supports options. Missing price/beta inputs must
+  remain visible rather than being treated as zero exposure.
 
 ## Next task
 
-Continue Phase 1 with a manual CNY withdrawal form, then perform a focused
-manual review of the current ledger workflow before beginning the Free-First
-market-data foundation. Do not start recording substantial real history until
-the user has exported a local JSON backup.
+Perform a focused manual review of the current ledger workflow and export a
+local JSON backup. After that checkpoint, begin the Free-First market-data
+foundation with the provider-neutral data contract and IndexedDB market cache.
+Do not start recording substantial real history before the review and backup.
