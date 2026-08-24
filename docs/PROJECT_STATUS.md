@@ -4,7 +4,7 @@
 
 Latest stable feature checkpoint before this documentation update:
 
-`1b1cdde feat: add Frankfurter FX provider`
+`a52362a feat: add cached FX rate service`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -71,6 +71,12 @@ browser-local and is never committed to GitHub.
   keys, records market/fetch timestamps, marks the data as delayed, and maps
   rate limits, unsupported requests, network failures, and invalid responses to
   typed provider errors. It is not connected to the UI or ledger.
+- Cache-aware FX rate service that combines any `FxRateProvider` with the
+  provider-neutral cache. It deduplicates concurrent requests, uses a 12-hour
+  default TTL for latest rates, stores dated historical rates permanently,
+  avoids network calls on fresh hits, and returns explicit `PROVIDER_FRESH`,
+  `CACHE_FRESH`, or `CACHE_STALE` status. A stale fallback includes the refresh
+  error; a cache miss never disguises provider failure as valid data.
 
 Anonymous browser tests verified balance updates and persistence after refresh.
 The latest reinvestment test confirmed that buying below the existing average
@@ -78,7 +84,10 @@ cost lowers the average cost per share. An isolated anonymous market-data test
 also verified stable cache keys, fresh/stale classification, deletion, misses,
 and IndexedDB persistence after a full page refresh. A separate isolated live
 API test verified USD/CNY, HKD/CNY, and historical USD/CNY results plus typed
-error handling without reading or modifying ledger data.
+error handling without reading or modifying ledger data. An isolated cached
+service test verified first-fetch writes, zero-network fresh hits, concurrent
+request deduplication, explicit stale fallback, miss failure, permanent dated
+rates, and IndexedDB persistence after refresh.
 
 ## Key ledger behavior
 
@@ -167,12 +176,12 @@ For each small feature:
 
 ## Next task
 
-Implement a cache-aware FX rate service that combines the provider-neutral
-IndexedDB cache with the Frankfurter provider. Fresh cache hits must avoid a
-network request; successful requests must write an explicit expiry; provider
-failure may return a clearly marked stale cache hit but must never disguise it
-as fresh. Keep actual broker/bank FX ledger rates separate. Continue through the
-basic valuation chain, then enter the separate information-architecture phase
-for navigation and the unified transaction entry before beginning
-performance/report UI work. A focused manual ledger review and local JSON
-backup remain required before recording substantial real history.
+Add a read-only valuation FX panel that uses the cached service for USD/CNY and
+HKD/CNY. It must refresh on initial demand and by an explicit manual action,
+show the rate, observation date, fetch time, provider/source, and
+fresh/stale/fallback status, and must not create or alter any ledger event.
+Continue through the basic valuation chain, then enter the separate
+information-architecture phase for navigation and the unified transaction
+entry before beginning performance/report UI work. A focused manual ledger
+review and local JSON backup remain required before recording substantial real
+history.
