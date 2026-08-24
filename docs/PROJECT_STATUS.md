@@ -12,7 +12,7 @@ Windows local path:
 
 `C:\Users\28301\atlas-portfolio`
 
-Last updated: 2026-08-21
+Last updated: 2026-08-24
 
 The working tree was clean after the latest commit. Personal ledger data is
 browser-local and is never committed to GitHub.
@@ -131,10 +131,32 @@ For each small feature:
   deferred until the ledger supports options. Missing price/beta inputs must
   remain visible rather than being treated as zero exposure.
 
+## Confirmed information architecture
+
+- Product-development principle: **Function-first, usability-always,
+  polish-later**. Core data and calculations come first, but basic usability and
+  information architecture are not deferred.
+- Desktop uses a fixed left navigation with Dashboard, Portfolio,
+  Transactions, Cash, Performance, Market Data, and Settings, plus one global
+  `Add transaction` action.
+- Mobile bottom navigation prioritizes Dashboard, Portfolio, Transactions, and
+  Cash; Performance, Market Data, and Settings are reached through More.
+- Every transaction follows one flow: select transaction type, complete a
+  grouped form, preview ledger/portfolio impact, then save.
+- The buy form is grouped into basic information, instrument, execution, and
+  costs/notes.
+- Editing and deletion are available only from a transaction detail view in
+  Transactions. Either action triggers a full recalculation from the ledger.
+- Basic navigation and the unified transaction entry will be implemented as a
+  separate small phase only after the IndexedDB cache and basic valuation chain
+  are complete. Visual polish remains deferred.
+
 ## Next task
 
 Implement the IndexedDB market cache behind the provider-neutral contract,
 including deterministic cache keys, expiry timestamps, and explicit stale-data
 handling. Do not connect an external provider yet. A focused manual ledger
 review and local JSON backup remain required before recording substantial real
-history.
+history. Continue through the basic valuation chain, then enter the separate
+information-architecture phase for navigation and the unified transaction
+entry before beginning performance/report UI work.
