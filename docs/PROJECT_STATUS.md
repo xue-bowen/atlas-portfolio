@@ -4,7 +4,7 @@
 
 Latest stable feature checkpoint before this documentation update:
 
-`306295f feat: define market data provider contract`
+`53e2888 feat: add IndexedDB market cache`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -61,10 +61,17 @@ browser-local and is never committed to GitHub.
 - Provider-neutral market-data contract with separate stock/ETF quote and FX
   provider capabilities, standardized provenance/timestamps/delay metadata,
   and typed provider failures. No external API is connected yet.
+- Provider-neutral IndexedDB market cache with normalized deterministic keys
+  for security quotes and latest/historical FX rates, caller-supplied expiry
+  timestamps, explicit `FRESH`/`STALE` cache hits, and get/put/delete/clear
+  operations. Stale records are retained for later fallback rather than being
+  silently discarded.
 
 Anonymous browser tests verified balance updates and persistence after refresh.
 The latest reinvestment test confirmed that buying below the existing average
-cost lowers the average cost per share.
+cost lowers the average cost per share. An isolated anonymous market-data test
+also verified stable cache keys, fresh/stale classification, deletion, misses,
+and IndexedDB persistence after a full page refresh.
 
 ## Key ledger behavior
 
@@ -153,10 +160,12 @@ For each small feature:
 
 ## Next task
 
-Implement the IndexedDB market cache behind the provider-neutral contract,
-including deterministic cache keys, expiry timestamps, and explicit stale-data
-handling. Do not connect an external provider yet. A focused manual ledger
-review and local JSON backup remain required before recording substantial real
-history. Continue through the basic valuation chain, then enter the separate
-information-architecture phase for navigation and the unified transaction
-entry before beginning performance/report UI work.
+Re-check Frankfurter's official current documentation and supported currency
+pairs, then implement the first free FX provider behind the existing contract.
+It must fetch valuation/reference rates only, keep actual broker/bank FX ledger
+rates separate, and preserve provider, source institution, market timestamp,
+fetch timestamp, and delay metadata. Continue through the basic valuation chain,
+then enter the separate information-architecture phase for navigation and the
+unified transaction entry before beginning performance/report UI work. A
+focused manual ledger review and local JSON backup remain required before
+recording substantial real history.
