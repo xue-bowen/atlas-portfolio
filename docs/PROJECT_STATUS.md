@@ -4,7 +4,7 @@
 
 Latest stable feature checkpoint before this documentation update:
 
-`53e2888 feat: add IndexedDB market cache`
+`1b1cdde feat: add Frankfurter FX provider`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -66,12 +66,19 @@ browser-local and is never committed to GitHub.
   timestamps, explicit `FRESH`/`STALE` cache hits, and get/put/delete/clear
   operations. Stale records are retained for later fallback rather than being
   silently discarded.
+- Free Frankfurter v2 FX provider for latest and historical daily reference
+  rates. It validates response shape, preserves the blended source-provider
+  keys, records market/fetch timestamps, marks the data as delayed, and maps
+  rate limits, unsupported requests, network failures, and invalid responses to
+  typed provider errors. It is not connected to the UI or ledger.
 
 Anonymous browser tests verified balance updates and persistence after refresh.
 The latest reinvestment test confirmed that buying below the existing average
 cost lowers the average cost per share. An isolated anonymous market-data test
 also verified stable cache keys, fresh/stale classification, deletion, misses,
-and IndexedDB persistence after a full page refresh.
+and IndexedDB persistence after a full page refresh. A separate isolated live
+API test verified USD/CNY, HKD/CNY, and historical USD/CNY results plus typed
+error handling without reading or modifying ledger data.
 
 ## Key ledger behavior
 
@@ -160,12 +167,12 @@ For each small feature:
 
 ## Next task
 
-Re-check Frankfurter's official current documentation and supported currency
-pairs, then implement the first free FX provider behind the existing contract.
-It must fetch valuation/reference rates only, keep actual broker/bank FX ledger
-rates separate, and preserve provider, source institution, market timestamp,
-fetch timestamp, and delay metadata. Continue through the basic valuation chain,
-then enter the separate information-architecture phase for navigation and the
-unified transaction entry before beginning performance/report UI work. A
-focused manual ledger review and local JSON backup remain required before
-recording substantial real history.
+Implement a cache-aware FX rate service that combines the provider-neutral
+IndexedDB cache with the Frankfurter provider. Fresh cache hits must avoid a
+network request; successful requests must write an explicit expiry; provider
+failure may return a clearly marked stale cache hit but must never disguise it
+as fresh. Keep actual broker/bank FX ledger rates separate. Continue through the
+basic valuation chain, then enter the separate information-architecture phase
+for navigation and the unified transaction entry before beginning
+performance/report UI work. A focused manual ledger review and local JSON
+backup remain required before recording substantial real history.
