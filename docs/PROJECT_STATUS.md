@@ -4,7 +4,7 @@
 
 Latest stable feature checkpoint before this documentation update:
 
-`d519b9e feat: add CNY cash valuation summary`
+`73d6214 feat: add Twelve Data EOD provider`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -87,6 +87,13 @@ browser-local and is never committed to GitHub.
   total cash reference value without changing ledger balances or actual FX
   events. Missing rates block a complete total only when the related foreign
   cash balance is non-zero; stale cached inputs remain explicitly identified.
+- Provider-neutral Twelve Data `/eod` adapter for stock and ETF closing prices.
+  It accepts an API key only at runtime, sends it in the authorization header
+  rather than the URL, validates symbol/currency/date/positive close values,
+  preserves exchange and MIC provenance, marks quotes as delayed, and maps
+  authentication, rate-limit, unsupported, network, and invalid-response
+  failures to the shared market-data error model. It is not connected to the UI
+  or any personal configuration yet.
 
 Anonymous browser tests verified balance updates and persistence after refresh.
 The latest reinvestment test confirmed that buying below the existing average
@@ -104,7 +111,9 @@ A separate isolated cash-valuation check used CNY 5,680.00, USD 333.67, HKD
 0.00, USD/CNY 6.7174, and HKD/CNY 0.85613; it displayed USD cash at CNY
 2,241.39 and total cash at CNY 7,921.39. A full page refresh returned both FX
 inputs from fresh IndexedDB cache and preserved the same values without writing
-a ledger event.
+a ledger event. Anonymous Twelve Data provider fixtures verified a valid AAPL
+EOD response, header-only test-key transport, typed 429 handling, and rejection
+of a mismatched response currency. No personal API key or ledger data was used.
 
 ## Key ledger behavior
 
@@ -160,6 +169,13 @@ For each small feature:
 - Frankfurter is the first FX candidate; stock provider candidates must be
   re-evaluated against official pricing, market coverage, delay, and license
   terms immediately before integration.
+- Twelve Data EOD is the first stock/ETF adapter candidate for the current
+  private personal-use phase. The Basic plan's availability and limits, US EOD
+  coverage, attribution, and personal/internal-use restrictions were checked
+  against official sources on 2026-08-30. Individual-plan data must not be
+  redistributed or displayed to third parties; licensing must be reviewed
+  again before any public or multi-user release. API keys remain runtime-only
+  local configuration and must never enter source, backups, logs, or GitHub.
 - Phase 3 includes portfolio return charts and benchmark comparison. Initial
   benchmark candidates are US Treasury, China government bond, and China
   one-year term-deposit return series, normalized to a common starting value
@@ -193,12 +209,12 @@ For each small feature:
 
 ## Next task
 
-Build the first Free-First stock/ETF quote path behind the existing provider
-contract. Re-check current official free-tier, delay, market coverage, and
-licensing terms before choosing the provider; do not adopt a paid API. Keep the
-first implementation narrow and provider-neutral, then add cache-aware quote
-loading before using prices for holdings market value and total portfolio
-value. Continue through that basic valuation chain before entering the separate
-information-architecture phase for navigation and the unified transaction
-entry. A focused manual ledger review and local JSON backup remain required
-before recording substantial real history.
+Add a cache-aware security quote service behind `SecurityQuoteProvider`, using
+the same explicit `PROVIDER_FRESH`, `CACHE_FRESH`, and `CACHE_STALE` behavior as
+the FX service. Start with an EOD-appropriate TTL, concurrent-request
+deduplication, force refresh, and stale fallback; keep the provider replaceable
+and do not add an API key to source or the ledger backup. After isolated fixture
+and IndexedDB persistence checks, connect quotes to holdings market value and
+total portfolio value. Continue through that basic valuation chain before
+entering the separate information-architecture phase. A focused manual ledger
+review and local JSON backup remain required before substantial real history.
