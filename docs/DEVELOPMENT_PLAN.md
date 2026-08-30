@@ -1,8 +1,8 @@
 # Atlas Portfolio 开发方案
 
-**版本：** v0.4（补充信息架构与统一交易流程）
+**版本：** v0.5（补充绩效指标定义与 Performance 页面口径）
 
-**最近更新：** 2026-08-24
+**最近更新：** 2026-08-30
 
 **产品形态：** 桌面优先、移动端适配、可安装的个人投资 Web App  
 **目标用户：** 第一阶段仅个人使用；管理海外证券、美元现金与人民币资金来源。验证成熟后再开放源代码至 GitHub。
@@ -111,9 +111,65 @@ P\&L_{CNY}=NAV_{CNY}-\sum CNY\ 入金+\sum CNY\ 出金
 
 ### 3.3 回报率
 
-- **CNY XIRR（主指标）**：以 CNY 入金/出金与当前 CNY 净资产为现金流，反映个人真实资金回报。
-- **USD TWR（辅助指标）**：按估值时点与外部资金流计算，尽量剔除入金时点影响，反映投资决策表现。
-- MVP 先完成累计收益和 CNY XIRR；在具备每日估值快照后加入严格 USD TWR。
+- **NAV** 回答“当前组合值多少钱”；**累计 P&L** 回答“累计赚亏多少钱”；两者都不是收益率。
+- **CNY XIRR / MWR（主资金回报指标）**：以投资者视角的 CNY 外部现金流与当前 CNY 净资产计算，反映实际投入资金经历的回报。
+- **USD TWR（主要策略表现指标）**：按估值时点与外部现金流切分子周期并几何链接，尽量剔除资金投入时点影响，反映投资决策与资产配置表现。
+- MVP 先完成累计收益和 CNY XIRR；在具备足够频率、可重算的估值快照后加入严格 USD TWR。TWR 与 XIRR 使用不同数学口径，两者差值不得直接命名为“择时 Alpha”。
+
+#### 3.3.1 外部现金流边界
+
+Portfolio 级收益率必须先固定组合边界，再区分外部现金流和组合内部交易。当前 Atlas 的组合边界是应用内管理的全部投资账户；未纳入 Atlas 的银行账户属于边界之外。
+
+计入外部现金流：
+
+- 外部银行账户向 Atlas 投资组合入金；
+- Atlas 投资组合向外部银行账户提款；
+- 未来导入券商记录时，经过去重后确认的资本追加或资本取回。
+
+不计入外部现金流：
+
+- 买入、卖出和不同证券之间的调仓；
+- CNY、USD、HKD 之间的组合内部换汇；
+- Atlas 已追踪账户之间的内部转账；
+- 现金分红、利息及其再投资；
+- 佣金、ADR 托管费、税费和其他投资成本。
+
+分红和利息是投资收益，留在组合时增加现金；再投资仍记录为收益事件加买入事件。只有随后实际转出组合边界的提款，才作为外部现金流。费用和税费是组合回报的拖累，而不是外部提款。未来支持多个账户时，内部转账必须以关联记录去重，不能在组合级别同时虚增入金和出金。
+
+#### 3.3.2 指标关系与现金流符号
+
+以统一估值货币表示时：
+
+\[
+Portfolio\ NAV=Cash+Market\ Value\ of\ Holdings+Other\ Assets-Liabilities
+\]
+
+\[
+Net\ Contributions=Cumulative\ External\ Deposits-Cumulative\ External\ Withdrawals
+\]
+
+\[
+Total\ P\&L=Ending\ NAV+Cumulative\ External\ Withdrawals-Cumulative\ External\ Deposits
+\]
+
+XIRR 输入统一采用投资者视角：入金为负现金流，提款为正现金流，估值期末的 Portfolio NAV 作为最后一笔正现金流。内部计算即使采用其他存储符号，也必须在指标边界统一转换并用独立样例核对。
+
+TWR 在每个外部现金流边界切分子周期：
+
+\[
+TWR=\prod_i(1+r_i)-1
+\]
+
+实施前必须在独立技术规范中固定现金流发生在期初或期末时的处理规则、同日多笔现金流顺序，以及缺少现金流前估值点时的降级方式，避免前端根据不完整快照输出看似精确的 TWR。
+
+#### 3.3.3 年化、多币种与数据质量
+
+- 累计收益率与年化收益率必须分开显示；年化阈值、持有不足一年时的展示方式和日期计数约定必须写入技术规范。
+- 每条 NAV、TWR、XIRR 和基准序列都必须标注估值币种。不同币种的曲线不得直接比较。
+- USD TWR 与 USD 权益基准比较时不引入 CNY 汇率；若展示 CNY 口径组合与基准，必须把双方按同一汇率来源、同一估值日期转换为 CNY。
+- 汇率变化属于 CNY 财富回报的一部分，但不得混入“不考虑人民币汇率”的 USD 策略表现。
+- 行情或汇率缺失、过期或人工覆盖时，指标必须显示覆盖率和数据新鲜度；无法形成完整 NAV 时不得静默沿用旧值并输出完整收益率。
+- 每日收盘快照是可重建的派生数据，不是账本事实。修改历史交易、公司行动、价格或汇率后，从最早受影响日期起重新计算后续 NAV 和回报序列，并保留计算版本与输入来源。
 
 ### 3.4 SPX Delta 风险暴露
 
@@ -137,6 +193,26 @@ Expected\ Portfolio\ Change_{USD}=PortfolioNAV_{USD}\times SPX\ Delta\times SPX\
 - 未来加入期权账本后，单个期权先计算 `contracts × multiplier × option_delta × underlying_price × underlying_beta` 的 SPX 敏感金额，再纳入组合 SPX Delta；期权 delta 必须带时间戳，允许人工覆盖，并明确盘中过期风险。
 - 页面主要展示 SPX Delta，并辅助展示 SPX 上涨/下跌 1% 时组合预计变动的百分比和美元金额、未调整净股票市值及覆盖率。
 - “组合实际收益率 − SPX 实际收益率”属于相对收益，不得与 SPX Delta 混为同一指标。
+
+### 3.5 Performance 页面指标层级与基准
+
+Performance 页面按职责分为四层，避免把资产规模、绝对盈亏、收益率和风险暴露混在一起：
+
+1. **当前状态**：Portfolio NAV、Net Contributions、Total P&L、Cash、Invested Assets；
+2. **投资表现**：累计回报、TWR、MWR / XIRR，并提供简短口径说明；
+3. **基准比较**：Portfolio TWR、Benchmark Total Return、Excess Return；
+4. **风险暴露**：SPX Delta、SPX ±1% 情景和市值覆盖率，与实际超额收益明确分区。
+
+\[
+Excess\ Return=Portfolio\ TWR-Benchmark\ Total\ Return
+\]
+
+基准分为两类：
+
+- **权益策略基准**：第一优先为 S&P 500；后续可选 NASDAQ-100、MSCI ACWI、MSCI World，以及合法免费数据可覆盖的自定义 ETF / 指数；
+- **低风险机会成本基准**：美国国债、中国国债和中国一年期定期存款。
+
+权益基准用于衡量投资策略相对市场的表现；利率和存款基准用于比较低风险机会成本，两类含义不得混用。所有比较曲线统一以 100 为起点，并明确是否采用总回报/分红再投资、币种、汇率、复利、起止日期、节假日对齐和数据来源。若只能取得价格指数而非总回报指数，界面必须明确说明其未计入分红，不能与含分红的组合 TWR 假装完全可比。
 
 ## 4. MVP 功能范围
 
@@ -194,7 +270,8 @@ Expected\ Portfolio\ Change_{USD}=PortfolioNAV_{USD}\times SPX\ Delta\times SPX\
 | `price_snapshots` | asset_id, date, price, currency, source | 计算估值、历史净值和 TWR |
 | `fx_snapshots` | pair, date, rate, source, rate_type | 记录 Google/银行/实际成交三类口径 |
 | `market_data_cache` | instrument_id, value, currency, market_timestamp, fetched_at, provider, source_institution, expires_at | 统一缓存股票、ETF、汇率和未来基准数据 |
-| `portfolio_snapshots` | date, cash_by_currency, securities_value, NAV_CNY, P&L, FX_effect | 保存每日组合状态，支撑历史净值和走势图 |
+| `portfolio_snapshots` | date, cash_by_currency, securities_value, NAV_CNY, NAV_USD, external_cash_flow, net_contributions, P&L, FX_effect, calculation_version | 保存可重算的每日组合状态，支撑历史净值、TWR 和走势图 |
+| `benchmark_snapshots` | benchmark_id, date, level, total_return_level, currency, source, fetched_at | 保存权益与低风险基准序列及其可比口径 |
 | `provider_usage` | provider, date, request_count, request_budget, last_error | 控制免费 API 调用预算并记录限流/失败情况 |
 | `risk_factor_snapshots` | instrument_id, benchmark, beta, window, observations, as_of, provider, fetched_at | 保存可审计的 SPX beta 与未来其他因子暴露 |
 
@@ -323,9 +400,11 @@ Atlas 不采购付费 API、付费行情订阅或专业实时行情。若免费�
 
 ### Phase 3 — 回报率与报告
 
-**交付：** CNY XIRR、USD TWR、历史净值与收益率折线、按资产/年份/收益来源的归因报表、CSV 导出、SPX Delta 及 SPX ±1% 情景风险卡片，以及可配置的基准比较。第一批基准候选为美国国债、中国国债和中国一年期定期存款；所有曲线统一以 100 为起点并明确币种、汇率、复利和数据来源假设。
+**前置规范：** 先建立并长期维护 `docs/PERFORMANCE_METRICS.md`，固定外部现金流边界、TWR 子周期算法、XIRR 正负号、累计与年化规则、多币种换算、分红/利息/费用/税费处理、基准可比性、缺失数据降级和历史快照重算策略；规范通过匿名手算样例后再连接 UI。
 
-**验收：** 外部入金不会被误算成投资收益；XIRR 与同一现金流的独立表格计算一致；组合与基准采用一致日期范围和清晰的币种口径，不能把某日利率直接冒充累计收益；SPX Delta 与独立计算样例一致，并显示估值日期、beta 窗口、样本数、数据新鲜度和市值覆盖率，缺失因子时不得输出看似完整的组合风险值。
+**交付：** Portfolio NAV、Net Contributions、Total P&L、CNY XIRR / MWR、USD TWR、历史净值与收益率折线、按资产/年份/收益来源的归因报表、CSV 导出、SPX Delta 及 SPX ±1% 情景风险卡片，以及可配置的基准比较。权益策略基准先支持 S&P 500，再评估 NASDAQ-100、MSCI ACWI、MSCI World 和自定义 ETF / 指数；低风险机会成本基准包括美国国债、中国国债和中国一年期定期存款。所有曲线统一以 100 为起点并明确总回报假设、币种、汇率、复利和数据来源。
+
+**验收：** 外部入金不会被误算成投资收益，买卖、换汇、分红和再投资不会被误算成外部现金流；XIRR 与同一现金流的独立表格计算一致；TWR 与独立子周期样例一致，外部入金金额变化不应直接改变同日策略回报；NAV、Net Contributions 和 Total P&L 满足已定义的勾稽关系；组合与基准采用一致日期范围、币种和分红口径，不能把价格指数冒充总回报指数，也不能把某日利率直接冒充累计收益；历史交易或估值修正后能从最早受影响日期确定性重算；SPX Delta 与独立计算样例一致，并显示估值日期、beta 窗口、样本数、数据新鲜度和市值覆盖率，缺失因子时不得输出看似完整的组合风险值。
 
 ### Phase 4 — IBKR 导入与数据适配器
 
