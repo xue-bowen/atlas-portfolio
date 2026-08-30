@@ -4,7 +4,7 @@
 
 Latest stable feature checkpoint before this documentation update:
 
-`f21b039 feat: add valuation FX panel`
+`d519b9e feat: add CNY cash valuation summary`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -12,7 +12,7 @@ Windows local path:
 
 `C:\Users\28301\atlas-portfolio`
 
-Last updated: 2026-08-24
+Last updated: 2026-08-30
 
 The working tree was clean after the latest commit. Personal ledger data is
 browser-local and is never committed to GitHub.
@@ -82,6 +82,11 @@ browser-local and is never committed to GitHub.
   date, fetch time, Frankfurter service, contributing sources, and
   fresh/cache/stale-fallback status. It explicitly states that valuation rates
   never replace actual broker or bank conversion rates in the ledger.
+- Read-only cash valuation summary in CNY. It shows CNY cash directly, converts
+  non-zero USD and HKD cash with the displayed valuation rates, and calculates
+  total cash reference value without changing ledger balances or actual FX
+  events. Missing rates block a complete total only when the related foreign
+  cash balance is non-zero; stale cached inputs remain explicitly identified.
 
 Anonymous browser tests verified balance updates and persistence after refresh.
 The latest reinvestment test confirmed that buying below the existing average
@@ -95,6 +100,11 @@ request deduplication, explicit stale fallback, miss failure, permanent dated
 rates, and IndexedDB persistence after refresh. UI verification confirmed first
 provider loads, fresh-cache page reloads, forced manual refreshes, unchanged
 anonymous balances and ledger entries, and a readable two-card desktop layout.
+A separate isolated cash-valuation check used CNY 5,680.00, USD 333.67, HKD
+0.00, USD/CNY 6.7174, and HKD/CNY 0.85613; it displayed USD cash at CNY
+2,241.39 and total cash at CNY 7,921.39. A full page refresh returned both FX
+inputs from fresh IndexedDB cache and preserved the same values without writing
+a ledger event.
 
 ## Key ledger behavior
 
@@ -183,12 +193,12 @@ For each small feature:
 
 ## Next task
 
-Use the displayed valuation FX rates to add a read-only CNY cash valuation
-summary: CNY cash, USD cash translated at USD/CNY, HKD cash translated at
-HKD/CNY, and total cash value in CNY. It must identify unavailable or stale
-inputs, must not call translated cash "profit", and must not alter ledger cash
-or actual FX events. Continue through the basic valuation chain, then enter the
-separate information-architecture phase for navigation and the unified
-transaction entry before beginning performance/report UI work. A focused
-manual ledger review and local JSON backup remain required before recording
-substantial real history.
+Build the first Free-First stock/ETF quote path behind the existing provider
+contract. Re-check current official free-tier, delay, market coverage, and
+licensing terms before choosing the provider; do not adopt a paid API. Keep the
+first implementation narrow and provider-neutral, then add cache-aware quote
+loading before using prices for holdings market value and total portfolio
+value. Continue through that basic valuation chain before entering the separate
+information-architecture phase for navigation and the unified transaction
+entry. A focused manual ledger review and local JSON backup remain required
+before recording substantial real history.
