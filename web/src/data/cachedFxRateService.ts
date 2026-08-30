@@ -38,6 +38,10 @@ export interface FxRateCache {
   put(record: MarketDataCacheRecord): Promise<void>;
 }
 
+export interface FxRateLookupOptions {
+  forceRefresh?: boolean;
+}
+
 interface CachedFxRateServiceOptions {
   latestTtlMs?: number;
   now?: () => Date;
@@ -115,22 +119,31 @@ export class CachedFxRateService {
     this.now = options.now ?? (() => new Date());
   }
 
-  async getFxRate(request: FxRateRequest): Promise<FxRateResolution> {
+  async getFxRate(
+    request: FxRateRequest,
+    options: FxRateLookupOptions = {},
+  ): Promise<FxRateResolution> {
     const cacheKey = createFxRateCacheKey(request.pair, request.date);
-    const existingRequest = this.inFlightRequests.get(cacheKey);
+    const forceRefresh = options.forceRefresh === true;
+    const inFlightKey = `${cacheKey}:${forceRefresh ? "FORCE" : "DEFAULT"}`;
+    const existingRequest = this.inFlightRequests.get(inFlightKey);
 
     if (existingRequest) {
       return existingRequest;
     }
 
-    const pendingRequest = this.resolveFxRate(request, cacheKey);
-    this.inFlightRequests.set(cacheKey, pendingRequest);
+    const pendingRequest = this.resolveFxRate(
+      request,
+      cacheKey,
+      forceRefresh,
+    );
+    this.inFlightRequests.set(inFlightKey, pendingRequest);
 
     try {
       return await pendingRequest;
     } finally {
-      if (this.inFlightRequests.get(cacheKey) === pendingRequest) {
-        this.inFlightRequests.delete(cacheKey);
+      if (this.inFlightRequests.get(inFlightKey) === pendingRequest) {
+        this.inFlightRequests.delete(inFlightKey);
       }
     }
   }
@@ -138,6 +151,7 @@ export class CachedFxRateService {
   private async resolveFxRate(
     request: FxRateRequest,
     cacheKey: string,
+    forceRefresh: boolean,
   ): Promise<FxRateResolution> {
     const cacheLookupTime = this.now();
     dateInMilliseconds(cacheLookupTime, "now");
@@ -145,7 +159,11 @@ export class CachedFxRateService {
     const cacheHit = await this.cache.get(cacheKey, cacheLookupTime);
     const cachedRate = matchingCachedFxRate(cacheHit, request);
 
-    if (cachedRate && cacheHit?.freshness === "FRESH") {
+    if (
+      !forceRefresh &&
+      cachedRate &&
+      cacheHit?.freshness === "FRESH"
+    ) {
       return {
         rate: cachedRate,
         status: "CACHE_FRESH",
@@ -159,10 +177,11 @@ export class CachedFxRateService {
     try {
       providerRate = await this.provider.getFxRate(request);
     } catch (error) {
-      if (cachedRate && cacheHit?.freshness === "STALE") {
+      if (cachedRate && cacheHit) {
         return {
           rate: cachedRate,
-          status: "CACHE_STALE",
+          status:
+            cacheHit.freshness === "FRESH" ? "CACHE_FRESH" : "CACHE_STALE",
           cacheKey,
           expiresAt: cacheHit.expiresAt,
           refreshError: refreshError(error, this.provider),

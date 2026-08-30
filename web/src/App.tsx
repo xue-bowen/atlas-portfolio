@@ -1,5 +1,15 @@
-import { useState, type ChangeEvent, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
 import "./App.css";
+import {
+  CachedFxRateService,
+  type FxRateResolution,
+} from "./data/cachedFxRateService";
 import {
   hasInitializedPersonalLedger,
   initializeEmptyPersonalLedger,
@@ -9,9 +19,12 @@ import {
   savePersonalLedger,
   serializeLedgerBackup,
 } from "./data/ledgerStorage";
+import { IndexedDbMarketDataCache } from "./data/marketDataCache";
+import { FrankfurterFxProvider } from "./data/providers/frankfurterFxProvider";
 import { calculateBalances } from "./domain/calculateBalances";
 import { calculateUsdCashHistory } from "./domain/calculateUsdCashHistory";
 import type { Currency, LedgerEvent } from "./domain/ledger";
+import type { FxRateRequest } from "./domain/marketData";
 
 const usd = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -34,7 +47,59 @@ const currencyFormatters: Record<Currency, Intl.NumberFormat> = {
   USD: usd,
 };
 
+const fxRateNumber = new Intl.NumberFormat("en-US", {
+  minimumFractionDigits: 4,
+  maximumFractionDigits: 6,
+});
+
+type ValuationFxKey = "USD_CNY" | "HKD_CNY";
+
+const valuationFxRequests: Array<{
+  key: ValuationFxKey;
+  label: string;
+  request: FxRateRequest;
+}> = [
+  {
+    key: "USD_CNY",
+    label: "USD/CNY",
+    request: { pair: { baseCurrency: "USD", quoteCurrency: "CNY" } },
+  },
+  {
+    key: "HKD_CNY",
+    label: "HKD/CNY",
+    request: { pair: { baseCurrency: "HKD", quoteCurrency: "CNY" } },
+  },
+];
+
+const valuationFxService = new CachedFxRateService(
+  new IndexedDbMarketDataCache(),
+  new FrankfurterFxProvider(),
+);
+
+type ValuationFxRates = Partial<Record<ValuationFxKey, FxRateResolution>>;
+
 type ExpenseCategory = "ADR_FEE" | "OTHER";
+
+function describeFxStatus(resolution: FxRateResolution): string {
+  const baseStatus =
+    resolution.status === "PROVIDER_FRESH"
+      ? "Fresh from provider"
+      : resolution.status === "CACHE_FRESH"
+        ? "Fresh cache"
+        : "Stale fallback";
+
+  return resolution.refreshError
+    ? `${baseStatus} · refresh failed`
+    : baseStatus;
+}
+
+function displayDateTime(timestamp: string): string {
+  const date = new Date(timestamp);
+
+  return Number.isFinite(date.getTime())
+    ? date.toLocaleString()
+    : timestamp;
+}
 
 function describeEvent(event: LedgerEvent): string {
   switch (event.type) {
@@ -125,6 +190,66 @@ export default function App() {
     useState<ExpenseCategory>("ADR_FEE");
   const [expenseAmountUsd, setExpenseAmountUsd] = useState("");
   const [message, setMessage] = useState("");
+  const [valuationFxRates, setValuationFxRates] =
+    useState<ValuationFxRates>({});
+  const [isValuationFxLoading, setIsValuationFxLoading] = useState(false);
+  const [valuationFxError, setValuationFxError] = useState("");
+
+  const refreshValuationFxRates = useCallback(
+    async (forceRefresh: boolean) => {
+      setIsValuationFxLoading(true);
+      setValuationFxError("");
+
+      const results = await Promise.all(
+        valuationFxRequests.map(async (item) => {
+          try {
+            const resolution = await valuationFxService.getFxRate(
+              item.request,
+              { forceRefresh },
+            );
+
+            return { item, resolution };
+          } catch (error) {
+            return {
+              item,
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Unknown valuation FX error.",
+            };
+          }
+        }),
+      );
+
+      setValuationFxRates((currentRates) => {
+        const nextRates = { ...currentRates };
+
+        for (const result of results) {
+          if ("resolution" in result) {
+            nextRates[result.item.key] = result.resolution;
+          }
+        }
+
+        return nextRates;
+      });
+
+      const errors = results
+        .filter((result) => "error" in result)
+        .map((result) => `${result.item.label}: ${result.error}`);
+
+      setValuationFxError(errors.join(" "));
+      setIsValuationFxLoading(false);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const refreshTimer = window.setTimeout(() => {
+      void refreshValuationFxRates(false);
+    }, 0);
+
+    return () => window.clearTimeout(refreshTimer);
+  }, [refreshValuationFxRates]);
 
   const balances = calculateBalances(ledger);
   const usdCashHistory = calculateUsdCashHistory(ledger);
@@ -1035,6 +1160,89 @@ export default function App() {
         <li>HKD cash: {hkd.format(balances.hkdCash)}</li>
         <li>USD cash: {usd.format(balances.usdCash)}</li>
       </ul>
+
+      <section className="valuation-fx-panel" aria-labelledby="valuation-fx">
+        <div className="valuation-fx-heading">
+          <div>
+            <h2 id="valuation-fx">Valuation FX rates</h2>
+            <p>
+              Reference rates for portfolio valuation only. They never replace
+              actual broker or bank conversion rates in the ledger.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void refreshValuationFxRates(true)}
+            disabled={isValuationFxLoading}
+          >
+            {isValuationFxLoading ? "Refreshing…" : "Refresh valuation rates"}
+          </button>
+        </div>
+
+        {isValuationFxLoading &&
+          Object.keys(valuationFxRates).length === 0 && (
+            <p role="status">Loading valuation rates…</p>
+          )}
+        {valuationFxError && (
+          <p className="valuation-fx-error" role="alert">
+            {valuationFxError}
+          </p>
+        )}
+
+        <div className="valuation-fx-grid">
+          {valuationFxRequests.map((item) => {
+            const resolution = valuationFxRates[item.key];
+
+            return (
+              <article
+                className="valuation-fx-card"
+                data-status={resolution?.status ?? "UNAVAILABLE"}
+                key={item.key}
+              >
+                <h3>{item.label}</h3>
+                {resolution ? (
+                  <>
+                    <p className="valuation-fx-rate">
+                      1 {resolution.rate.pair.baseCurrency} ={" "}
+                      {fxRateNumber.format(resolution.rate.rate)}{" "}
+                      {resolution.rate.pair.quoteCurrency}
+                    </p>
+                    <dl>
+                      <div>
+                        <dt>Status</dt>
+                        <dd>{describeFxStatus(resolution)}</dd>
+                      </div>
+                      <div>
+                        <dt>Observation date</dt>
+                        <dd>{resolution.rate.marketTimestamp.slice(0, 10)}</dd>
+                      </div>
+                      <div>
+                        <dt>Fetched</dt>
+                        <dd>{displayDateTime(resolution.rate.fetchedAt)}</dd>
+                      </div>
+                      <div>
+                        <dt>Data service</dt>
+                        <dd>{resolution.rate.provider}</dd>
+                      </div>
+                    </dl>
+                    <details>
+                      <summary>Contributing sources</summary>
+                      <p>{resolution.rate.sourceInstitution}</p>
+                    </details>
+                    {resolution.refreshError && (
+                      <p className="valuation-fx-warning" role="status">
+                        Refresh issue: {resolution.refreshError.message}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p>Rate unavailable.</p>
+                )}
+              </article>
+            );
+          })}
+        </div>
+      </section>
 
       <h2>Realized result</h2>
       <ul>
