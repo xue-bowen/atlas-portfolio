@@ -59,6 +59,7 @@ export interface FxRateProvider extends MarketDataProvider {
 
 export type MarketDataErrorCode =
   | "NOT_SUPPORTED"
+  | "AUTHENTICATION_ERROR"
   | "RATE_LIMITED"
   | "DAILY_BUDGET_EXCEEDED"
   | "NETWORK_ERROR"
