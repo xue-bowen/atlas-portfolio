@@ -4,7 +4,7 @@
 
 Latest stable feature checkpoint before this documentation update:
 
-`73d6214 feat: add Twelve Data EOD provider`
+`9d4d6b0 feat: add cached security quote service`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -94,6 +94,13 @@ browser-local and is never committed to GitHub.
   authentication, rate-limit, unsupported, network, and invalid-response
   failures to the shared market-data error model. It is not connected to the UI
   or any personal configuration yet.
+- Cache-aware security quote service behind `SecurityQuoteProvider`. It uses a
+  configurable 12-hour default TTL suitable for EOD quotes, normalized cache
+  keys, concurrent-request deduplication, force refresh, and explicit
+  `PROVIDER_FRESH`, `CACHE_FRESH`, or `CACHE_STALE` results. Stale fallback
+  retains the typed refresh error, while a cache miss surfaces provider failure.
+  The service is provider-neutral and is not connected to the UI, ledger, or
+  personal API-key configuration.
 
 Anonymous browser tests verified balance updates and persistence after refresh.
 The latest reinvestment test confirmed that buying below the existing average
@@ -114,6 +121,14 @@ inputs from fresh IndexedDB cache and preserved the same values without writing
 a ledger event. Anonymous Twelve Data provider fixtures verified a valid AAPL
 EOD response, header-only test-key transport, typed 429 handling, and rejection
 of a mismatched response currency. No personal API key or ledger data was used.
+Anonymous security-quote service fixtures verified first-fetch writes,
+zero-network fresh hits, force refresh, concurrent-request deduplication, stale
+fallback, cache-miss failure, and invalid-TTL rejection. A separate isolated
+browser test verified real IndexedDB persistence after a full refresh: the
+initial provider quote reloaded as `CACHE_FRESH`, then remained available as an
+explicit `CACHE_STALE` fallback when a simulated refresh failed. The test used
+only temporary anonymous data on port 5205 and removed its IndexedDB database,
+test files, browser tab, and local server afterward.
 
 ## Key ledger behavior
 
@@ -209,12 +224,16 @@ For each small feature:
 
 ## Next task
 
-Add a cache-aware security quote service behind `SecurityQuoteProvider`, using
-the same explicit `PROVIDER_FRESH`, `CACHE_FRESH`, and `CACHE_STALE` behavior as
-the FX service. Start with an EOD-appropriate TTL, concurrent-request
-deduplication, force refresh, and stale fallback; keep the provider replaceable
-and do not add an API key to source or the ledger backup. After isolated fixture
-and IndexedDB persistence checks, connect quotes to holdings market value and
-total portfolio value. Continue through that basic valuation chain before
-entering the separate information-architecture phase. A focused manual ledger
-review and local JSON backup remain required before substantial real history.
+Add a provider-neutral, read-only holdings valuation calculation that combines
+open positions with resolved security quotes and reports per-position market
+value, total securities value, and uncovered positions. Missing quotes must
+remain explicit and must not be treated as zero; market quotes must never change
+ledger quantities, moving-average cost, realized P&L, or trading fees. Before
+connecting a live provider or UI, define how existing symbol-only ledger
+positions receive the exchange, quote currency, and asset-type identifiers
+required for unambiguous quote requests, and verify the calculation with
+anonymous fixtures. Then connect that layer to total portfolio value (cash plus
+stocks) before entering the separate information-architecture phase. Provider
+TTL remains configurable, API keys remain runtime-only, and no key may enter
+source, ledger backups, logs, or GitHub. A focused manual ledger review and local
+JSON backup remain required before substantial real history.
