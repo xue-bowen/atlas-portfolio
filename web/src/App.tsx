@@ -22,6 +22,7 @@ import {
 import { IndexedDbMarketDataCache } from "./data/marketDataCache";
 import { FrankfurterFxProvider } from "./data/providers/frankfurterFxProvider";
 import { calculateBalances } from "./domain/calculateBalances";
+import { calculateCashValuation } from "./domain/calculateCashValuation";
 import { calculateUsdCashHistory } from "./domain/calculateUsdCashHistory";
 import type { Currency, LedgerEvent } from "./domain/ledger";
 import type { FxRateRequest } from "./domain/marketData";
@@ -252,6 +253,21 @@ export default function App() {
   }, [refreshValuationFxRates]);
 
   const balances = calculateBalances(ledger);
+  const cashValuation = calculateCashValuation({
+    cnyCash: balances.cnyCash,
+    hkdCash: balances.hkdCash,
+    usdCash: balances.usdCash,
+    hkdCnyRate: valuationFxRates.HKD_CNY?.rate.rate,
+    usdCnyRate: valuationFxRates.USD_CNY?.rate.rate,
+  });
+  const staleCashValuationCurrencies = valuationFxRequests
+    .filter(({ key }) => {
+      const resolution = valuationFxRates[key];
+      const cashBalance = key === "USD_CNY" ? balances.usdCash : balances.hkdCash;
+
+      return cashBalance !== 0 && resolution?.status === "CACHE_STALE";
+    })
+    .map(({ request }) => request.pair.baseCurrency);
   const usdCashHistory = calculateUsdCashHistory(ledger);
   const netDividendUsd =
     Number(dividendGrossAmountUsd) - Number(dividendWithholdingTaxUsd);
@@ -1160,6 +1176,74 @@ export default function App() {
         <li>HKD cash: {hkd.format(balances.hkdCash)}</li>
         <li>USD cash: {usd.format(balances.usdCash)}</li>
       </ul>
+
+      <section
+        className="cash-valuation-panel"
+        aria-labelledby="cash-valuation"
+      >
+        <div>
+          <h2 id="cash-valuation">Cash value in CNY</h2>
+          <p>
+            Read-only reference valuation of cash balances. This is not profit
+            and does not change ledger cash or actual FX transactions.
+          </p>
+        </div>
+
+        <dl className="cash-valuation-grid">
+          <div>
+            <dt>CNY cash</dt>
+            <dd>{cny.format(cashValuation.cnyCashValueCny)}</dd>
+            <small>Already denominated in CNY</small>
+          </div>
+          <div>
+            <dt>USD cash in CNY</dt>
+            <dd>
+              {cashValuation.usdCashValueCny === undefined
+                ? "Unavailable"
+                : cny.format(cashValuation.usdCashValueCny)}
+            </dd>
+            <small>
+              {cashValuation.usdCashValueCny === undefined
+                ? "USD/CNY rate unavailable"
+                : `${usd.format(balances.usdCash)} at the displayed USD/CNY rate`}
+            </small>
+          </div>
+          <div>
+            <dt>HKD cash in CNY</dt>
+            <dd>
+              {cashValuation.hkdCashValueCny === undefined
+                ? "Unavailable"
+                : cny.format(cashValuation.hkdCashValueCny)}
+            </dd>
+            <small>
+              {cashValuation.hkdCashValueCny === undefined
+                ? "HKD/CNY rate unavailable"
+                : `${hkd.format(balances.hkdCash)} at the displayed HKD/CNY rate`}
+            </small>
+          </div>
+          <div className="cash-valuation-total">
+            <dt>Total cash value</dt>
+            <dd>
+              {cashValuation.totalCashValueCny === undefined
+                ? "Unavailable"
+                : cny.format(cashValuation.totalCashValueCny)}
+            </dd>
+            <small>
+              {cashValuation.unavailableCurrencies.length > 0
+                ? `Missing valuation rate for non-zero ${cashValuation.unavailableCurrencies.join(" and ")} cash`
+                : "CNY reference value of cash only"}
+            </small>
+          </div>
+        </dl>
+
+        {staleCashValuationCurrencies.length > 0 && (
+          <p className="cash-valuation-warning" role="status">
+            Uses stale cached {staleCashValuationCurrencies.join(" and ")} FX
+            rate data. Refresh the valuation rates when the provider is
+            available.
+          </p>
+        )}
+      </section>
 
       <section className="valuation-fx-panel" aria-labelledby="valuation-fx">
         <div className="valuation-fx-heading">
