@@ -4,7 +4,7 @@
 
 Latest stable feature checkpoint before this documentation update:
 
-`a52362a feat: add cached FX rate service`
+`f21b039 feat: add valuation FX panel`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -77,6 +77,11 @@ browser-local and is never committed to GitHub.
   avoids network calls on fresh hits, and returns explicit `PROVIDER_FRESH`,
   `CACHE_FRESH`, or `CACHE_STALE` status. A stale fallback includes the refresh
   error; a cache miss never disguises provider failure as valid data.
+- Read-only valuation FX panel for USD/CNY and HKD/CNY. It loads on initial
+  demand, supports a manual force refresh, and displays the rate, observation
+  date, fetch time, Frankfurter service, contributing sources, and
+  fresh/cache/stale-fallback status. It explicitly states that valuation rates
+  never replace actual broker or bank conversion rates in the ledger.
 
 Anonymous browser tests verified balance updates and persistence after refresh.
 The latest reinvestment test confirmed that buying below the existing average
@@ -87,7 +92,9 @@ API test verified USD/CNY, HKD/CNY, and historical USD/CNY results plus typed
 error handling without reading or modifying ledger data. An isolated cached
 service test verified first-fetch writes, zero-network fresh hits, concurrent
 request deduplication, explicit stale fallback, miss failure, permanent dated
-rates, and IndexedDB persistence after refresh.
+rates, and IndexedDB persistence after refresh. UI verification confirmed first
+provider loads, fresh-cache page reloads, forced manual refreshes, unchanged
+anonymous balances and ledger entries, and a readable two-card desktop layout.
 
 ## Key ledger behavior
 
@@ -176,12 +183,12 @@ For each small feature:
 
 ## Next task
 
-Add a read-only valuation FX panel that uses the cached service for USD/CNY and
-HKD/CNY. It must refresh on initial demand and by an explicit manual action,
-show the rate, observation date, fetch time, provider/source, and
-fresh/stale/fallback status, and must not create or alter any ledger event.
-Continue through the basic valuation chain, then enter the separate
-information-architecture phase for navigation and the unified transaction
-entry before beginning performance/report UI work. A focused manual ledger
-review and local JSON backup remain required before recording substantial real
-history.
+Use the displayed valuation FX rates to add a read-only CNY cash valuation
+summary: CNY cash, USD cash translated at USD/CNY, HKD cash translated at
+HKD/CNY, and total cash value in CNY. It must identify unavailable or stale
+inputs, must not call translated cash "profit", and must not alter ledger cash
+or actual FX events. Continue through the basic valuation chain, then enter the
+separate information-architecture phase for navigation and the unified
+transaction entry before beginning performance/report UI work. A focused
+manual ledger review and local JSON backup remain required before recording
+substantial real history.
