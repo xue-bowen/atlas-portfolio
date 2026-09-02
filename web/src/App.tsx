@@ -14,13 +14,18 @@ import {
   hasInitializedPersonalLedger,
   initializeEmptyPersonalLedger,
   loadLedger,
-  parseLedgerBackup,
+  parsePortfolioBackup,
   saveLedger,
   savePersonalLedger,
-  serializeLedgerBackup,
+  serializePortfolioBackup,
 } from "./data/ledgerStorage";
 import { IndexedDbMarketDataCache } from "./data/marketDataCache";
 import { FrankfurterFxProvider } from "./data/providers/frankfurterFxProvider";
+import {
+  clearSecurityProfiles,
+  loadSecurityProfileRegistry,
+  saveSecurityProfiles,
+} from "./data/securityProfileStorage";
 import { calculateBalances } from "./domain/calculateBalances";
 import { calculateCashValuation } from "./domain/calculateCashValuation";
 import { calculateUsdCashHistory } from "./domain/calculateUsdCashHistory";
@@ -283,6 +288,7 @@ export default function App() {
       return;
     }
 
+    clearSecurityProfiles();
     setLedger(initializeEmptyPersonalLedger());
     setIsPersonalLedger(true);
     setMessage("Empty personal ledger initialized locally in this browser.");
@@ -643,7 +649,19 @@ export default function App() {
   }
 
   function exportLedgerBackup() {
-    const backupJson = serializeLedgerBackup(ledger);
+    const securityProfileRegistry = loadSecurityProfileRegistry();
+
+    if (securityProfileRegistry.status === "INVALID") {
+      setMessage(
+        "Security profiles are invalid. The complete backup was not exported.",
+      );
+      return;
+    }
+
+    const backupJson = serializePortfolioBackup(
+      ledger,
+      securityProfileRegistry.profiles,
+    );
     const backupBlob = new Blob([backupJson], {
       type: "application/json",
     });
@@ -651,12 +669,12 @@ export default function App() {
     const downloadLink = document.createElement("a");
 
     downloadLink.href = backupUrl;
-    downloadLink.download = `atlas-portfolio-ledger-${new Date()
+    downloadLink.download = `atlas-portfolio-backup-${new Date()
       .toISOString()
       .slice(0, 10)}.json`;
     downloadLink.click();
     URL.revokeObjectURL(backupUrl);
-    setMessage("Ledger backup exported as a local JSON file.");
+    setMessage("Portfolio backup exported as a local JSON file.");
   }
 
   async function importLedgerBackup(event: ChangeEvent<HTMLInputElement>) {
@@ -668,12 +686,19 @@ export default function App() {
     }
 
     try {
-      const importedLedger = parseLedgerBackup(await backupFile.text());
+      const importedBackup = parsePortfolioBackup(await backupFile.text());
 
-      savePersonalLedger(importedLedger);
-      setLedger(importedLedger);
+      savePersonalLedger(importedBackup.ledger);
+      if (importedBackup.securityProfiles.length > 0) {
+        saveSecurityProfiles(importedBackup.securityProfiles);
+      } else {
+        clearSecurityProfiles();
+      }
+      setLedger(importedBackup.ledger);
       setIsPersonalLedger(true);
-      setMessage(`Imported ${importedLedger.length} ledger event(s).`);
+      setMessage(
+        `Imported ${importedBackup.ledger.length} ledger event(s) and ${importedBackup.securityProfiles.length} security profile(s).`,
+      );
     } catch {
       setMessage("Could not import this file. Please choose a valid backup.");
     } finally {
@@ -1152,8 +1177,8 @@ export default function App() {
       <section>
         <h2>Local backup</h2>
         <p>
-          Export before entering more history. Imported files replace the local
-          browser ledger.
+          Export before entering more history. Imported files replace the
+          local browser ledger and security profiles.
         </p>
         <button type="button" onClick={exportLedgerBackup}>
           Export JSON backup

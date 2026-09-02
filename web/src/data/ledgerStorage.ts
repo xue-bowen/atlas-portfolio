@@ -1,16 +1,24 @@
 import { sampleLedger } from "./sampleLedger";
 import type { LedgerEvent } from "../domain/ledger";
+import type { PositionSecurityMapping } from "../domain/calculateHoldingsValuation";
+import { parseSecurityProfiles } from "./securityProfileStorage";
 
 const STORAGE_KEY = "atlas-portfolio-ledger";
 const PERSONAL_LEDGER_KEY = "atlas-portfolio-personal-ledger-initialized";
 const BACKUP_APP_NAME = "atlas-portfolio";
-const BACKUP_SCHEMA_VERSION = 1;
+const BACKUP_SCHEMA_VERSION = 2;
 
-interface LedgerBackup {
+interface PortfolioBackup {
   app: typeof BACKUP_APP_NAME;
   schemaVersion: typeof BACKUP_SCHEMA_VERSION;
   exportedAt: string;
   ledger: LedgerEvent[];
+  securityProfiles: PositionSecurityMapping[];
+}
+
+export interface PortfolioBackupData {
+  ledger: LedgerEvent[];
+  securityProfiles: PositionSecurityMapping[];
 }
 
 type UnknownRecord = Record<string, unknown>;
@@ -99,18 +107,28 @@ function isLedgerEvent(value: unknown): value is LedgerEvent {
   }
 }
 
-function parseBackupLedger(parsedBackup: unknown): LedgerEvent[] | undefined {
+function parseBackupData(
+  parsedBackup: unknown,
+): PortfolioBackupData | undefined {
   if (Array.isArray(parsedBackup)) {
-    return parsedBackup;
+    return { ledger: parsedBackup, securityProfiles: [] };
   }
 
   if (
     isRecord(parsedBackup) &&
     parsedBackup.app === BACKUP_APP_NAME &&
-    parsedBackup.schemaVersion === BACKUP_SCHEMA_VERSION &&
     Array.isArray(parsedBackup.ledger)
   ) {
-    return parsedBackup.ledger;
+    if (parsedBackup.schemaVersion === 1) {
+      return { ledger: parsedBackup.ledger, securityProfiles: [] };
+    }
+
+    if (parsedBackup.schemaVersion === BACKUP_SCHEMA_VERSION) {
+      return {
+        ledger: parsedBackup.ledger,
+        securityProfiles: parseSecurityProfiles(parsedBackup.securityProfiles),
+      };
+    }
   }
 
   return undefined;
@@ -140,26 +158,30 @@ export function saveLedger(events: LedgerEvent[]): void {
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
 }
 
-export function serializeLedgerBackup(events: LedgerEvent[]): string {
-  const backup: LedgerBackup = {
+export function serializePortfolioBackup(
+  events: LedgerEvent[],
+  securityProfiles: PositionSecurityMapping[],
+): string {
+  const backup: PortfolioBackup = {
     app: BACKUP_APP_NAME,
     schemaVersion: BACKUP_SCHEMA_VERSION,
     exportedAt: new Date().toISOString(),
     ledger: events,
+    securityProfiles: parseSecurityProfiles(securityProfiles),
   };
 
   return JSON.stringify(backup, null, 2);
 }
 
-export function parseLedgerBackup(backupText: string): LedgerEvent[] {
+export function parsePortfolioBackup(backupText: string): PortfolioBackupData {
   const parsedBackup: unknown = JSON.parse(backupText);
-  const ledger = parseBackupLedger(parsedBackup);
+  const backup = parseBackupData(parsedBackup);
 
-  if (!ledger || !ledger.every(isLedgerEvent)) {
-    throw new Error("Invalid Atlas Portfolio ledger backup.");
+  if (!backup || !backup.ledger.every(isLedgerEvent)) {
+    throw new Error("Invalid Atlas Portfolio backup.");
   }
 
-  return ledger;
+  return backup;
 }
 
 export function hasInitializedPersonalLedger(): boolean {
