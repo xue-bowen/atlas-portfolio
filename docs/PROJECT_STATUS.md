@@ -4,7 +4,7 @@
 
 Latest stable feature checkpoint before this documentation update:
 
-`9d4d6b0 feat: add cached security quote service`
+`012dd6f feat: add read-only holdings valuation`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -12,7 +12,7 @@ Windows local path:
 
 `C:\Users\28301\atlas-portfolio`
 
-Last updated: 2026-08-30
+Last updated: 2026-09-02
 
 The working tree was clean after the latest commit. Personal ledger data is
 browser-local and is never committed to GitHub.
@@ -101,6 +101,15 @@ browser-local and is never committed to GitHub.
   retains the typed refresh error, while a cache miss surfaces provider failure.
   The service is provider-neutral and is not connected to the UI, ledger, or
   personal API-key configuration.
+- Provider-neutral, read-only holdings valuation calculation. Existing
+  symbol-only positions receive an explicit external mapping to symbol,
+  exchange, quote currency, and asset type, so the legacy ledger does not need
+  to be rewritten. Exact matching is case-insensitive for symbols and exchanges.
+  For covered USD positions it reports per-position market value and unrealized
+  P&L, covered market-value and cost subtotals, and a complete securities total.
+  Missing mappings, missing exact quotes, and non-USD quote currencies remain
+  explicit uncovered states; if any position is uncovered, the complete total
+  is unavailable rather than silently treating that position as zero.
 
 Anonymous browser tests verified balance updates and persistence after refresh.
 The latest reinvestment test confirmed that buying below the existing average
@@ -129,6 +138,15 @@ initial provider quote reloaded as `CACHE_FRESH`, then remained available as an
 explicit `CACHE_STALE` fallback when a simulated refresh failed. The test used
 only temporary anonymous data on port 5205 and removed its IndexedDB database,
 test files, browser tab, and local server afterward.
+Anonymous holdings-valuation fixtures verified two-position market value,
+per-position unrealized P&L, case-insensitive mapping, exact exchange matching,
+missing identifiers, missing quotes, unsupported quote currency, empty
+portfolios, invalid inputs, duplicate mappings, and non-mutation of position
+cost data. A separate browser check on temporary port 5213 produced USD 100.00
+market value and USD 20.00 unrealized P&L for a fully covered anonymous holding.
+Adding an uncovered position preserved the USD 100.00 covered subtotal but made
+the complete total unavailable. The same result remained after a full refresh;
+the temporary tab, server, and test files were removed afterward.
 
 ## Key ledger behavior
 
@@ -224,16 +242,15 @@ For each small feature:
 
 ## Next task
 
-Add a provider-neutral, read-only holdings valuation calculation that combines
-open positions with resolved security quotes and reports per-position market
-value, total securities value, and uncovered positions. Missing quotes must
-remain explicit and must not be treated as zero; market quotes must never change
-ledger quantities, moving-average cost, realized P&L, or trading fees. Before
-connecting a live provider or UI, define how existing symbol-only ledger
-positions receive the exchange, quote currency, and asset-type identifiers
-required for unambiguous quote requests, and verify the calculation with
-anonymous fixtures. Then connect that layer to total portfolio value (cash plus
-stocks) before entering the separate information-architecture phase. Provider
-TTL remains configurable, API keys remain runtime-only, and no key may enter
-source, ledger backups, logs, or GitHub. A focused manual ledger review and local
-JSON backup remain required before substantial real history.
+Add a small, versioned local security-profile registry that persists the manual
+mapping from each existing normalized position symbol to its provider-neutral
+`SecurityIdentifier` (symbol, exchange, USD quote currency, and stock/ETF type).
+Keep this metadata separate from immutable transaction facts, preserve existing
+schema-v1 ledger backups during migration, reject ambiguous duplicate mappings,
+and verify anonymous persistence after refresh. Do not connect a live provider
+or require a personal API key in this storage step. After profiles exist, connect
+the cached quote service to holdings valuation, then calculate total portfolio
+value (cash plus stocks) before entering the separate information-architecture
+phase. API keys remain runtime-only and no key may enter source, ledger backups,
+logs, or GitHub. A focused manual ledger review and local JSON backup remain
+required before substantial real history.
