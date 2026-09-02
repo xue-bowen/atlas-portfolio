@@ -4,7 +4,7 @@
 
 Latest stable feature checkpoint before this documentation update:
 
-`012dd6f feat: add read-only holdings valuation`
+`53cb03c feat: persist security profiles`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -110,6 +110,17 @@ browser-local and is never committed to GitHub.
   Missing mappings, missing exact quotes, and non-USD quote currencies remain
   explicit uncovered states; if any position is uncovered, the complete total
   is unavailable rather than silently treating that position as zero.
+- Versioned local security-profile registry, stored separately from immutable
+  ledger events. It normalizes position symbols, provider symbols, and exchanges;
+  currently accepts USD-quoted stock and ETF identifiers; rejects duplicate
+  position mappings and duplicate canonical identifiers; and reports invalid
+  stored data instead of treating it as valid. Starting an empty personal ledger
+  also clears old profiles so metadata from another ledger cannot leak across.
+- Portfolio JSON backup schema v2 now includes both ledger events and security
+  profiles. Import remains compatible with the original raw ledger array and
+  schema-v1 Atlas backups; formats without profiles import an empty registry so
+  unrelated local mappings are not silently retained. API keys and market cache
+  data are not included in the backup.
 
 Anonymous browser tests verified balance updates and persistence after refresh.
 The latest reinvestment test confirmed that buying below the existing average
@@ -147,6 +158,14 @@ market value and USD 20.00 unrealized P&L for a fully covered anonymous holding.
 Adding an uncovered position preserved the USD 100.00 covered subtotal but made
 the complete total unavailable. The same result remained after a full refresh;
 the temporary tab, server, and test files were removed afterward.
+Anonymous security-profile fixtures verified normalization without input
+mutation, schema-v2 backup round trips, schema-v1 and raw-array compatibility,
+duplicate position and identifier rejection, non-USD rejection, and malformed
+v2 failure. An isolated browser check on temporary port 5214 saved one anonymous
+profile, confirmed it in a schema-v2 backup, reloaded it on a new page and after
+a full refresh, then cleared the registry and confirmed the empty state. The
+test page reported no browser warnings or errors; its tab, server, files, and
+anonymous local data were removed afterward.
 
 ## Key ledger behavior
 
@@ -242,15 +261,16 @@ For each small feature:
 
 ## Next task
 
-Add a small, versioned local security-profile registry that persists the manual
-mapping from each existing normalized position symbol to its provider-neutral
-`SecurityIdentifier` (symbol, exchange, USD quote currency, and stock/ETF type).
-Keep this metadata separate from immutable transaction facts, preserve existing
-schema-v1 ledger backups during migration, reject ambiguous duplicate mappings,
-and verify anonymous persistence after refresh. Do not connect a live provider
-or require a personal API key in this storage step. After profiles exist, connect
-the cached quote service to holdings valuation, then calculate total portfolio
-value (cash plus stocks) before entering the separate information-architecture
-phase. API keys remain runtime-only and no key may enter source, ledger backups,
-logs, or GitHub. A focused manual ledger review and local JSON backup remain
-required before substantial real history.
+Add a minimal personal-ledger security-profile editor for open positions. The
+user selects an existing position, confirms or enters the provider symbol and
+exchange, selects stock or ETF, and saves a USD-quoted profile to the new local
+registry; the page must show mapped and unmapped positions clearly. Profile
+changes are metadata updates, not ledger events, and must not alter transaction
+history, quantities, costs, cash, or realized P&L. Verify anonymous save and
+refresh behavior plus schema-v2 backup restoration on an isolated port. Do not
+connect a live provider or require an API key in this form step. After mappings
+are user-manageable, connect the cached quote service to holdings valuation,
+then calculate total portfolio value (cash plus stocks) before entering the
+separate information-architecture phase. API keys remain runtime-only and no
+key may enter source, ledger backups, logs, or GitHub. A focused manual ledger
+review and local JSON backup remain required before substantial real history.
