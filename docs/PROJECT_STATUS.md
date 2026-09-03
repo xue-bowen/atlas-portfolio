@@ -31,6 +31,12 @@ browser-local and is never committed to GitHub.
   lot selection to sales.
 - Personal records are browser-local only. Never commit real transactions,
   account details, exports, backups, or secrets.
+- When a payment-reward platform directly grants shares without first crediting
+  cash, record an `IN_KIND_CONTRIBUTION` with source `CASHBACK_REWARD`. It adds
+  quantity and acquisition cost but no CNY, USD, or HKD cash; its entry value is
+  an external non-cash contribution rather than investment P&L. A platform flow
+  that actually credits reward cash before investing remains two separate cash
+  income and buy events.
 - Do not use `git add .`; explicitly list every staged file.
 
 ## Implemented and verified
@@ -274,3 +280,8 @@ then calculate total portfolio value (cash plus stocks) before entering the
 separate information-architecture phase. API keys remain runtime-only and no
 key may enter source, ledger backups, logs, or GitHub. A focused manual ledger
 review and local JSON backup remain required before substantial real history.
+
+The direct-share cashback event is specified in the development plan but is
+queued until the current security-profile and basic market-valuation chain is
+complete. It must be implemented before portfolio return metrics so its external
+non-cash contribution is not misclassified as investment performance.
