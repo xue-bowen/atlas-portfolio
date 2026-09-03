@@ -279,6 +279,22 @@ export default function App() {
   const reinvestmentShares =
     netDividendUsd / Number(dividendReinvestmentPriceUsd);
 
+  function persistLedgerChanges(events: LedgerEvent[]): boolean {
+    try {
+      const orderedEvents = saveLedger(events);
+
+      setLedger(orderedEvents);
+      return true;
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? `Could not save the transaction: ${error.message}`
+          : "Could not save the transaction in chronological order.",
+      );
+      return false;
+    }
+  }
+
   function startEmptyPersonalLedger() {
     const confirmed = window.confirm(
       "This will replace the local demo/test ledger with an empty personal ledger. Continue?",
@@ -313,9 +329,9 @@ export default function App() {
       note: "Manual CNY deposit",
     };
 
-    const nextLedger = [...ledger, deposit];
-    setLedger(nextLedger);
-    saveLedger(nextLedger);
+    if (!persistLedgerChanges([...ledger, deposit])) {
+      return;
+    }
     setDepositAmount("");
     setMessage("Deposit saved locally in this browser.");
   }
@@ -344,9 +360,9 @@ export default function App() {
       note: "Manual CNY withdrawal",
     };
 
-    const nextLedger = [...ledger, withdrawal];
-    setLedger(nextLedger);
-    saveLedger(nextLedger);
+    if (!persistLedgerChanges([...ledger, withdrawal])) {
+      return;
+    }
     setWithdrawalAmount("");
     setMessage("CNY withdrawal saved locally in this browser.");
   }
@@ -383,9 +399,9 @@ export default function App() {
       note: "Manual CNY to USD conversion",
     };
 
-    const nextLedger = [...ledger, fxConversion];
-    setLedger(nextLedger);
-    saveLedger(nextLedger);
+    if (!persistLedgerChanges([...ledger, fxConversion])) {
+      return;
+    }
     setFxAmountCny("");
     setFxAmountUsd("");
     setMessage("FX conversion saved locally in this browser.");
@@ -434,9 +450,9 @@ export default function App() {
       note: "Manual security purchase",
     };
 
-    const nextLedger = [...ledger, buy];
-    setLedger(nextLedger);
-    saveLedger(nextLedger);
+    if (!persistLedgerChanges([...ledger, buy])) {
+      return;
+    }
     setBuySymbol("");
     setBuyQuantity("");
     setBuyPriceUsd("");
@@ -489,9 +505,9 @@ export default function App() {
       note: "Manual security sale",
     };
 
-    const nextLedger = [...ledger, sell];
-    setLedger(nextLedger);
-    saveLedger(nextLedger);
+    if (!persistLedgerChanges([...ledger, sell])) {
+      return;
+    }
     setSellSymbol("");
     setSellQuantity("");
     setSellPriceUsd("");
@@ -566,9 +582,9 @@ export default function App() {
           },
         ]
       : [];
-    const nextLedger = [...ledger, dividend, ...reinvestment];
-    setLedger(nextLedger);
-    saveLedger(nextLedger);
+    if (!persistLedgerChanges([...ledger, dividend, ...reinvestment])) {
+      return;
+    }
     setDividendSymbol("");
     setDividendGrossAmountUsd("");
     setDividendWithholdingTaxUsd("0");
@@ -600,9 +616,9 @@ export default function App() {
       note: "Manual interest payment received after tax",
     };
 
-    const nextLedger = [...ledger, interest];
-    setLedger(nextLedger);
-    saveLedger(nextLedger);
+    if (!persistLedgerChanges([...ledger, interest])) {
+      return;
+    }
     setInterestAmount("");
     setMessage(
       `${interestCurrency} interest saved locally as an after-tax amount.`,
@@ -637,9 +653,9 @@ export default function App() {
           : "Manual other USD expense",
     };
 
-    const nextLedger = [...ledger, expense];
-    setLedger(nextLedger);
-    saveLedger(nextLedger);
+    if (!persistLedgerChanges([...ledger, expense])) {
+      return;
+    }
     setExpenseAmountUsd("");
     setMessage(
       expenseCategory === "ADR_FEE"
@@ -688,13 +704,13 @@ export default function App() {
     try {
       const importedBackup = parsePortfolioBackup(await backupFile.text());
 
-      savePersonalLedger(importedBackup.ledger);
+      const importedLedger = savePersonalLedger(importedBackup.ledger);
       if (importedBackup.securityProfiles.length > 0) {
         saveSecurityProfiles(importedBackup.securityProfiles);
       } else {
         clearSecurityProfiles();
       }
-      setLedger(importedBackup.ledger);
+      setLedger(importedLedger);
       setIsPersonalLedger(true);
       setMessage(
         `Imported ${importedBackup.ledger.length} ledger event(s) and ${importedBackup.securityProfiles.length} security profile(s).`,

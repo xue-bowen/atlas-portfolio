@@ -1,4 +1,5 @@
 import type { LedgerEvent } from "./ledger";
+import { sortLedgerEventsChronologically } from "./sortLedgerEvents";
 
 export interface UsdCashTransaction {
   id: string;
@@ -86,8 +87,7 @@ export function calculateUsdCashHistory(
 ): UsdCashTransaction[] {
   let balanceUsd = 0;
 
-  return [...events]
-    .sort((a, b) => a.occurredAt.localeCompare(b.occurredAt))
+  return sortLedgerEventsChronologically(events)
     .flatMap((event) => {
       const movement = getUsdCashMovement(event);
 

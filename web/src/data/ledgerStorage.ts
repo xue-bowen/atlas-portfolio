@@ -1,6 +1,8 @@
 import { sampleLedger } from "./sampleLedger";
+import { calculateBalances } from "../domain/calculateBalances";
 import type { LedgerEvent } from "../domain/ledger";
 import type { PositionSecurityMapping } from "../domain/calculateHoldingsValuation";
+import { sortLedgerEventsChronologically } from "../domain/sortLedgerEvents";
 import { parseSecurityProfiles } from "./securityProfileStorage";
 
 const STORAGE_KEY = "atlas-portfolio-ledger";
@@ -145,17 +147,21 @@ export function loadLedger(): LedgerEvent[] {
     const parsedLedger: unknown = JSON.parse(storedLedger);
 
     if (Array.isArray(parsedLedger)) {
-      return parsedLedger as LedgerEvent[];
+      return sortLedgerEventsChronologically(parsedLedger as LedgerEvent[]);
     }
   } catch {
     // 如果本地保存的数据损坏，则安全地回退到匿名示例账本。
   }
 
-  return sampleLedger;
+  return sortLedgerEventsChronologically(sampleLedger);
 }
 
-export function saveLedger(events: LedgerEvent[]): void {
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
+export function saveLedger(events: LedgerEvent[]): LedgerEvent[] {
+  const orderedEvents = sortLedgerEventsChronologically(events);
+
+  calculateBalances(orderedEvents);
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(orderedEvents));
+  return orderedEvents;
 }
 
 export function serializePortfolioBackup(
@@ -166,7 +172,7 @@ export function serializePortfolioBackup(
     app: BACKUP_APP_NAME,
     schemaVersion: BACKUP_SCHEMA_VERSION,
     exportedAt: new Date().toISOString(),
-    ledger: events,
+    ledger: sortLedgerEventsChronologically(events),
     securityProfiles: parseSecurityProfiles(securityProfiles),
   };
 
@@ -181,24 +187,27 @@ export function parsePortfolioBackup(backupText: string): PortfolioBackupData {
     throw new Error("Invalid Atlas Portfolio backup.");
   }
 
-  return backup;
+  return {
+    ...backup,
+    ledger: sortLedgerEventsChronologically(backup.ledger),
+  };
 }
 
 export function hasInitializedPersonalLedger(): boolean {
   return window.localStorage.getItem(PERSONAL_LEDGER_KEY) === "true";
 }
 
-export function savePersonalLedger(events: LedgerEvent[]): void {
-  saveLedger(events);
+export function savePersonalLedger(events: LedgerEvent[]): LedgerEvent[] {
+  const orderedEvents = saveLedger(events);
+
   window.localStorage.setItem(PERSONAL_LEDGER_KEY, "true");
+  return orderedEvents;
 }
 
 export function initializeEmptyPersonalLedger(): LedgerEvent[] {
   const emptyLedger: LedgerEvent[] = [];
 
-  savePersonalLedger(emptyLedger);
-
-  return emptyLedger;
+  return savePersonalLedger(emptyLedger);
 }
 
 export function resetLedger(): void {

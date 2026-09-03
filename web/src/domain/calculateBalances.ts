@@ -1,4 +1,5 @@
 import type { LedgerEvent } from "./ledger";
+import { sortLedgerEventsChronologically } from "./sortLedgerEvents";
 
 export interface PositionBalance {
   symbol: string;
@@ -26,9 +27,7 @@ export function calculateBalances(
 
   const positions = new Map<string, PositionBalance>();
 
-  const orderedEvents = [...events].sort((a, b) =>
-    a.occurredAt.localeCompare(b.occurredAt),
-  );
+  const orderedEvents = sortLedgerEventsChronologically(events);
 
   for (const event of orderedEvents) {
     switch (event.type) {
