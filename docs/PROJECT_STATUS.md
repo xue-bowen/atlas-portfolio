@@ -4,7 +4,7 @@
 
 Latest stable feature checkpoint before this documentation update:
 
-`53cb03c feat: persist security profiles`
+`4a821dc feat: sort ledger entries chronologically`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -12,7 +12,7 @@ Windows local path:
 
 `C:\Users\28301\atlas-portfolio`
 
-Last updated: 2026-09-02
+Last updated: 2026-09-03
 
 The working tree was clean after the latest commit. Personal ledger data is
 browser-local and is never committed to GitHub.
@@ -127,6 +127,12 @@ browser-local and is never committed to GitHub.
   schema-v1 Atlas backups; formats without profiles import an empty registry so
   unrelated local mappings are not silently retained. API keys and market cache
   data are not included in the backup.
+- Stable chronological ledger ordering across manual saves, local loads,
+  imports, exports, balance calculations, USD cash history, and page display.
+  Events sort by date ascending while same-day events retain their original
+  order. Every manual entry is reordered and fully recalculated before storage;
+  an invalid backdated sequence such as a sale before sufficient holdings is
+  rejected without overwriting the valid local ledger.
 
 Anonymous browser tests verified balance updates and persistence after refresh.
 The latest reinvestment test confirmed that buying below the existing average
@@ -172,6 +178,14 @@ profile, confirmed it in a schema-v2 backup, reloaded it on a new page and after
 a full refresh, then cleared the registry and confirmed the empty state. The
 test page reported no browser warnings or errors; its tab, server, files, and
 anonymous local data were removed afterward.
+Anonymous ledger-ordering fixtures verified ascending dates, stable same-day
+order, non-mutation of input arrays, matching balance and USD cash-history
+ordering, and sorted schema-v2 imports. An isolated browser check on temporary
+port 5216 saved deliberately unordered anonymous entries, reloaded the same
+ascending order after a full refresh, and confirmed that an invalid backdated
+sale was rejected while the previously saved ledger remained unchanged. The
+test reported no browser warnings or errors; its local data, tab, server, and
+temporary files were removed afterward.
 
 ## Key ledger behavior
 
