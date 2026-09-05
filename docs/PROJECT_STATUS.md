@@ -4,7 +4,7 @@
 
 Latest stable feature checkpoint before this documentation update:
 
-`4a821dc feat: sort ledger entries chronologically`
+`2de70e3 feat: add security profile editor`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -12,7 +12,7 @@ Windows local path:
 
 `C:\Users\28301\atlas-portfolio`
 
-Last updated: 2026-09-03
+Last updated: 2026-09-05
 
 The working tree was clean after the latest commit. Personal ledger data is
 browser-local and is never committed to GitHub.
@@ -122,6 +122,12 @@ browser-local and is never committed to GitHub.
   position mappings and duplicate canonical identifiers; and reports invalid
   stored data instead of treating it as valid. Starting an empty personal ledger
   also clears old profiles so metadata from another ledger cannot leak across.
+- Personal-ledger security-profile editor for open positions. It shows mapped
+  and unmapped holdings, pre-fills the existing provider symbol, exchange, and
+  stock/ETF type when editing, fixes quote currency to USD, and saves metadata
+  to the separate local registry without adding a ledger event or changing cash,
+  quantity, cost, realized P&L, or fees. Backup imports update the visible
+  registry immediately as well as local storage.
 - Portfolio JSON backup schema v2 now includes both ledger events and security
   profiles. Import remains compatible with the original raw ledger array and
   schema-v1 Atlas backups; formats without profiles import an empty registry so
@@ -186,6 +192,14 @@ ascending order after a full refresh, and confirmed that an invalid backdated
 sale was rejected while the previously saved ledger remained unchanged. The
 test reported no browser warnings or errors; its local data, tab, server, and
 temporary files were removed afterward.
+An isolated security-profile editor check on temporary port 5217 began with
+unmapped VOO and GOOGL holdings. Saving VOO as a USD-quoted NYSE ARCA ETF
+survived a full refresh while USD cash remained 998.00, both position costs
+remained 201.00, and the ledger remained four events. Importing a schema-v2
+anonymous backup immediately replaced the visible mapping with ANON on TEST
+EXCHANGE, and the three-event ledger, USD 750.00 cash, and mapping all remained
+after refresh. The temporary local data, browser tab, server, setup page, and
+backup file were removed afterward.
 
 ## Key ledger behavior
 
@@ -281,19 +295,18 @@ For each small feature:
 
 ## Next task
 
-Add a minimal personal-ledger security-profile editor for open positions. The
-user selects an existing position, confirms or enters the provider symbol and
-exchange, selects stock or ETF, and saves a USD-quoted profile to the new local
-registry; the page must show mapped and unmapped positions clearly. Profile
-changes are metadata updates, not ledger events, and must not alter transaction
-history, quantities, costs, cash, or realized P&L. Verify anonymous save and
-refresh behavior plus schema-v2 backup restoration on an isolated port. Do not
-connect a live provider or require an API key in this form step. After mappings
-are user-manageable, connect the cached quote service to holdings valuation,
-then calculate total portfolio value (cash plus stocks) before entering the
-separate information-architecture phase. API keys remain runtime-only and no
-key may enter source, ledger backups, logs, or GitHub. A focused manual ledger
-review and local JSON backup remain required before substantial real history.
+Connect saved security profiles to the cache-aware security quote service and
+the existing holdings-valuation calculation. The first UI slice must request
+quotes only for mapped open positions, display per-position quote status,
+market value, and unrealized P&L, retain explicit missing/stale/error states,
+and avoid treating uncovered holdings as zero. It must not alter ledger events,
+cash, quantity, or moving-average cost. Use an anonymous provider fixture for
+deterministic browser verification before deciding how runtime-only provider
+configuration enters Settings. After securities valuation is visible, calculate
+total portfolio value (cash plus stocks) before entering the separate
+information-architecture phase. API keys remain runtime-only and no key may
+enter source, ledger backups, logs, or GitHub. A focused manual ledger review
+and local JSON backup remain required before substantial real history.
 
 The direct-share cashback event is specified in the development plan but is
 queued until the current security-profile and basic market-valuation chain is
