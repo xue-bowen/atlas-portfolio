@@ -4,7 +4,7 @@
 
 Latest stable feature checkpoint before this documentation update:
 
-`2de70e3 feat: add security profile editor`
+`1190b60 feat: display cached holdings valuation`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -128,6 +128,14 @@ browser-local and is never committed to GitHub.
   to the separate local registry without adding a ledger event or changing cash,
   quantity, cost, realized P&L, or fees. Backup imports update the visible
   registry immediately as well as local storage.
+- Read-only holdings valuation panel connected to saved security profiles, the
+  cache-aware quote service, IndexedDB market cache, and the existing valuation
+  calculation. Only mapped open positions trigger quote lookups. The table shows
+  shares, average cost, cached quote date, market value, unrealized USD P&L, and
+  fresh/stale/refresh-failure status. Coverage and covered market value remain
+  explicit, while total securities value stays unavailable whenever any holding
+  lacks a profile or quote. A cache-only provider keeps this slice usable with
+  prior data without embedding a key or pretending that live data is configured.
 - Portfolio JSON backup schema v2 now includes both ledger events and security
   profiles. Import remains compatible with the original raw ledger array and
   schema-v1 Atlas backups; formats without profiles import an empty registry so
@@ -200,6 +208,15 @@ anonymous backup immediately replaced the visible mapping with ANON on TEST
 EXCHANGE, and the three-event ledger, USD 750.00 cash, and mapping all remained
 after refresh. The temporary local data, browser tab, server, setup page, and
 backup file were removed afterward.
+An isolated holdings-valuation UI check on temporary port 5219 used two VOO
+shares at USD 201.00 total cost, one unmapped GOOGL share, and an anonymous
+cached VOO quote of USD 125.00. The page displayed USD 250.00 covered market
+value and USD 49.00 unrealized P&L, reported 1/2 quote coverage, and kept total
+securities value unavailable because GOOGL was uncovered. A forced refresh
+retained the cache with an explicit refresh-unavailable status; a full page
+refresh preserved the same valuation, USD 998.00 cash, and four ledger events.
+The temporary local data, IndexedDB records, browser tab, server, and test files
+were removed afterward.
 
 ## Key ledger behavior
 
@@ -295,18 +312,16 @@ For each small feature:
 
 ## Next task
 
-Connect saved security profiles to the cache-aware security quote service and
-the existing holdings-valuation calculation. The first UI slice must request
-quotes only for mapped open positions, display per-position quote status,
-market value, and unrealized P&L, retain explicit missing/stale/error states,
-and avoid treating uncovered holdings as zero. It must not alter ledger events,
-cash, quantity, or moving-average cost. Use an anonymous provider fixture for
-deterministic browser verification before deciding how runtime-only provider
-configuration enters Settings. After securities valuation is visible, calculate
-total portfolio value (cash plus stocks) before entering the separate
-information-architecture phase. API keys remain runtime-only and no key may
-enter source, ledger backups, logs, or GitHub. A focused manual ledger review
-and local JSON backup remain required before substantial real history.
+Add runtime-only local configuration for the existing Twelve Data EOD adapter
+and switch holdings refresh from cache-only mode to the configured provider when
+a key is present. The key must never enter source, ledger events, JSON backups,
+logs, URLs, or GitHub; an absent key must keep the current explicit cache-only
+behavior. Show provider errors without discarding cached values and test with a
+fake key plus anonymous response fixture before any optional live personal-key
+check. After the free-provider path is user-configurable, calculate total
+portfolio value (cash plus stocks, with explicit FX and coverage state) before
+entering the separate information-architecture phase. A focused manual ledger
+review and local JSON backup remain required before substantial real history.
 
 The direct-share cashback event is specified in the development plan but is
 queued until the current security-profile and basic market-valuation chain is
