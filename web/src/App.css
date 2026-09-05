@@ -368,6 +368,57 @@
   color: #b42318;
 }
 
+.holdings-valuation-panel {
+  margin: 32px 0;
+  padding: 24px;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.holdings-valuation-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.holdings-valuation-heading button {
+  flex: 0 0 auto;
+}
+
+.holdings-valuation-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 20px 0;
+}
+
+.holdings-valuation-summary > div {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.holdings-valuation-summary dt {
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.holdings-valuation-summary dd {
+  margin: 8px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.holdings-valuation-table-wrap {
+  overflow-x: auto;
+}
+
+.holdings-valuation-table-wrap table {
+  min-width: 920px;
+}
+
 @media (max-width: 720px) {
   .cash-valuation-grid {
     grid-template-columns: 1fr;
@@ -388,6 +439,14 @@
 
   .security-profile-form,
   .security-profile-list li {
+    grid-template-columns: 1fr;
+  }
+
+  .holdings-valuation-heading {
+    flex-direction: column;
+  }
+
+  .holdings-valuation-summary {
     grid-template-columns: 1fr;
   }
 }

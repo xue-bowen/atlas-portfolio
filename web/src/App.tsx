@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useRef,
   useState,
   type ChangeEvent,
   type FormEvent,
@@ -11,6 +12,10 @@ import {
   type FxRateResolution,
 } from "./data/cachedFxRateService";
 import {
+  CachedSecurityQuoteService,
+  type SecurityQuoteResolution,
+} from "./data/cachedSecurityQuoteService";
+import {
   hasInitializedPersonalLedger,
   initializeEmptyPersonalLedger,
   loadLedger,
@@ -20,6 +25,7 @@ import {
   serializePortfolioBackup,
 } from "./data/ledgerStorage";
 import { IndexedDbMarketDataCache } from "./data/marketDataCache";
+import { CacheOnlySecurityQuoteProvider } from "./data/providers/cacheOnlySecurityQuoteProvider";
 import { FrankfurterFxProvider } from "./data/providers/frankfurterFxProvider";
 import {
   clearSecurityProfiles,
@@ -29,7 +35,10 @@ import {
 import { calculateBalances } from "./domain/calculateBalances";
 import { calculateCashValuation } from "./domain/calculateCashValuation";
 import { calculateUsdCashHistory } from "./domain/calculateUsdCashHistory";
-import type { PositionSecurityMapping } from "./domain/calculateHoldingsValuation";
+import {
+  calculateHoldingsValuation,
+  type PositionSecurityMapping,
+} from "./domain/calculateHoldingsValuation";
 import type { Currency, LedgerEvent } from "./domain/ledger";
 import type { FxRateRequest, MarketDataAssetType } from "./domain/marketData";
 
@@ -83,9 +92,21 @@ const valuationFxService = new CachedFxRateService(
   new FrankfurterFxProvider(),
 );
 
+const holdingsQuoteService = new CachedSecurityQuoteService(
+  new IndexedDbMarketDataCache(),
+  new CacheOnlySecurityQuoteProvider(),
+);
+
 type ValuationFxRates = Partial<Record<ValuationFxKey, FxRateResolution>>;
 
 type ExpenseCategory = "ADR_FEE" | "OTHER";
+
+type PositionQuoteState =
+  | { status: "LOADING" }
+  | { status: "RESOLVED"; resolution: SecurityQuoteResolution }
+  | { status: "ERROR"; error: string };
+
+type PositionQuoteStates = Record<string, PositionQuoteState>;
 
 function describeFxStatus(resolution: FxRateResolution): string {
   const baseStatus =
@@ -97,6 +118,21 @@ function describeFxStatus(resolution: FxRateResolution): string {
 
   return resolution.refreshError
     ? `${baseStatus} · refresh failed`
+    : baseStatus;
+}
+
+function describeSecurityQuoteStatus(
+  resolution: SecurityQuoteResolution,
+): string {
+  const baseStatus =
+    resolution.status === "PROVIDER_FRESH"
+      ? "Fresh from provider"
+      : resolution.status === "CACHE_FRESH"
+        ? "Fresh cache"
+        : "Stale cache";
+
+  return resolution.refreshError
+    ? `${baseStatus} · refresh unavailable`
     : baseStatus;
 }
 
@@ -205,6 +241,9 @@ export default function App() {
   const [profileExchange, setProfileExchange] = useState("");
   const [profileAssetType, setProfileAssetType] =
     useState<MarketDataAssetType>("STOCK");
+  const [positionQuoteStates, setPositionQuoteStates] =
+    useState<PositionQuoteStates>({});
+  const holdingsQuoteRequestId = useRef(0);
   const [valuationFxRates, setValuationFxRates] =
     useState<ValuationFxRates>({});
   const [isValuationFxLoading, setIsValuationFxLoading] = useState(false);
@@ -267,6 +306,18 @@ export default function App() {
   }, [refreshValuationFxRates]);
 
   const balances = calculateBalances(ledger);
+  const securityProfiles = securityProfileRegistry.profiles;
+  const resolvedSecurityQuotes = Object.values(positionQuoteStates)
+    .filter(
+      (state): state is Extract<PositionQuoteState, { status: "RESOLVED" }> =>
+        state.status === "RESOLVED",
+    )
+    .map((state) => state.resolution.quote);
+  const holdingsValuation = calculateHoldingsValuation(
+    balances.positions,
+    securityProfiles,
+    resolvedSecurityQuotes,
+  );
   const cashValuation = calculateCashValuation({
     cnyCash: balances.cnyCash,
     hkdCash: balances.hkdCash,
@@ -287,7 +338,76 @@ export default function App() {
     Number(dividendGrossAmountUsd) - Number(dividendWithholdingTaxUsd);
   const reinvestmentShares =
     netDividendUsd / Number(dividendReinvestmentPriceUsd);
-  const securityProfiles = securityProfileRegistry.profiles;
+
+  const refreshHoldingsQuotes = useCallback(
+    async (forceRefresh: boolean) => {
+      const requestId = holdingsQuoteRequestId.current + 1;
+      holdingsQuoteRequestId.current = requestId;
+
+      const openPositionSymbols = new Set(
+        calculateBalances(ledger).positions.map((position) =>
+          position.symbol.toUpperCase(),
+        ),
+      );
+      const mappedOpenPositions = securityProfileRegistry.profiles.filter(
+        (profile) => openPositionSymbols.has(profile.positionSymbol),
+      );
+      const loadingStates = Object.fromEntries(
+        mappedOpenPositions.map((profile) => [
+          profile.positionSymbol,
+          { status: "LOADING" as const },
+        ]),
+      );
+
+      setPositionQuoteStates(loadingStates);
+
+      const results = await Promise.all(
+        mappedOpenPositions.map(async (profile) => {
+          try {
+            const resolution = await holdingsQuoteService.getSecurityQuote(
+              { security: profile.security },
+              { forceRefresh },
+            );
+
+            return {
+              positionSymbol: profile.positionSymbol,
+              state: { status: "RESOLVED" as const, resolution },
+            };
+          } catch (error) {
+            return {
+              positionSymbol: profile.positionSymbol,
+              state: {
+                status: "ERROR" as const,
+                error:
+                  error instanceof Error
+                    ? error.message
+                    : "Unknown security quote error.",
+              },
+            };
+          }
+        }),
+      );
+
+      if (holdingsQuoteRequestId.current !== requestId) {
+        return;
+      }
+
+      setPositionQuoteStates(
+        Object.fromEntries(
+          results.map((result) => [result.positionSymbol, result.state]),
+        ),
+      );
+    },
+    [ledger, securityProfileRegistry.profiles],
+  );
+
+  useEffect(() => {
+    const refreshTimer = window.setTimeout(() => {
+      void refreshHoldingsQuotes(false);
+    }, 0);
+
+    return () => window.clearTimeout(refreshTimer);
+  }, [refreshHoldingsQuotes]);
 
   function resetSecurityProfileForm() {
     setProfilePositionSymbol("");
@@ -1626,20 +1746,115 @@ export default function App() {
         </section>
       )}
 
-      <h2>Open positions</h2>
-      {balances.positions.length === 0 ? (
-        <p>No open positions.</p>
-      ) : (
-        <ul>
-          {balances.positions.map((position) => (
-            <li key={position.symbol}>
-              {position.symbol}: {position.quantity} shares · cost{" "}
-              {usd.format(position.costUsd)} · average cost{" "}
-              {usd.format(position.costUsd / position.quantity)} per share
-            </li>
-          ))}
-        </ul>
-      )}
+      <section className="holdings-valuation-panel">
+        <div className="holdings-valuation-heading">
+          <div>
+            <h2>Open positions</h2>
+            <p>
+              Read-only valuation from mapped security profiles and locally
+              cached quotes. Missing holdings are never valued at zero.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void refreshHoldingsQuotes(true)}
+            disabled={Object.values(positionQuoteStates).some(
+              (state) => state.status === "LOADING",
+            )}
+          >
+            Refresh security quotes
+          </button>
+        </div>
+
+        {balances.positions.length === 0 ? (
+          <p>No open positions.</p>
+        ) : (
+          <>
+            <dl className="holdings-valuation-summary">
+              <div>
+                <dt>Quote coverage</dt>
+                <dd>
+                  {holdingsValuation.coveredPositionCount} /{" "}
+                  {holdingsValuation.totalPositionCount} positions
+                </dd>
+              </div>
+              <div>
+                <dt>Covered market value</dt>
+                <dd>{usd.format(holdingsValuation.coveredMarketValueUsd)}</dd>
+              </div>
+              <div>
+                <dt>Total securities value</dt>
+                <dd>
+                  {holdingsValuation.totalMarketValueUsd === undefined
+                    ? "Unavailable until all positions are covered"
+                    : usd.format(holdingsValuation.totalMarketValueUsd)}
+                </dd>
+              </div>
+            </dl>
+
+            <div className="holdings-valuation-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Symbol</th>
+                    <th>Shares</th>
+                    <th>Average cost</th>
+                    <th>Last quote</th>
+                    <th>Market value</th>
+                    <th>Unrealized P&amp;L</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {holdingsValuation.positions.map((position) => {
+                    const quoteState = positionQuoteStates[position.symbol];
+                    const statusText =
+                      position.status === "MISSING_SECURITY_IDENTIFIER"
+                        ? "Security profile required"
+                        : quoteState?.status === "LOADING"
+                          ? "Loading quote…"
+                          : quoteState?.status === "ERROR"
+                            ? quoteState.error
+                            : position.status === "VALUED" &&
+                                quoteState?.status === "RESOLVED"
+                              ? describeSecurityQuoteStatus(
+                                  quoteState.resolution,
+                                )
+                              : "Quote unavailable";
+
+                    return (
+                      <tr
+                        key={position.symbol}
+                        data-testid={`holding-valuation-${position.symbol}`}
+                      >
+                        <td>{position.symbol}</td>
+                        <td>{position.quantity}</td>
+                        <td>{usd.format(position.averageCostUsd)}</td>
+                        <td>
+                          {position.status === "VALUED"
+                            ? `${usd.format(position.quote.price)} · ${position.quote.marketTimestamp.slice(0, 10)}`
+                            : "—"}
+                        </td>
+                        <td>
+                          {position.status === "VALUED"
+                            ? usd.format(position.marketValueUsd)
+                            : "—"}
+                        </td>
+                        <td>
+                          {position.status === "VALUED"
+                            ? usd.format(position.unrealizedPnlUsd)
+                            : "—"}
+                        </td>
+                        <td>{statusText}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </section>
 
       <h2>{isPersonalLedger ? "Personal ledger" : "Anonymous test ledger"}</h2>
       {ledger.length === 0 ? (
