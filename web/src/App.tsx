@@ -29,8 +29,9 @@ import {
 import { calculateBalances } from "./domain/calculateBalances";
 import { calculateCashValuation } from "./domain/calculateCashValuation";
 import { calculateUsdCashHistory } from "./domain/calculateUsdCashHistory";
+import type { PositionSecurityMapping } from "./domain/calculateHoldingsValuation";
 import type { Currency, LedgerEvent } from "./domain/ledger";
-import type { FxRateRequest } from "./domain/marketData";
+import type { FxRateRequest, MarketDataAssetType } from "./domain/marketData";
 
 const usd = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -196,6 +197,14 @@ export default function App() {
     useState<ExpenseCategory>("ADR_FEE");
   const [expenseAmountUsd, setExpenseAmountUsd] = useState("");
   const [message, setMessage] = useState("");
+  const [securityProfileRegistry, setSecurityProfileRegistry] = useState(
+    loadSecurityProfileRegistry,
+  );
+  const [profilePositionSymbol, setProfilePositionSymbol] = useState("");
+  const [profileProviderSymbol, setProfileProviderSymbol] = useState("");
+  const [profileExchange, setProfileExchange] = useState("");
+  const [profileAssetType, setProfileAssetType] =
+    useState<MarketDataAssetType>("STOCK");
   const [valuationFxRates, setValuationFxRates] =
     useState<ValuationFxRates>({});
   const [isValuationFxLoading, setIsValuationFxLoading] = useState(false);
@@ -278,6 +287,80 @@ export default function App() {
     Number(dividendGrossAmountUsd) - Number(dividendWithholdingTaxUsd);
   const reinvestmentShares =
     netDividendUsd / Number(dividendReinvestmentPriceUsd);
+  const securityProfiles = securityProfileRegistry.profiles;
+
+  function resetSecurityProfileForm() {
+    setProfilePositionSymbol("");
+    setProfileProviderSymbol("");
+    setProfileExchange("");
+    setProfileAssetType("STOCK");
+  }
+
+  function selectProfilePosition(positionSymbol: string) {
+    setProfilePositionSymbol(positionSymbol);
+
+    const existingProfile = securityProfiles.find(
+      (profile) => profile.positionSymbol === positionSymbol,
+    );
+
+    setProfileProviderSymbol(
+      existingProfile?.security.symbol ?? positionSymbol,
+    );
+    setProfileExchange(existingProfile?.security.exchange ?? "");
+    setProfileAssetType(existingProfile?.security.assetType ?? "STOCK");
+  }
+
+  function saveSecurityProfile(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const positionSymbol = profilePositionSymbol.trim().toUpperCase();
+    const providerSymbol = profileProviderSymbol.trim().toUpperCase();
+    const exchange = profileExchange.trim().toUpperCase();
+    const positionExists = balances.positions.some(
+      (position) => position.symbol.toUpperCase() === positionSymbol,
+    );
+
+    if (!positionExists || !providerSymbol || !exchange) {
+      setMessage(
+        "Choose an open position and enter its market-data symbol and exchange.",
+      );
+      return;
+    }
+
+    const profile: PositionSecurityMapping = {
+      positionSymbol,
+      security: {
+        symbol: providerSymbol,
+        exchange,
+        currency: "USD",
+        assetType: profileAssetType,
+      },
+    };
+    const nextProfiles = [
+      ...securityProfiles.filter(
+        (item) => item.positionSymbol !== positionSymbol,
+      ),
+      profile,
+    ];
+
+    try {
+      const savedProfiles = saveSecurityProfiles(nextProfiles);
+
+      setSecurityProfileRegistry({
+        status: "LOADED",
+        profiles: savedProfiles,
+      });
+      setMessage(
+        `Security profile for ${positionSymbol} saved locally in this browser.`,
+      );
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? `Could not save the security profile: ${error.message}`
+          : "Could not save the security profile.",
+      );
+    }
+  }
 
   function persistLedgerChanges(events: LedgerEvent[]): boolean {
     try {
@@ -305,6 +388,8 @@ export default function App() {
     }
 
     clearSecurityProfiles();
+    setSecurityProfileRegistry({ status: "EMPTY", profiles: [] });
+    resetSecurityProfileForm();
     setLedger(initializeEmptyPersonalLedger());
     setIsPersonalLedger(true);
     setMessage("Empty personal ledger initialized locally in this browser.");
@@ -706,10 +791,18 @@ export default function App() {
 
       const importedLedger = savePersonalLedger(importedBackup.ledger);
       if (importedBackup.securityProfiles.length > 0) {
-        saveSecurityProfiles(importedBackup.securityProfiles);
+        const importedProfiles = saveSecurityProfiles(
+          importedBackup.securityProfiles,
+        );
+        setSecurityProfileRegistry({
+          status: "LOADED",
+          profiles: importedProfiles,
+        });
       } else {
         clearSecurityProfiles();
+        setSecurityProfileRegistry({ status: "EMPTY", profiles: [] });
       }
+      resetSecurityProfileForm();
       setLedger(importedLedger);
       setIsPersonalLedger(true);
       setMessage(
@@ -1413,6 +1506,124 @@ export default function App() {
             ))}
           </tbody>
         </table>
+      )}
+
+      {isPersonalLedger && (
+        <section className="security-profile-panel">
+          <h2>Security profiles</h2>
+          <p>
+            Map each open position to the identifier used by a future market
+            data provider. This does not change transactions, cash, cost, or
+            holdings. Quote currency is currently fixed to USD.
+          </p>
+
+          {securityProfileRegistry.status === "INVALID" && (
+            <p className="security-profile-warning">
+              The saved security profiles could not be read: {" "}
+              {securityProfileRegistry.error} Saving a valid profile will
+              replace the invalid registry.
+            </p>
+          )}
+
+          {balances.positions.length === 0 ? (
+            <p>Add a security purchase before creating a profile.</p>
+          ) : (
+            <>
+              <ul className="security-profile-list">
+                {balances.positions.map((position) => {
+                  const profile = securityProfiles.find(
+                    (item) => item.positionSymbol === position.symbol,
+                  );
+
+                  return (
+                    <li
+                      key={position.symbol}
+                      data-testid={`security-profile-status-${position.symbol}`}
+                    >
+                      <strong>{position.symbol}</strong>
+                      <span>
+                        {profile
+                          ? `${profile.security.symbol} · ${profile.security.exchange} · ${profile.security.assetType} · USD`
+                          : "Not mapped"}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+
+              <form
+                className="security-profile-form"
+                onSubmit={saveSecurityProfile}
+              >
+                <label htmlFor="profile-position-symbol">
+                  Open position
+                  <select
+                    id="profile-position-symbol"
+                    value={profilePositionSymbol}
+                    onChange={(event) =>
+                      selectProfilePosition(event.target.value)
+                    }
+                    required
+                  >
+                    <option value="">Select a position</option>
+                    {balances.positions.map((position) => (
+                      <option key={position.symbol} value={position.symbol}>
+                        {position.symbol}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label htmlFor="profile-provider-symbol">
+                  Market-data symbol
+                  <input
+                    id="profile-provider-symbol"
+                    value={profileProviderSymbol}
+                    onChange={(event) =>
+                      setProfileProviderSymbol(event.target.value)
+                    }
+                    placeholder="e.g. VOO"
+                    required
+                  />
+                </label>
+
+                <label htmlFor="profile-exchange">
+                  Exchange
+                  <input
+                    id="profile-exchange"
+                    value={profileExchange}
+                    onChange={(event) => setProfileExchange(event.target.value)}
+                    placeholder="e.g. NYSE ARCA"
+                    required
+                  />
+                </label>
+
+                <label htmlFor="profile-asset-type">
+                  Asset type
+                  <select
+                    id="profile-asset-type"
+                    value={profileAssetType}
+                    onChange={(event) =>
+                      setProfileAssetType(
+                        event.target.value as MarketDataAssetType,
+                      )
+                    }
+                  >
+                    <option value="STOCK">Stock</option>
+                    <option value="ETF">ETF</option>
+                  </select>
+                </label>
+
+                <label htmlFor="profile-currency">
+                  Quote currency
+                  <input id="profile-currency" value="USD" readOnly />
+                </label>
+
+                <button type="submit">Save security profile</button>
+              </form>
+            </>
+          )}
+        </section>
       )}
 
       <h2>Open positions</h2>

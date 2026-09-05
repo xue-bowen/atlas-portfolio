@@ -312,6 +312,62 @@
   color: #b42318;
 }
 
+.security-profile-panel {
+  margin: 32px 0;
+  padding: 24px;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.security-profile-list {
+  margin: 20px 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--border);
+}
+
+.security-profile-list li {
+  display: grid;
+  grid-template-columns: minmax(100px, 0.35fr) minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.security-profile-list span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.security-profile-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.security-profile-form label {
+  display: grid;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.security-profile-form input,
+.security-profile-form select {
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.security-profile-form button {
+  align-self: end;
+}
+
+.security-profile-warning {
+  color: #b42318;
+}
+
 @media (max-width: 720px) {
   .cash-valuation-grid {
     grid-template-columns: 1fr;
@@ -328,6 +384,11 @@
   .valuation-fx-card dl div {
     grid-template-columns: 1fr;
     gap: 0;
+  }
+
+  .security-profile-form,
+  .security-profile-list li {
+    grid-template-columns: 1fr;
   }
 }
 
