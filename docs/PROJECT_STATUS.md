@@ -136,13 +136,19 @@ browser-local and is never committed to GitHub.
   explicit, while total securities value stays unavailable whenever any holding
   lacks a profile or quote. A cache-only provider keeps this slice usable with
   prior data without embedding a key or pretending that live data is configured.
-- Runtime-only Twelve Data EOD configuration in the holdings panel. A user can
-  enable or replace a key for the current page session, refresh all mapped open
-  positions through the existing cached service, or return to cache-only mode.
-  The password field is cleared immediately after activation and a full page
-  reload discards the in-memory key while retaining cached quotes. The key is
-  sent only in the authorization header and is never saved in localStorage,
-  IndexedDB values, ledger events, JSON backups, request URLs, logs, or source.
+- Runtime-only Twelve Data EOD configuration was implemented and verified, then
+  intentionally removed from the current UI when the prototype returned to a
+  no-paid-API, no-required-key direction. The provider-neutral adapter remains
+  dormant for possible later iteration; no Twelve Data key field is currently
+  shown and no personal configuration is stored.
+- Automatic no-key US daily closing-price source using Eastmoney's public JSON
+  endpoint. The provider maps saved NASDAQ, NYSE, NYSE Arca, and NYSE American
+  profiles to the source's US-market identifiers, requests unadjusted daily
+  bars, validates the returned symbol/market/date/positive close, and writes the
+  latest completed daily close through the existing cache-aware quote service.
+  Startup uses a fresh IndexedDB value without another request; manual refresh
+  forces a provider request, while refresh failure keeps an explicit stale
+  fallback. No quote entry or API key is required from the user.
 - Portfolio JSON backup schema v2 now includes both ledger events and security
   profiles. Import remains compatible with the original raw ledger array and
   schema-v1 Atlas backups; formats without profiles import an empty registry so
@@ -234,6 +240,16 @@ page discarded the key, returned to cache-only mode, and kept the cached quote;
 all temporary local data, IndexedDB records, test files, browser tab, and server
 were removed afterward.
 
+An isolated live EOD UI check on temporary port 5224 imported only anonymous
+data: two VOO shares with USD 1,201.00 total cost, USD 799.00 cash, CNY 3,000.00
+cash, and three ledger events. The automatic no-key provider returned the
+2026-09-04 USD 708.01 close, producing USD 1,416.02 market value and USD 215.02
+unrealized P&L. A full page refresh reused the quote as `CACHE_FRESH`; the
+manual refresh action fetched the same close as `PROVIDER_FRESH`. Both cash
+balances, position cost, accumulated USD 1.00 fee, and all three ledger events
+remained unchanged, with no browser warnings or errors. The temporary JSON file
+was removed afterward.
+
 ## Key ledger behavior
 
 - BUY reduces USD cash by `quantity * price + fee` and adds that amount to
@@ -288,13 +304,24 @@ For each small feature:
 - Frankfurter is the first FX candidate; stock provider candidates must be
   re-evaluated against official pricing, market coverage, delay, and license
   terms immediately before integration.
-- Twelve Data EOD is the first stock/ETF adapter candidate for the current
-  private personal-use phase. The Basic plan's availability and limits, US EOD
-  coverage, attribution, and personal/internal-use restrictions were checked
-  against official sources on 2026-08-30. Individual-plan data must not be
-  redistributed or displayed to third parties; licensing must be reviewed
-  again before any public or multi-user release. API keys remain runtime-only
-  local configuration and must never enter source, backups, logs, or GitHub.
+- Long-term portfolio measurement uses the latest available daily close; Atlas
+  does not require intraday delayed quotes for the prototype.
+- Yahoo Finance is an experimental free source behind a local server adapter,
+  never a direct browser dependency or the sole valuation source. A live
+  `yahoo-finance2` check on 2026-09-06 reached Yahoo's session/crumb step but was
+  rejected with HTTP 403 from the current network, so the failed dependency was
+  removed rather than presenting automatic quotes as available.
+- Eastmoney's public US daily JSON endpoint is the current no-key prototype
+  source because it is directly reachable from the current environment and
+  exposes completed daily bars. It remains behind `SecurityQuoteProvider`, and
+  its access terms, stability, symbol coverage, and redistribution constraints
+  must be reviewed before making the repository public.
+- TradingView is reserved for a user-initiated per-security chart/quote display.
+  Widget content is not scraped or extracted into the portfolio valuation.
+- Explicit fresh/stale cache status remains mandatory. Manual price override is
+  a later failure fallback, not the normal user workflow. The dormant Twelve
+  Data adapter may be reconsidered later, but it is not part of the current UI
+  or required setup.
 - Phase 3 includes portfolio return charts and benchmark comparison. Initial
   benchmark candidates are US Treasury, China government bond, and China
   one-year term-deposit return series, normalized to a common starting value
@@ -328,17 +355,16 @@ For each small feature:
 
 ## Next task
 
-Calculate total portfolio value in CNY from the existing cash valuation and
-complete USD securities market value. The result must remain unavailable if a
-non-zero cash currency lacks its FX rate or any open holding lacks a profile or
-quote; covered subtotals remain visible, but missing assets must never be treated
-as zero. Show the securities USD subtotal, its USD/CNY conversion input, total
-cash CNY value, combined CNY market value, valuation timestamp/coverage, and the
-reason for any incomplete total. This read-only calculation must not alter cash,
-ledger events, costs, or cached data. Verify complete and incomplete anonymous
-cases plus refresh persistence before starting the separate information-
-architecture phase. A focused manual ledger review and local JSON backup remain
-required before substantial real history.
+Add a user-initiated TradingView link/display action for each mapped holding.
+The action must derive the display symbol from the saved security profile, open
+only when the user requests it, and remain clearly separate from Atlas valuation:
+Widget content must not be scraped, parsed, or written to IndexedDB. Verify the
+correct mapped anonymous symbol and ensure the action does not alter ledger,
+cash, costs, or cached quotes. After this independent display slice, calculate
+total portfolio value in CNY from the existing cash valuation and complete USD
+securities market value. Missing assets or FX inputs must never be treated as
+zero. A focused manual ledger review and local JSON backup remain required
+before substantial real history.
 
 The direct-share cashback event is specified in the development plan but is
 queued until the current security-profile and basic market-valuation chain is

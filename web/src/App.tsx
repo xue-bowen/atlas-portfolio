@@ -25,9 +25,8 @@ import {
   serializePortfolioBackup,
 } from "./data/ledgerStorage";
 import { IndexedDbMarketDataCache } from "./data/marketDataCache";
-import { CacheOnlySecurityQuoteProvider } from "./data/providers/cacheOnlySecurityQuoteProvider";
+import { EastmoneyUsEodProvider } from "./data/providers/eastmoneyUsEodProvider";
 import { FrankfurterFxProvider } from "./data/providers/frankfurterFxProvider";
-import { TwelveDataEodProvider } from "./data/providers/twelveDataEodProvider";
 import {
   clearSecurityProfiles,
   loadSecurityProfileRegistry,
@@ -105,11 +104,6 @@ type PositionQuoteState =
   | { status: "ERROR"; error: string };
 
 type PositionQuoteStates = Record<string, PositionQuoteState>;
-
-interface SecurityQuoteProviderConfiguration {
-  mode: "CACHE_ONLY" | "TWELVE_DATA";
-  revision: number;
-}
 
 function describeFxStatus(resolution: FxRateResolution): string {
   const baseStatus =
@@ -247,17 +241,6 @@ export default function App() {
   const [positionQuoteStates, setPositionQuoteStates] =
     useState<PositionQuoteStates>({});
   const holdingsQuoteRequestId = useRef(0);
-  const holdingsQuoteApiKey = useRef("");
-  const [securityQuoteApiKeyDraft, setSecurityQuoteApiKeyDraft] = useState("");
-  const [
-    securityQuoteProviderConfiguration,
-    setSecurityQuoteProviderConfiguration,
-  ] = useState<SecurityQuoteProviderConfiguration>({
-    mode: "CACHE_ONLY",
-    revision: 0,
-  });
-  const isSecurityQuoteProviderConfigured =
-    securityQuoteProviderConfiguration.mode === "TWELVE_DATA";
   const [valuationFxRates, setValuationFxRates] =
     useState<ValuationFxRates>({});
   const [isValuationFxLoading, setIsValuationFxLoading] = useState(false);
@@ -375,14 +358,9 @@ export default function App() {
 
       setPositionQuoteStates(loadingStates);
 
-      const provider =
-        securityQuoteProviderConfiguration.mode === "TWELVE_DATA" &&
-        holdingsQuoteApiKey.current
-        ? new TwelveDataEodProvider(holdingsQuoteApiKey.current)
-        : new CacheOnlySecurityQuoteProvider();
       const quoteService = new CachedSecurityQuoteService(
         holdingsMarketDataCache,
-        provider,
+        new EastmoneyUsEodProvider(),
       );
 
       const results = await Promise.all(
@@ -422,11 +400,7 @@ export default function App() {
         ),
       );
     },
-    [
-      ledger,
-      securityProfileRegistry.profiles,
-      securityQuoteProviderConfiguration,
-    ],
+    [ledger, securityProfileRegistry.profiles],
   );
 
   useEffect(() => {
@@ -436,37 +410,6 @@ export default function App() {
 
     return () => window.clearTimeout(refreshTimer);
   }, [refreshHoldingsQuotes]);
-
-  function configureSecurityQuoteProvider(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    const apiKey = securityQuoteApiKeyDraft.trim();
-
-    if (!apiKey) {
-      setMessage("Enter a Twelve Data API key or keep using cache-only mode.");
-      return;
-    }
-
-    holdingsQuoteApiKey.current = apiKey;
-    setSecurityQuoteApiKeyDraft("");
-    setSecurityQuoteProviderConfiguration((configuration) => ({
-      mode: "TWELVE_DATA",
-      revision: configuration.revision + 1,
-    }));
-    setMessage(
-      "Twelve Data EOD enabled for this page session. The API key was not saved.",
-    );
-  }
-
-  function useCacheOnlySecurityQuotes() {
-    holdingsQuoteApiKey.current = "";
-    setSecurityQuoteApiKeyDraft("");
-    setSecurityQuoteProviderConfiguration((configuration) => ({
-      mode: "CACHE_ONLY",
-      revision: configuration.revision + 1,
-    }));
-    setMessage("Security quotes returned to cache-only mode.");
-  }
 
   function resetSecurityProfileForm() {
     setProfilePositionSymbol("");
@@ -1821,51 +1764,19 @@ export default function App() {
               (state) => state.status === "LOADING",
             )}
           >
-            Refresh security quotes
+            Refresh closing prices
           </button>
         </div>
 
-        <form
-          className="security-quote-provider-form"
-          onSubmit={configureSecurityQuoteProvider}
-        >
-          <div>
-            <h3>Security quote source</h3>
-            <p>
-              {isSecurityQuoteProviderConfigured
-                ? "Twelve Data EOD is enabled for this page session."
-                : "Cache-only mode is active. Enter a free Twelve Data key to refresh EOD quotes."}
-              {" "}
-              The key stays in memory only and is discarded on page reload.
-            </p>
-          </div>
-          <label htmlFor="security-quote-api-key">
-            Twelve Data API key
-            <input
-              id="security-quote-api-key"
-              type="password"
-              value={securityQuoteApiKeyDraft}
-              onChange={(event) =>
-                setSecurityQuoteApiKeyDraft(event.target.value)
-              }
-              autoComplete="off"
-              spellCheck={false}
-              placeholder="Not saved"
-            />
-          </label>
-          <div className="security-quote-provider-actions">
-            <button type="submit">
-              {isSecurityQuoteProviderConfigured
-                ? "Replace session key"
-                : "Enable Twelve Data EOD"}
-            </button>
-            {isSecurityQuoteProviderConfigured && (
-              <button type="button" onClick={useCacheOnlySecurityQuotes}>
-                Use cache only
-              </button>
-            )}
-          </div>
-        </form>
+        <div className="security-quote-source-card">
+          <h3>Automatic closing-price source</h3>
+          <p>
+            Atlas loads the latest available US daily close from Eastmoney's
+            public market-data service and stores it in the local IndexedDB
+            cache. No API key or manual quote entry is required. Cached prices
+            remain available with an explicit stale status if refresh fails.
+          </p>
+        </div>
 
         {balances.positions.length === 0 ? (
           <p>No open positions.</p>
