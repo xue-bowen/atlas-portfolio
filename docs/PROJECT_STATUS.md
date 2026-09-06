@@ -4,7 +4,7 @@
 
 Latest stable feature checkpoint before this documentation update:
 
-`1190b60 feat: display cached holdings valuation`
+`ce936b6 feat: configure runtime security quotes`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -12,7 +12,7 @@ Windows local path:
 
 `C:\Users\28301\atlas-portfolio`
 
-Last updated: 2026-09-05
+Last updated: 2026-09-06
 
 The working tree was clean after the latest commit. Personal ledger data is
 browser-local and is never committed to GitHub.
@@ -136,6 +136,13 @@ browser-local and is never committed to GitHub.
   explicit, while total securities value stays unavailable whenever any holding
   lacks a profile or quote. A cache-only provider keeps this slice usable with
   prior data without embedding a key or pretending that live data is configured.
+- Runtime-only Twelve Data EOD configuration in the holdings panel. A user can
+  enable or replace a key for the current page session, refresh all mapped open
+  positions through the existing cached service, or return to cache-only mode.
+  The password field is cleared immediately after activation and a full page
+  reload discards the in-memory key while retaining cached quotes. The key is
+  sent only in the authorization header and is never saved in localStorage,
+  IndexedDB values, ledger events, JSON backups, request URLs, logs, or source.
 - Portfolio JSON backup schema v2 now includes both ledger events and security
   profiles. Import remains compatible with the original raw ledger array and
   schema-v1 Atlas backups; formats without profiles import an empty registry so
@@ -216,6 +223,15 @@ securities value unavailable because GOOGL was uncovered. A forced refresh
 retained the cache with an explicit refresh-unavailable status; a full page
 refresh preserved the same valuation, USD 998.00 cash, and four ledger events.
 The temporary local data, IndexedDB records, browser tab, server, and test files
+were removed afterward.
+An isolated runtime-provider UI check on temporary port 5221 used a fake key and
+an anonymous Twelve Data response fixture. The request URL contained no key and
+the authorization header was present. A USD 130.00 VOO EOD quote produced USD
+260.00 market value and USD 59.00 unrealized P&L while USD 799.00 cash and three
+ledger events stayed unchanged. A simulated second-request rate limit retained
+the cached valuation with an explicit refresh-unavailable status. Loading a new
+page discarded the key, returned to cache-only mode, and kept the cached quote;
+all temporary local data, IndexedDB records, test files, browser tab, and server
 were removed afterward.
 
 ## Key ledger behavior
@@ -312,16 +328,17 @@ For each small feature:
 
 ## Next task
 
-Add runtime-only local configuration for the existing Twelve Data EOD adapter
-and switch holdings refresh from cache-only mode to the configured provider when
-a key is present. The key must never enter source, ledger events, JSON backups,
-logs, URLs, or GitHub; an absent key must keep the current explicit cache-only
-behavior. Show provider errors without discarding cached values and test with a
-fake key plus anonymous response fixture before any optional live personal-key
-check. After the free-provider path is user-configurable, calculate total
-portfolio value (cash plus stocks, with explicit FX and coverage state) before
-entering the separate information-architecture phase. A focused manual ledger
-review and local JSON backup remain required before substantial real history.
+Calculate total portfolio value in CNY from the existing cash valuation and
+complete USD securities market value. The result must remain unavailable if a
+non-zero cash currency lacks its FX rate or any open holding lacks a profile or
+quote; covered subtotals remain visible, but missing assets must never be treated
+as zero. Show the securities USD subtotal, its USD/CNY conversion input, total
+cash CNY value, combined CNY market value, valuation timestamp/coverage, and the
+reason for any incomplete total. This read-only calculation must not alter cash,
+ledger events, costs, or cached data. Verify complete and incomplete anonymous
+cases plus refresh persistence before starting the separate information-
+architecture phase. A focused manual ledger review and local JSON backup remain
+required before substantial real history.
 
 The direct-share cashback event is specified in the development plan but is
 queued until the current security-profile and basic market-valuation chain is
