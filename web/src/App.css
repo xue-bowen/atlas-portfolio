@@ -387,6 +387,44 @@
   flex: 0 0 auto;
 }
 
+.security-quote-provider-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.65fr) auto;
+  align-items: end;
+  gap: 16px;
+  margin: 20px 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.security-quote-provider-form h3,
+.security-quote-provider-form p {
+  margin: 0;
+}
+
+.security-quote-provider-form p {
+  margin-top: 6px;
+}
+
+.security-quote-provider-form label {
+  display: grid;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.security-quote-provider-form input {
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.security-quote-provider-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .holdings-valuation-summary {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -444,6 +482,10 @@
 
   .holdings-valuation-heading {
     flex-direction: column;
+  }
+
+  .security-quote-provider-form {
+    grid-template-columns: 1fr;
   }
 
   .holdings-valuation-summary {
