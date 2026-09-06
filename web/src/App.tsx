@@ -27,6 +27,7 @@ import {
 import { IndexedDbMarketDataCache } from "./data/marketDataCache";
 import { EastmoneyUsEodProvider } from "./data/providers/eastmoneyUsEodProvider";
 import { FrankfurterFxProvider } from "./data/providers/frankfurterFxProvider";
+import { createTradingViewSymbolUrl } from "./data/tradingViewLink";
 import {
   clearSecurityProfiles,
   loadSecurityProfileRegistry,
@@ -1815,11 +1816,15 @@ export default function App() {
                     <th>Market value</th>
                     <th>Unrealized P&amp;L</th>
                     <th>Status</th>
+                    <th>Market chart</th>
                   </tr>
                 </thead>
                 <tbody>
                   {holdingsValuation.positions.map((position) => {
                     const quoteState = positionQuoteStates[position.symbol];
+                    const tradingViewUrl = position.security
+                      ? createTradingViewSymbolUrl(position.security)
+                      : undefined;
                     const statusText =
                       position.status === "MISSING_SECURITY_IDENTIFIER"
                         ? "Security profile required"
@@ -1859,6 +1864,20 @@ export default function App() {
                             : "—"}
                         </td>
                         <td>{statusText}</td>
+                        <td>
+                          {tradingViewUrl ? (
+                            <a
+                              href={tradingViewUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              aria-label={`View ${position.symbol} on TradingView`}
+                            >
+                              View on TradingView
+                            </a>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
                       </tr>
                     );
                   })}

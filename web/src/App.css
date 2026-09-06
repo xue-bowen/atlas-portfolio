@@ -432,7 +432,7 @@
 }
 
 .holdings-valuation-table-wrap table {
-  min-width: 920px;
+  min-width: 1080px;
 }
 
 @media (max-width: 720px) {

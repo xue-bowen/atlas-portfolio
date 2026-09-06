@@ -149,6 +149,12 @@ browser-local and is never committed to GitHub.
   Startup uses a fresh IndexedDB value without another request; manual refresh
   forces a provider request, while refresh failure keeps an explicit stale
   fallback. No quote entry or API key is required from the user.
+- User-initiated TradingView market-chart links for mapped US holdings. Atlas
+  derives the TradingView exchange and symbol from the saved security profile,
+  including the `NYSE ARCA`/`NYSE AMERICAN` to `AMEX` convention used by
+  TradingView, and opens the official symbol page in a separate isolated tab.
+  Unmapped or unsupported holdings show no link. The external page is display
+  only: no Widget value is scraped, parsed, cached, or used in Atlas valuation.
 - Portfolio JSON backup schema v2 now includes both ledger events and security
   profiles. Import remains compatible with the original raw ledger array and
   schema-v1 Atlas backups; formats without profiles import an empty registry so
@@ -249,6 +255,15 @@ manual refresh action fetched the same close as `PROVIDER_FRESH`. Both cash
 balances, position cost, accumulated USD 1.00 fee, and all three ledger events
 remained unchanged, with no browser warnings or errors. The temporary JSON file
 was removed afterward.
+
+An isolated TradingView-link UI check on temporary port 5225 imported the same
+anonymous two-share VOO position and verified that its saved `NYSE ARCA` profile
+produced `https://www.tradingview.com/symbols/AMEX-VOO/`, with `_blank` and
+`noopener noreferrer` isolation. The destination resolved to TradingView's VOO
+ETF price-and-chart page. CNY 3,000.00 cash, USD 799.00 cash, USD 1,201.00
+position cost, and all three ledger events stayed unchanged; the temporary JSON
+file was removed afterward. The pre-existing manual-test ledger on port 5224
+was read only and was not modified during this check.
 
 ## Key ledger behavior
 
@@ -355,16 +370,17 @@ For each small feature:
 
 ## Next task
 
-Add a user-initiated TradingView link/display action for each mapped holding.
-The action must derive the display symbol from the saved security profile, open
-only when the user requests it, and remain clearly separate from Atlas valuation:
-Widget content must not be scraped, parsed, or written to IndexedDB. Verify the
-correct mapped anonymous symbol and ensure the action does not alter ledger,
-cash, costs, or cached quotes. After this independent display slice, calculate
-total portfolio value in CNY from the existing cash valuation and complete USD
-securities market value. Missing assets or FX inputs must never be treated as
-zero. A focused manual ledger review and local JSON backup remain required
-before substantial real history.
+Calculate total portfolio value in CNY from the existing cash valuation and
+complete USD securities market value. The result must remain unavailable if a
+non-zero cash currency lacks its FX rate or any open holding lacks a profile or
+quote; covered subtotals remain visible, but missing assets must never be treated
+as zero. Show the securities USD subtotal, its USD/CNY conversion input, total
+cash CNY value, combined CNY market value, valuation timestamp/coverage, and the
+reason for any incomplete total. This read-only calculation must not alter cash,
+ledger events, costs, or cached data. Verify complete and incomplete anonymous
+cases plus refresh persistence before starting the separate information-
+architecture phase. A focused manual ledger review and local JSON backup remain
+required before substantial real history.
 
 The direct-share cashback event is specified in the development plan but is
 queued until the current security-profile and basic market-valuation chain is
