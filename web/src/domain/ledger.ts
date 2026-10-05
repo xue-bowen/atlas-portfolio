@@ -9,6 +9,7 @@ export type LedgerEventType =
   | "FX_TO_CNY"
   | "BUY"
   | "SELL"
+  | "IN_KIND_CONTRIBUTION"
   | "DIVIDEND"
   | "INTEREST"
   | "FEE";
@@ -51,6 +52,15 @@ export interface SecurityTrade extends BaseLedgerEvent {
   feeUsd: number;
 }
 
+export interface InKindContribution extends BaseLedgerEvent {
+  type: "IN_KIND_CONTRIBUTION";
+  source: "CASHBACK_REWARD";
+  symbol: string;
+  quantity: number;
+  priceUsd: number;
+  currency: "USD";
+}
+
 export interface Dividend extends BaseLedgerEvent {
   type: "DIVIDEND";
   symbol: string;
@@ -83,6 +93,7 @@ export type LedgerEvent =
   | FxToUsd
   | FxToCny
   | SecurityTrade
+  | InKindContribution
   | Dividend
   | Interest
   | Fee;

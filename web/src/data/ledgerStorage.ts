@@ -80,6 +80,15 @@ function isLedgerEvent(value: unknown): value is LedgerEvent {
         isNonNegativeNumber(value.feeUsd)
       );
 
+    case "IN_KIND_CONTRIBUTION":
+      return (
+        value.source === "CASHBACK_REWARD" &&
+        value.currency === "USD" &&
+        isString(value.symbol) &&
+        isPositiveNumber(value.quantity) &&
+        isPositiveNumber(value.priceUsd)
+      );
+
     case "DIVIDEND":
       return (
         isString(value.symbol) &&

@@ -171,6 +171,8 @@ function describeEvent(event: LedgerEvent): string {
       return `Buy ${event.quantity} ${event.symbol} @ $${event.priceUsd.toFixed(2)}`;
     case "SELL":
       return `Sell ${event.quantity} ${event.symbol} @ $${event.priceUsd.toFixed(2)}`;
+    case "IN_KIND_CONTRIBUTION":
+      return `Payment cashback: ${event.quantity} ${event.symbol} @ $${event.priceUsd.toFixed(2)}`;
     case "DIVIDEND":
       return `${event.symbol} dividend: $${event.grossAmountUsd.toFixed(2)} gross`;
     case "INTEREST":
@@ -217,6 +219,12 @@ export default function App() {
   const [buyQuantity, setBuyQuantity] = useState("");
   const [buyPriceUsd, setBuyPriceUsd] = useState("");
   const [buyFeeUsd, setBuyFeeUsd] = useState("0");
+  const [cashbackDate, setCashbackDate] = useState(() =>
+    new Date().toISOString().slice(0, 10),
+  );
+  const [cashbackSymbol, setCashbackSymbol] = useState("");
+  const [cashbackQuantity, setCashbackQuantity] = useState("");
+  const [cashbackPriceUsd, setCashbackPriceUsd] = useState("");
   const [sellDate, setSellDate] = useState(() =>
     new Date().toISOString().slice(0, 10),
   );
@@ -757,6 +765,51 @@ export default function App() {
     setMessage("Sell transaction saved locally in this browser.");
   }
 
+  function addCashbackShares(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const symbol = cashbackSymbol.trim().toUpperCase();
+    const quantity = Number(cashbackQuantity);
+    const priceUsd = Number(cashbackPriceUsd);
+
+    if (
+      !cashbackDate ||
+      !symbol ||
+      !Number.isFinite(quantity) ||
+      quantity <= 0 ||
+      !Number.isFinite(priceUsd) ||
+      priceUsd <= 0
+    ) {
+      setMessage(
+        "Please enter a valid date, symbol, quantity, and USD acquisition price.",
+      );
+      return;
+    }
+
+    const contribution: LedgerEvent = {
+      id: `cashback-shares-${Date.now()}`,
+      occurredAt: cashbackDate,
+      accountId: "personal-main",
+      type: "IN_KIND_CONTRIBUTION",
+      source: "CASHBACK_REWARD",
+      symbol,
+      quantity,
+      priceUsd,
+      currency: "USD",
+      note: "Payment cashback received directly as shares",
+    };
+
+    if (!persistLedgerChanges([...ledger, contribution])) {
+      return;
+    }
+    setCashbackSymbol("");
+    setCashbackQuantity("");
+    setCashbackPriceUsd("");
+    setMessage(
+      "Cashback shares saved as a non-cash contribution. Cash balances were not changed.",
+    );
+  }
+
   function addDividend(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -1237,6 +1290,68 @@ export default function App() {
               </label>
             </p>
             <button type="submit">Add sale</button>
+          </form>
+        </section>
+      )}
+
+      {isPersonalLedger && (
+        <section>
+          <h2>Add shares received from payment cashback</h2>
+          <p>
+            Record shares delivered directly by a rewards platform. This adds
+            position quantity and cost basis at the acquisition value without
+            creating a cash deposit, FX conversion, or USD cash movement.
+          </p>
+          <form onSubmit={addCashbackShares}>
+            <p>
+              <label>
+                Date{" "}
+                <input
+                  type="date"
+                  value={cashbackDate}
+                  onChange={(event) => setCashbackDate(event.target.value)}
+                />
+              </label>
+            </p>
+            <p>
+              <label>
+                Symbol{" "}
+                <input
+                  type="text"
+                  value={cashbackSymbol}
+                  onChange={(event) => setCashbackSymbol(event.target.value)}
+                  placeholder="e.g. VOO"
+                />
+              </label>
+            </p>
+            <p>
+              <label>
+                Actual shares received{" "}
+                <input
+                  type="number"
+                  min="0.000001"
+                  step="any"
+                  value={cashbackQuantity}
+                  onChange={(event) => setCashbackQuantity(event.target.value)}
+                  placeholder="e.g. 0.125"
+                />
+              </label>
+            </p>
+            <p>
+              <label>
+                Acquisition price (USD per share){" "}
+                <input
+                  type="number"
+                  min="0.000001"
+                  step="0.000001"
+                  value={cashbackPriceUsd}
+                  onChange={(event) => setCashbackPriceUsd(event.target.value)}
+                  placeholder="e.g. 500"
+                />
+              </label>
+            </p>
+            <p>Source: Payment cashback · Account: personal-main</p>
+            <button type="submit">Add cashback shares</button>
           </form>
         </section>
       )}

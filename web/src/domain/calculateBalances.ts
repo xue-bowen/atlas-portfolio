@@ -66,6 +66,20 @@ export function calculateBalances(
         break;
       }
 
+      case "IN_KIND_CONTRIBUTION": {
+        const contributionValueUsd = event.quantity * event.priceUsd;
+        const position = positions.get(event.symbol) ?? {
+          symbol: event.symbol,
+          quantity: 0,
+          costUsd: 0,
+        };
+
+        position.quantity += event.quantity;
+        position.costUsd += contributionValueUsd;
+        positions.set(event.symbol, position);
+        break;
+      }
+
       case "SELL": {
         const position = positions.get(event.symbol);
 

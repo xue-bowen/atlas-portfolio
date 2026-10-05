@@ -276,6 +276,16 @@ their balances, positions, coverage, quote date, and explicit cache status after
 a full refresh. Only temporary anonymous data was used; the port-5224 manual
 ledger was not opened or modified.
 
+An isolated direct-share cashback check on temporary port 5227 imported an
+empty anonymous schema-v2 backup, then recorded 0.125 VOO shares at a USD 640.00
+acquisition price dated 2026-09-15. The `IN_KIND_CONTRIBUTION` event with source
+`CASHBACK_REWARD` produced a 0.125-share position with USD 640.00 average cost
+while CNY, HKD, and USD cash, realized P&L, and accumulated fees all remained
+zero. USD cash history remained empty because no cash moved. The historical date,
+position, cost, and ledger description all survived a full page refresh with no
+browser warnings or errors. Only isolated anonymous data was used; the manual
+ledger on port 5224 was not opened or modified.
+
 ## Key ledger behavior
 
 - BUY reduces USD cash by `quantity * price + fee` and adds that amount to
@@ -283,6 +293,8 @@ ledger was not opened or modified.
 - SELL increases USD cash by `quantity * price - fee`, removes the sold
   moving-average cost, and records realized P&L.
 - DIVIDEND adds `gross amount - withholding tax` to USD cash.
+- IN_KIND_CONTRIBUTION with source CASHBACK_REWARD adds shares and acquisition
+  value to position cost without changing cash, realized P&L, or fees.
 - Reinvested dividends append a DIVIDEND event followed by a BUY event on the
   same date, so USD cash returns to its pre-dividend amount and the position
   gains the automatically calculated fractional shares.
@@ -381,12 +393,12 @@ For each small feature:
 
 ## Next task
 
-Implement the direct-share cashback event specified in the development plan.
-Record an `IN_KIND_CONTRIBUTION` with source `CASHBACK_REWARD`, date, account,
-symbol, actual quantity, acquisition price, USD currency, and optional note. It
-must increase share quantity and cost basis at the entered value without changing
-CNY, HKD, or USD cash, realized P&L, or fees. Keep it out of USD cash history and
-preserve it through schema-v2 backup import/export and refresh persistence. After
-that independent commit, establish the basic navigation skeleton and global Add
-transaction entry as a separate small step. A focused manual ledger review and
-local JSON backup remain required before substantial real history.
+Establish the basic information-architecture skeleton as a separate small step:
+desktop fixed left navigation for Dashboard, Portfolio, Transactions, Cash,
+Performance, Market Data, and Settings; mobile bottom navigation prioritizing
+Dashboard, Portfolio, Transactions, and Cash with the remaining pages under More;
+and one global Add transaction action. Keep all existing verified forms and data
+flows available. This step creates usable page containers and a single discoverable
+entry point; migrating every form into the final transaction wizard remains an
+incremental follow-up. A focused manual ledger review and local JSON backup remain
+required before substantial real history.
