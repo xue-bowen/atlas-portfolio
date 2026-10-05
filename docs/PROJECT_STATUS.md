@@ -265,6 +265,17 @@ position cost, and all three ledger events stayed unchanged; the temporary JSON
 file was removed afterward. The pre-existing manual-test ledger on port 5224
 was read only and was not modified during this check.
 
+An isolated total-portfolio-valuation check on temporary port 5226 combined the
+existing cash valuation with automatic securities closing prices. The complete
+anonymous case displayed CNY 17,867.66 from CNY 8,363.05 cash plus USD 1,416.02
+of securities translated at USD/CNY 6.7122. A second case deliberately left one
+of two positions without a security profile: Atlas retained the USD 1,416.02
+covered subtotal and CNY 11,044.57 cash valuation but kept the combined total
+unavailable instead of valuing the missing holding at zero. Both cases retained
+their balances, positions, coverage, quote date, and explicit cache status after
+a full refresh. Only temporary anonymous data was used; the port-5224 manual
+ledger was not opened or modified.
+
 ## Key ledger behavior
 
 - BUY reduces USD cash by `quantity * price + fee` and adds that amount to
@@ -370,19 +381,12 @@ For each small feature:
 
 ## Next task
 
-Calculate total portfolio value in CNY from the existing cash valuation and
-complete USD securities market value. The result must remain unavailable if a
-non-zero cash currency lacks its FX rate or any open holding lacks a profile or
-quote; covered subtotals remain visible, but missing assets must never be treated
-as zero. Show the securities USD subtotal, its USD/CNY conversion input, total
-cash CNY value, combined CNY market value, valuation timestamp/coverage, and the
-reason for any incomplete total. This read-only calculation must not alter cash,
-ledger events, costs, or cached data. Verify complete and incomplete anonymous
-cases plus refresh persistence before starting the separate information-
-architecture phase. A focused manual ledger review and local JSON backup remain
-required before substantial real history.
-
-The direct-share cashback event is specified in the development plan but is
-queued until the current security-profile and basic market-valuation chain is
-complete. It must be implemented before portfolio return metrics so its external
-non-cash contribution is not misclassified as investment performance.
+Implement the direct-share cashback event specified in the development plan.
+Record an `IN_KIND_CONTRIBUTION` with source `CASHBACK_REWARD`, date, account,
+symbol, actual quantity, acquisition price, USD currency, and optional note. It
+must increase share quantity and cost basis at the entered value without changing
+CNY, HKD, or USD cash, realized P&L, or fees. Keep it out of USD cash history and
+preserve it through schema-v2 backup import/export and refresh persistence. After
+that independent commit, establish the basic navigation skeleton and global Add
+transaction entry as a separate small step. A focused manual ledger review and
+local JSON backup remain required before substantial real history.

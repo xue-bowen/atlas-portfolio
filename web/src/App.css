@@ -199,6 +199,54 @@
   border-radius: 12px;
 }
 
+.portfolio-valuation-panel {
+  margin: 32px 0;
+  padding: 24px;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.portfolio-valuation-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 20px 0 0;
+}
+
+.portfolio-valuation-grid > div {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.portfolio-valuation-grid dt {
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.portfolio-valuation-grid dd {
+  margin: 8px 0 4px;
+  font-size: 20px;
+  color: var(--text-h);
+  overflow-wrap: anywhere;
+}
+
+.portfolio-valuation-grid small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.portfolio-valuation-total {
+  background: var(--accent-bg);
+}
+
+.portfolio-valuation-warning {
+  margin: 16px 0 0;
+  color: #b42318;
+}
+
 .cash-valuation-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -436,6 +484,7 @@
 }
 
 @media (max-width: 720px) {
+  .portfolio-valuation-grid,
   .cash-valuation-grid {
     grid-template-columns: 1fr;
   }

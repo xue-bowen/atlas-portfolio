@@ -40,6 +40,10 @@ import {
   calculateHoldingsValuation,
   type PositionSecurityMapping,
 } from "./domain/calculateHoldingsValuation";
+import {
+  calculatePortfolioValuation,
+  type PortfolioValuationUnavailableReason,
+} from "./domain/calculatePortfolioValuation";
 import type { Currency, LedgerEvent } from "./domain/ledger";
 import type { FxRateRequest, MarketDataAssetType } from "./domain/marketData";
 
@@ -141,6 +145,17 @@ function displayDateTime(timestamp: string): string {
     ? date.toLocaleString()
     : timestamp;
 }
+
+const portfolioValuationReasonLabels: Record<
+  PortfolioValuationUnavailableReason,
+  string
+> = {
+  CASH_VALUATION_INCOMPLETE: "a non-zero cash currency lacks an FX rate",
+  SECURITY_COVERAGE_INCOMPLETE:
+    "one or more open positions lack a profile or quote",
+  USD_CNY_RATE_UNAVAILABLE:
+    "USD/CNY is unavailable for securities conversion",
+};
 
 function describeEvent(event: LedgerEvent): string {
   switch (event.type) {
@@ -323,6 +338,25 @@ export default function App() {
     hkdCnyRate: valuationFxRates.HKD_CNY?.rate.rate,
     usdCnyRate: valuationFxRates.USD_CNY?.rate.rate,
   });
+  const portfolioValuation = calculatePortfolioValuation({
+    cashValuation,
+    holdingsValuation,
+    usdCnyRate: valuationFxRates.USD_CNY?.rate.rate,
+  });
+  const securityQuoteDates = holdingsValuation.valuedPositions
+    .map((position) => position.quote.marketTimestamp.slice(0, 10))
+    .sort();
+  const securityQuoteDateRange =
+    securityQuoteDates.length === 0
+      ? "Unavailable"
+      : securityQuoteDates[0] === securityQuoteDates.at(-1)
+        ? securityQuoteDates[0]
+        : `${securityQuoteDates[0]} to ${securityQuoteDates.at(-1)}`;
+  const staleSecurityQuoteCount = Object.values(positionQuoteStates).filter(
+    (state) =>
+      state.status === "RESOLVED" &&
+      state.resolution.status === "CACHE_STALE",
+  ).length;
   const staleCashValuationCurrencies = valuationFxRequests
     .filter(({ key }) => {
       const resolution = valuationFxRates[key];
@@ -1433,6 +1467,115 @@ export default function App() {
         <li>HKD cash: {hkd.format(balances.hkdCash)}</li>
         <li>USD cash: {usd.format(balances.usdCash)}</li>
       </ul>
+
+      <section
+        className="portfolio-valuation-panel"
+        aria-labelledby="portfolio-valuation"
+        data-testid="portfolio-valuation"
+      >
+        <div>
+          <h2 id="portfolio-valuation">Total portfolio value in CNY</h2>
+          <p>
+            Cash plus the latest covered securities value, translated with the
+            displayed valuation FX rate. This read-only estimate never changes
+            ledger cash, positions, costs, or transaction FX rates.
+          </p>
+        </div>
+
+        <dl className="portfolio-valuation-grid">
+          <div className="portfolio-valuation-total">
+            <dt>Total portfolio value</dt>
+            <dd>
+              {portfolioValuation.totalPortfolioValueCny === undefined
+                ? "Unavailable"
+                : cny.format(portfolioValuation.totalPortfolioValueCny)}
+            </dd>
+            <small>Cash plus complete securities value</small>
+          </div>
+          <div>
+            <dt>Total cash value</dt>
+            <dd>
+              {portfolioValuation.totalCashValueCny === undefined
+                ? "Unavailable"
+                : cny.format(portfolioValuation.totalCashValueCny)}
+            </dd>
+            <small>All cash currencies translated to CNY</small>
+          </div>
+          <div>
+            <dt>Securities value</dt>
+            <dd>
+              {portfolioValuation.totalSecuritiesMarketValueUsd === undefined
+                ? `${usd.format(portfolioValuation.coveredSecuritiesMarketValueUsd)} covered`
+                : usd.format(
+                    portfolioValuation.totalSecuritiesMarketValueUsd,
+                  )}
+            </dd>
+            <small>
+              {holdingsValuation.coveredPositionCount} / {" "}
+              {holdingsValuation.totalPositionCount} positions covered
+            </small>
+          </div>
+          <div>
+            <dt>Securities value in CNY</dt>
+            <dd>
+              {portfolioValuation.totalSecuritiesMarketValueCny !== undefined
+                ? cny.format(portfolioValuation.totalSecuritiesMarketValueCny)
+                : portfolioValuation.coveredSecuritiesMarketValueCny !==
+                    undefined
+                  ? `${cny.format(portfolioValuation.coveredSecuritiesMarketValueCny)} covered`
+                  : "Unavailable"}
+            </dd>
+            <small>
+              {valuationFxRates.USD_CNY
+                ? `USD/CNY ${fxRateNumber.format(valuationFxRates.USD_CNY.rate.rate)}`
+                : "USD/CNY rate unavailable"}
+            </small>
+          </div>
+          <div>
+            <dt>Security close date</dt>
+            <dd>{securityQuoteDateRange}</dd>
+            <small>Range across covered positions</small>
+          </div>
+          <div>
+            <dt>USD/CNY observation date</dt>
+            <dd>
+              {valuationFxRates.USD_CNY?.rate.marketTimestamp.slice(0, 10) ??
+                "Unavailable"}
+            </dd>
+            <small>
+              {valuationFxRates.USD_CNY
+                ? describeFxStatus(valuationFxRates.USD_CNY)
+                : "Valuation input missing"}
+            </small>
+          </div>
+        </dl>
+
+        {portfolioValuation.unavailableReasons.length > 0 && (
+          <p className="portfolio-valuation-warning" role="status">
+            Complete total unavailable because {" "}
+            {portfolioValuation.unavailableReasons
+              .map((reason) => portfolioValuationReasonLabels[reason])
+              .join("; ")}.
+          </p>
+        )}
+        {(staleSecurityQuoteCount > 0 ||
+          staleCashValuationCurrencies.length > 0) && (
+          <p className="portfolio-valuation-warning" role="status">
+            This estimate includes stale cached market data: {" "}
+            {staleSecurityQuoteCount > 0
+              ? `${staleSecurityQuoteCount} security quote(s)`
+              : ""}
+            {staleSecurityQuoteCount > 0 &&
+            staleCashValuationCurrencies.length > 0
+              ? " and "
+              : ""}
+            {staleCashValuationCurrencies.length > 0
+              ? `${staleCashValuationCurrencies.join(" and ")} FX`
+              : ""}
+            .
+          </p>
+        )}
+      </section>
 
       <section
         className="cash-valuation-panel"
