@@ -253,6 +253,7 @@ export default function App() {
   const [expenseCategory, setExpenseCategory] =
     useState<ExpenseCategory>("ADR_FEE");
   const [expenseAmountUsd, setExpenseAmountUsd] = useState("");
+  const [isMoreNavigationOpen, setIsMoreNavigationOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [securityProfileRegistry, setSecurityProfileRegistry] = useState(
     loadSecurityProfileRegistry,
@@ -1025,14 +1026,61 @@ export default function App() {
     }
   }
 
+  function openTransactionEntry() {
+    setIsMoreNavigationOpen(false);
+    document.getElementById("transactions")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }
+
   return (
-    <main>
-      <h1>Atlas Portfolio</h1>
-      <p>
-        {isPersonalLedger
-          ? "Personal ledger saved only in this browser."
-          : "Demo ledger for calculation and development tests."}
-      </p>
+    <main className="app-shell">
+      <aside className="desktop-sidebar" aria-label="Primary navigation">
+        <a className="sidebar-brand" href="#dashboard">
+          Atlas Portfolio
+        </a>
+        <button
+          className="global-add-transaction"
+          type="button"
+          onClick={openTransactionEntry}
+        >
+          Add transaction
+        </button>
+        <nav>
+          <a href="#dashboard">Dashboard</a>
+          <a href="#portfolio">Portfolio</a>
+          <a href="#transactions">Transactions</a>
+          <a href="#cash">Cash</a>
+          <a href="#performance">Performance</a>
+          <a href="#market-data">Market Data</a>
+          <a href="#settings">Settings</a>
+        </nav>
+      </aside>
+
+      <div className="app-content">
+        <header id="dashboard" className="dashboard-header page-section">
+          <p className="section-eyebrow">Dashboard</p>
+          <h1>Atlas Portfolio</h1>
+          <p>
+            {isPersonalLedger
+              ? "Personal ledger saved only in this browser."
+              : "Demo ledger for calculation and development tests."}
+          </p>
+        </header>
+
+        <section
+          id="transactions"
+          className="transaction-workspace page-section"
+        >
+          <div className="page-section-heading">
+            <p className="section-eyebrow">Transactions</p>
+            <h2>Add transaction</h2>
+            <p>
+              Choose the relevant transaction form below. A shared type,
+              preview, and save flow will replace these forms incrementally.
+            </p>
+          </div>
 
       {!isPersonalLedger && (
         <section>
@@ -1555,7 +1603,10 @@ export default function App() {
 
       {message && <p>{message}</p>}
 
-      <section>
+        </section>
+
+      <section id="settings" className="page-section">
+        <p className="section-eyebrow">Settings</p>
         <h2>Local backup</h2>
         <p>
           Export before entering more history. Imported files replace the
@@ -1576,14 +1627,18 @@ export default function App() {
         </p>
       </section>
 
-      <h2>Current balances</h2>
-      <ul>
-        <li>CNY cash: {cny.format(balances.cnyCash)}</li>
-        <li>HKD cash: {hkd.format(balances.hkdCash)}</li>
-        <li>USD cash: {usd.format(balances.usdCash)}</li>
-      </ul>
+      <section id="cash" className="page-section">
+        <p className="section-eyebrow">Cash</p>
+        <h2>Current balances</h2>
+        <ul>
+          <li>CNY cash: {cny.format(balances.cnyCash)}</li>
+          <li>HKD cash: {hkd.format(balances.hkdCash)}</li>
+          <li>USD cash: {usd.format(balances.usdCash)}</li>
+        </ul>
+      </section>
 
       <section
+        id="portfolio"
         className="portfolio-valuation-panel"
         aria-labelledby="portfolio-valuation"
         data-testid="portfolio-valuation"
@@ -1760,7 +1815,11 @@ export default function App() {
         )}
       </section>
 
-      <section className="valuation-fx-panel" aria-labelledby="valuation-fx">
+      <section
+        id="market-data"
+        className="valuation-fx-panel page-section"
+        aria-labelledby="valuation-fx"
+      >
         <div className="valuation-fx-heading">
           <div>
             <h2 id="valuation-fx">Valuation FX rates</h2>
@@ -1843,13 +1902,17 @@ export default function App() {
         </div>
       </section>
 
-      <h2>Realized result</h2>
-      <ul>
-        <li>Realized P&amp;L: {usd.format(balances.realizedPnlUsd)}</li>
-        <li>
-          Accumulated fees and USD expenses: {usd.format(balances.totalFeesUsd)}
-        </li>
-      </ul>
+      <section id="performance" className="page-section">
+        <p className="section-eyebrow">Performance</p>
+        <h2>Realized result</h2>
+        <ul>
+          <li>Realized P&amp;L: {usd.format(balances.realizedPnlUsd)}</li>
+          <li>
+            Accumulated fees and USD expenses:{" "}
+            {usd.format(balances.totalFeesUsd)}
+          </li>
+        </ul>
+      </section>
 
       <h2>USD cash transaction history</h2>
       {usdCashHistory.length === 0 ? (
@@ -2158,6 +2221,47 @@ export default function App() {
           ))}
         </ol>
       )}
+
+        <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
+          <a href="#dashboard">Dashboard</a>
+          <a href="#portfolio">Portfolio</a>
+          <a href="#transactions">Transactions</a>
+          <a href="#cash">Cash</a>
+          <button
+            type="button"
+            aria-expanded={isMoreNavigationOpen}
+            aria-controls="mobile-more-navigation"
+            onClick={() => setIsMoreNavigationOpen((isOpen) => !isOpen)}
+          >
+            More
+          </button>
+          {isMoreNavigationOpen && (
+            <div id="mobile-more-navigation" className="mobile-more-navigation">
+              <a
+                href="#performance"
+                onClick={() => setIsMoreNavigationOpen(false)}
+              >
+                Performance
+              </a>
+              <a
+                href="#market-data"
+                onClick={() => setIsMoreNavigationOpen(false)}
+              >
+                Market Data
+              </a>
+              <a
+                href="#settings"
+                onClick={() => setIsMoreNavigationOpen(false)}
+              >
+                Settings
+              </a>
+              <button type="button" onClick={openTransactionEntry}>
+                Add transaction
+              </button>
+            </div>
+          )}
+        </nav>
+      </div>
     </main>
   );
 }

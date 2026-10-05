@@ -183,6 +183,105 @@
   }
 }
 
+.app-shell {
+  min-height: 100svh;
+  text-align: left;
+}
+
+.desktop-sidebar {
+  position: fixed;
+  z-index: 10;
+  top: 0;
+  bottom: 0;
+  left: max(0px, calc(50% - 563px));
+  box-sizing: border-box;
+  width: 220px;
+  padding: 28px 20px;
+  background: var(--bg);
+  border-right: 1px solid var(--border);
+}
+
+.sidebar-brand {
+  display: block;
+  margin-bottom: 24px;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-h);
+  text-decoration: none;
+}
+
+.global-add-transaction {
+  width: 100%;
+  margin-bottom: 24px;
+}
+
+.desktop-sidebar nav {
+  display: grid;
+  gap: 6px;
+}
+
+.desktop-sidebar nav a {
+  padding: 9px 10px;
+  color: var(--text);
+  text-decoration: none;
+  border-radius: 6px;
+}
+
+.desktop-sidebar nav a:hover,
+.desktop-sidebar nav a:focus-visible {
+  color: var(--text-h);
+  background: var(--accent-bg);
+}
+
+.app-content {
+  box-sizing: border-box;
+  min-width: 0;
+  margin-left: 220px;
+  padding: 32px;
+}
+
+.page-section,
+#portfolio {
+  scroll-margin-top: 24px;
+}
+
+.dashboard-header {
+  margin-bottom: 32px;
+}
+
+.dashboard-header h1 {
+  margin: 8px 0;
+}
+
+.section-eyebrow {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.transaction-workspace {
+  margin: 32px 0;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.page-section-heading {
+  margin-bottom: 24px;
+}
+
+.transaction-workspace > section {
+  margin: 20px 0 0;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.mobile-bottom-nav {
+  display: none;
+}
+
 .valuation-fx-panel {
   margin: 32px 0;
   padding: 24px;
@@ -484,6 +583,71 @@
 }
 
 @media (max-width: 720px) {
+  .desktop-sidebar {
+    display: none;
+  }
+
+  .app-content {
+    margin-left: 0;
+    padding: 20px 16px 96px;
+  }
+
+  .transaction-workspace {
+    padding: 18px;
+  }
+
+  .mobile-bottom-nav {
+    position: fixed;
+    z-index: 20;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    padding: 8px max(8px, env(safe-area-inset-right))
+      calc(8px + env(safe-area-inset-bottom))
+      max(8px, env(safe-area-inset-left));
+    background: var(--bg);
+    border-top: 1px solid var(--border);
+  }
+
+  .mobile-bottom-nav > a,
+  .mobile-bottom-nav > button {
+    min-width: 0;
+    padding: 8px 4px;
+    font: inherit;
+    font-size: 12px;
+    color: var(--text-h);
+    text-align: center;
+    text-decoration: none;
+    background: transparent;
+    border: 0;
+  }
+
+  .mobile-more-navigation {
+    position: absolute;
+    right: 8px;
+    bottom: calc(100% + 8px);
+    display: grid;
+    min-width: 180px;
+    padding: 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+  }
+
+  .mobile-more-navigation a,
+  .mobile-more-navigation button {
+    padding: 10px 12px;
+    font: inherit;
+    color: var(--text-h);
+    text-align: left;
+    text-decoration: none;
+    background: transparent;
+    border: 0;
+  }
+
   .portfolio-valuation-grid,
   .cash-valuation-grid {
     grid-template-columns: 1fr;

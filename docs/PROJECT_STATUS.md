@@ -286,6 +286,19 @@ position, cost, and ledger description all survived a full page refresh with no
 browser warnings or errors. Only isolated anonymous data was used; the manual
 ledger on port 5224 was not opened or modified.
 
+An isolated information-architecture check on temporary port 5228 verified the
+new fixed desktop sidebar, all seven navigation destinations, and the global
+Add transaction action. The action scrolled the Transactions container to the
+top of the content area; Dashboard, Portfolio, Transactions, Cash, Performance,
+Market Data, and Settings each resolved to an existing page section. A full page
+refresh retained the anonymous CNY 5,680.00 and USD 333.67 balances plus all six
+sample ledger events, with no browser warnings or errors. The mobile bottom bar
+prioritizes Dashboard, Portfolio, Transactions, and Cash and exposes the other
+destinations plus Add transaction through More at the 720px breakpoint. The
+available isolated browser did not expose viewport emulation, so that mobile
+layout is build-verified but still needs a manual narrow-window interaction
+check. The manual ledger on port 5224 was not opened or modified.
+
 ## Key ledger behavior
 
 - BUY reduces USD cash by `quantity * price + fee` and adds that amount to
@@ -393,12 +406,11 @@ For each small feature:
 
 ## Next task
 
-Establish the basic information-architecture skeleton as a separate small step:
-desktop fixed left navigation for Dashboard, Portfolio, Transactions, Cash,
-Performance, Market Data, and Settings; mobile bottom navigation prioritizing
-Dashboard, Portfolio, Transactions, and Cash with the remaining pages under More;
-and one global Add transaction action. Keep all existing verified forms and data
-flows available. This step creates usable page containers and a single discoverable
-entry point; migrating every form into the final transaction wizard remains an
-incremental follow-up. A focused manual ledger review and local JSON backup remain
-required before substantial real history.
+Continue the unified transaction workflow incrementally. The first follow-up
+should add the transaction-type selection surface and migrate the BUY form into
+the confirmed grouped structure: basic information, instrument, execution, and
+costs/notes, followed by a read-only impact preview before save. Keep the existing
+calculation and persistence path unchanged, and do not migrate all transaction
+types in one commit. Manually verify the 720px mobile bottom navigation and More
+menu early in the next session. A focused manual ledger review and local JSON
+backup remain required before substantial real history.
