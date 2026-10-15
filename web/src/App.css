@@ -291,7 +291,7 @@
   width: min(100%, 520px);
 }
 
-.unified-buy-form {
+.unified-transaction-form {
   display: grid;
   gap: 18px;
   margin-top: 24px;
@@ -309,14 +309,14 @@
   color: var(--text-h);
 }
 
-.unified-buy-form fieldset {
+.unified-transaction-form fieldset {
   margin: 0;
   padding: 16px;
   border: 1px solid var(--border);
   border-radius: 8px;
 }
 
-.unified-buy-form legend {
+.unified-transaction-form legend {
   padding: 0 6px;
   font-weight: 600;
   color: var(--text-h);

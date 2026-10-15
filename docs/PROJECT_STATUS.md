@@ -4,7 +4,7 @@
 
 Latest stable feature checkpoint before this documentation update:
 
-`ce936b6 feat: configure runtime security quotes`
+`902b4e4 feat: add unified buy transaction flow`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -12,7 +12,7 @@ Windows local path:
 
 `C:\Users\28301\atlas-portfolio`
 
-Last updated: 2026-09-06
+Last updated: 2026-10-16
 
 The working tree was clean after the latest commit. Personal ledger data is
 browser-local and is never committed to GitHub.
@@ -314,6 +314,18 @@ AAPL shares at USD 100.67 average cost, USD 1.00 accumulated fees, and the
 expected ledger entry; all values survived a full refresh with no browser
 warnings or errors. Only anonymous data was used.
 
+An isolated unified-SELL check on temporary port 5230 built an anonymous ledger
+with USD 1,000.00 cash and four TEST shares carrying USD 404.00 total cost.
+Selecting SELL opened the same grouped flow as BUY. Selling 1.5 shares at USD
+120.00 with a USD 1.00 fee previewed USD 179.00 net proceeds, USD 27.50 realized
+P&L, USD cash rising from 596.00 to 775.00, 2.5 remaining shares, USD 252.50
+remaining cost basis, and cumulative fees rising from USD 4.00 to 5.00. An
+attempt to sell five shares displayed an oversell warning and disabled save.
+The valid sale, remaining USD 101.00 average cost, cash, realized P&L, fees, and
+ledger entry all survived a full refresh with no browser warnings or errors.
+Only isolated anonymous data was used; no existing manual-test origin was
+opened or modified.
+
 ## Key ledger behavior
 
 - BUY reduces USD cash by `quantity * price + fee` and adds that amount to
@@ -438,10 +450,9 @@ commits. Scope can move within that range as anonymous edge cases are found:
 
 ## Next task
 
-Migrate SELL into the existing unified transaction flow as one independent
-step. Reuse the confirmed grouping pattern and preview USD proceeds, remaining
-quantity and moving-average cost, realized P&L, and fees before save. Reject a
-quantity above the selected holding and keep the current calculation and
-persistence paths unchanged. Do not migrate another transaction type in the
-same commit. A focused manual ledger review and local JSON backup remain
-required before substantial real history.
+Add a transaction-detail view for personal-ledger entries and allow deletion
+only from that view. Require explicit confirmation, recalculate the entire
+remaining chronological ledger before storage, reject a deletion that would
+make later entries invalid, and leave editing for the following independent
+step. A focused manual ledger review and local JSON backup remain required
+before substantial real history.

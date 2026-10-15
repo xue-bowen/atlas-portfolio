@@ -120,7 +120,7 @@ const transactionEntryOptions: Array<{
   legacyTargetId?: string;
 }> = [
   { type: "BUY", label: "Buy security" },
-  { type: "SELL", label: "Sell security", legacyTargetId: "legacy-sell" },
+  { type: "SELL", label: "Sell security" },
   {
     type: "CNY_DEPOSIT",
     label: "CNY deposit",
@@ -288,6 +288,7 @@ export default function App() {
   const [sellQuantity, setSellQuantity] = useState("");
   const [sellPriceUsd, setSellPriceUsd] = useState("");
   const [sellFeeUsd, setSellFeeUsd] = useState("0");
+  const [sellNote, setSellNote] = useState("");
   const [dividendDate, setDividendDate] = useState(() =>
     new Date().toISOString().slice(0, 10),
   );
@@ -468,6 +469,85 @@ export default function App() {
   const canSaveBuy =
     previewBuyTradeCostUsd !== undefined &&
     previewBuyTradeCostUsd <= balances.usdCash;
+  const previewSellSymbol = sellSymbol.trim().toUpperCase();
+  const previewSellQuantity = Number(sellQuantity);
+  const previewSellPriceUsd = Number(sellPriceUsd);
+  const previewSellFeeUsd = Number(sellFeeUsd);
+  const isSellPreviewComplete =
+    Boolean(sellDate && previewSellSymbol) &&
+    Number.isFinite(previewSellQuantity) &&
+    previewSellQuantity > 0 &&
+    Number.isFinite(previewSellPriceUsd) &&
+    previewSellPriceUsd > 0 &&
+    Number.isFinite(previewSellFeeUsd) &&
+    previewSellFeeUsd >= 0;
+  const previewSellPosition = balances.positions.find(
+    (position) => position.symbol === previewSellSymbol,
+  );
+  let projectedSellBalances: ReturnType<typeof calculateBalances> | undefined;
+  let sellImpact: { proceedsUsd: number; realizedPnlUsd: number } | undefined;
+  let sellPreviewError = "";
+
+  if (isSellPreviewComplete) {
+    if (
+      !previewSellPosition ||
+      previewSellQuantity > previewSellPosition.quantity
+    ) {
+      sellPreviewError = "Sell quantity cannot exceed the current position.";
+    } else {
+      try {
+        const sale: LedgerEvent = {
+          id: "sell-preview",
+          occurredAt: sellDate,
+          accountId: "personal-main",
+          type: "SELL",
+          symbol: previewSellSymbol,
+          quantity: previewSellQuantity,
+          priceUsd: previewSellPriceUsd,
+          feeUsd: previewSellFeeUsd,
+        };
+        // Same-day entries precede this new sale, just as they do on save.
+        const precedingLedger = ledger.filter(
+          (event) => event.occurredAt <= sellDate,
+        );
+        const beforeSale = calculateBalances(precedingLedger);
+        const afterSale = calculateBalances([...precedingLedger, sale]);
+        const projected = calculateBalances([...ledger, sale]);
+        const proceedsUsd = afterSale.usdCash - beforeSale.usdCash;
+        const realizedPnlUsd =
+          afterSale.realizedPnlUsd - beforeSale.realizedPnlUsd;
+
+        if (
+          ![
+            proceedsUsd,
+            realizedPnlUsd,
+            projected.usdCash,
+            projected.realizedPnlUsd,
+            projected.totalFeesUsd,
+            ...projected.positions.flatMap((position) => [
+              position.quantity,
+              position.costUsd,
+            ]),
+          ].every(Number.isFinite)
+        ) {
+          throw new Error("Sale amounts are too large. Enter smaller values.");
+        }
+
+        sellImpact = { proceedsUsd, realizedPnlUsd };
+        projectedSellBalances = projected;
+      } catch (error) {
+        sellPreviewError =
+          error instanceof Error
+            ? error.message
+            : "This sale is not valid in chronological ledger order.";
+      }
+    }
+  }
+
+  const projectedSellPosition = projectedSellBalances?.positions.find(
+    (position) => position.symbol === previewSellSymbol,
+  );
+  const canSaveSell = Boolean(projectedSellBalances && sellImpact);
 
   const refreshHoldingsQuotes = useCallback(
     async (forceRefresh: boolean) => {
@@ -834,6 +914,14 @@ export default function App() {
       return;
     }
 
+    if (!canSaveSell) {
+      setMessage(
+        sellPreviewError ||
+          "Complete the required fields to preview this sale.",
+      );
+      return;
+    }
+
     const sell: LedgerEvent = {
       id: createLedgerEventId("sell"),
       occurredAt: sellDate,
@@ -843,7 +931,7 @@ export default function App() {
       quantity,
       priceUsd,
       feeUsd,
-      note: "Manual security sale",
+      note: sellNote.trim() || "Manual security sale",
     };
 
     if (!persistLedgerChanges([...ledger, sell])) {
@@ -853,6 +941,7 @@ export default function App() {
     setSellQuantity("");
     setSellPriceUsd("");
     setSellFeeUsd("0");
+    setSellNote("");
     setMessage("Sell transaction saved locally in this browser.");
   }
 
@@ -1190,7 +1279,10 @@ export default function App() {
 
           {isPersonalLedger && (
             <div className="transaction-entry-flow">
-              <label className="transaction-type-selector" htmlFor="transaction-type">
+              <label
+                className="transaction-type-selector"
+                htmlFor="transaction-type"
+              >
                 <span>1. Select transaction type</span>
                 <select
                   id="transaction-type"
@@ -1205,14 +1297,16 @@ export default function App() {
                   {transactionEntryOptions.map((option) => (
                     <option key={option.type} value={option.type}>
                       {option.label}
-                      {option.type === "BUY" ? " · unified flow" : " · existing form"}
+                      {option.type === "BUY" || option.type === "SELL"
+                        ? " · unified flow"
+                        : " · existing form"}
                     </option>
                   ))}
                 </select>
               </label>
 
               {selectedTransactionType === "BUY" && (
-                <form className="unified-buy-form" onSubmit={addBuy}>
+                <form className="unified-transaction-form" onSubmit={addBuy}>
                   <div className="transaction-flow-heading">
                     <span>2. Enter details</span>
                     <h3>Buy security</h3>
@@ -1375,17 +1469,217 @@ export default function App() {
                 </form>
               )}
 
-              {selectedTransactionType && selectedTransactionType !== "BUY" && (
-                <div className="legacy-transaction-notice">
-                  <p>
-                    This transaction type still uses its verified existing form.
-                    It will move into this shared flow in a later small step.
-                  </p>
-                  <button type="button" onClick={openLegacyTransactionForm}>
-                    Open existing form
+              {selectedTransactionType === "SELL" && (
+                <form className="unified-transaction-form" onSubmit={addSell}>
+                  <div className="transaction-flow-heading">
+                    <span>2. Enter details</span>
+                    <h3>Sell security</h3>
+                  </div>
+
+                  <fieldset>
+                    <legend>Basic information</legend>
+                    <div className="transaction-form-grid">
+                      <label>
+                        Date
+                        <input
+                          type="date"
+                          value={sellDate}
+                          onChange={(event) => setSellDate(event.target.value)}
+                          required
+                        />
+                      </label>
+                      <label>
+                        Account
+                        <input value="personal-main" readOnly />
+                      </label>
+                    </div>
+                  </fieldset>
+
+                  <fieldset>
+                    <legend>Instrument</legend>
+                    <div className="transaction-form-grid">
+                      <label>
+                        Symbol
+                        <input
+                          type="text"
+                          list="open-position-symbols"
+                          value={sellSymbol}
+                          onChange={(event) => setSellSymbol(event.target.value)}
+                          placeholder="e.g. VOO"
+                          required
+                        />
+                        <datalist id="open-position-symbols">
+                          {balances.positions.map((position) => (
+                            <option
+                              key={position.symbol}
+                              value={position.symbol}
+                            />
+                          ))}
+                        </datalist>
+                      </label>
+                      <label>
+                        Currency
+                        <input value="USD" readOnly />
+                      </label>
+                    </div>
+                  </fieldset>
+
+                  <fieldset>
+                    <legend>Execution</legend>
+                    <div className="transaction-form-grid">
+                      <label>
+                        Quantity
+                        <input
+                          type="number"
+                          min="0.000001"
+                          step="any"
+                          value={sellQuantity}
+                          onChange={(event) =>
+                            setSellQuantity(event.target.value)
+                          }
+                          placeholder="e.g. 1"
+                          required
+                        />
+                      </label>
+                      <label>
+                        Price (USD per share)
+                        <input
+                          type="number"
+                          min="0.000001"
+                          step="0.000001"
+                          value={sellPriceUsd}
+                          onChange={(event) =>
+                            setSellPriceUsd(event.target.value)
+                          }
+                          placeholder="e.g. 550"
+                          required
+                        />
+                      </label>
+                    </div>
+                  </fieldset>
+
+                  <fieldset>
+                    <legend>Costs and notes</legend>
+                    <div className="transaction-form-grid">
+                      <label>
+                        Fee (USD)
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={sellFeeUsd}
+                          onChange={(event) => setSellFeeUsd(event.target.value)}
+                          placeholder="e.g. 1.23"
+                          required
+                        />
+                      </label>
+                      <label>
+                        Note (optional)
+                        <textarea
+                          value={sellNote}
+                          onChange={(event) => setSellNote(event.target.value)}
+                          placeholder="Broker reference or reason"
+                        />
+                      </label>
+                    </div>
+                  </fieldset>
+
+                  <section
+                    className="transaction-impact-preview"
+                    aria-labelledby="sell-impact-preview"
+                    data-testid="sell-impact-preview"
+                  >
+                    <div className="transaction-flow-heading">
+                      <span>3. Preview impact</span>
+                      <h3 id="sell-impact-preview">Ledger impact</h3>
+                    </div>
+                    {projectedSellBalances && sellImpact ? (
+                      <dl>
+                        <div>
+                          <dt>Net sale proceeds</dt>
+                          <dd>{usd.format(sellImpact.proceedsUsd)}</dd>
+                        </div>
+                        <div>
+                          <dt>This sale realized P&amp;L</dt>
+                          <dd>{usd.format(sellImpact.realizedPnlUsd)}</dd>
+                        </div>
+                        <div>
+                          <dt>Added fees</dt>
+                          <dd>{usd.format(previewSellFeeUsd)}</dd>
+                        </div>
+                        <div>
+                          <dt>USD cash</dt>
+                          <dd>
+                            {usd.format(balances.usdCash)} →{" "}
+                            {usd.format(projectedSellBalances.usdCash)}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Position</dt>
+                          <dd>
+                            {previewSellPosition?.quantity ?? 0} →{" "}
+                            {projectedSellPosition?.quantity ?? 0}{" "}
+                            {previewSellSymbol}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Cost basis</dt>
+                          <dd>
+                            {usd.format(previewSellPosition?.costUsd ?? 0)} →{" "}
+                            {usd.format(projectedSellPosition?.costUsd ?? 0)}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Total realized P&amp;L</dt>
+                          <dd>
+                            {usd.format(balances.realizedPnlUsd)} →{" "}
+                            {usd.format(projectedSellBalances.realizedPnlUsd)}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Total fees</dt>
+                          <dd>
+                            {usd.format(balances.totalFeesUsd)} →{" "}
+                            {usd.format(projectedSellBalances.totalFeesUsd)}
+                          </dd>
+                        </div>
+                      </dl>
+                    ) : (
+                      <p>Complete the required fields to preview this sale.</p>
+                    )}
+                    {projectedSellBalances && (
+                      <p>
+                        Proceeds and this sale’s P&amp;L are net of the sale fee.
+                        Position, cost basis, cash, and totals reflect the full
+                        ledger after recalculation, including later transactions.
+                      </p>
+                    )}
+                    {sellPreviewError && (
+                      <p className="transaction-impact-warning" role="alert">
+                        {sellPreviewError}
+                      </p>
+                    )}
+                  </section>
+
+                  <button type="submit" disabled={!canSaveSell}>
+                    4. Save sale
                   </button>
-                </div>
+                </form>
               )}
+
+              {selectedTransactionType &&
+                selectedTransactionType !== "BUY" &&
+                selectedTransactionType !== "SELL" && (
+                  <div className="legacy-transaction-notice">
+                    <p>
+                      This transaction type still uses its verified existing form.
+                      It will move into this shared flow in a later small step.
+                    </p>
+                    <button type="button" onClick={openLegacyTransactionForm}>
+                      Open existing form
+                    </button>
+                  </div>
+                )}
             </div>
           )}
 
@@ -1507,75 +1801,6 @@ export default function App() {
               </label>
             </p>
             <button type="submit">Add FX conversion</button>
-          </form>
-        </section>
-      )}
-
-      {isPersonalLedger && (
-        <section id="legacy-sell">
-          <h2>Add USD security sale</h2>
-          <form onSubmit={addSell}>
-            <p>
-              <label>
-                Date{" "}
-                <input
-                  type="date"
-                  value={sellDate}
-                  onChange={(event) => setSellDate(event.target.value)}
-                />
-              </label>
-            </p>
-            <p>
-              <label>
-                Symbol{" "}
-                <input
-                  type="text"
-                  value={sellSymbol}
-                  onChange={(event) => setSellSymbol(event.target.value)}
-                  placeholder="e.g. VOO"
-                />
-              </label>
-            </p>
-            <p>
-              <label>
-                Quantity{" "}
-                <input
-                  type="number"
-                  min="0.000001"
-                  step="any"
-                  value={sellQuantity}
-                  onChange={(event) => setSellQuantity(event.target.value)}
-                  placeholder="e.g. 1"
-                />
-              </label>
-            </p>
-            <p>
-              <label>
-                Price (USD per share){" "}
-                <input
-                  type="number"
-                  min="0.000001"
-                  step="0.000001"
-                  value={sellPriceUsd}
-                  onChange={(event) => setSellPriceUsd(event.target.value)}
-                  placeholder="e.g. 550"
-                />
-              </label>
-            </p>
-            <p>
-              <label>
-                Fee (USD){" "}
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={sellFeeUsd}
-                  onChange={(event) => setSellFeeUsd(event.target.value)}
-                  placeholder="e.g. 1.23"
-                />
-              </label>
-            </p>
-            <button type="submit">Add sale</button>
           </form>
         </section>
       )}
