@@ -295,9 +295,24 @@ refresh retained the anonymous CNY 5,680.00 and USD 333.67 balances plus all six
 sample ledger events, with no browser warnings or errors. The mobile bottom bar
 prioritizes Dashboard, Portfolio, Transactions, and Cash and exposes the other
 destinations plus Add transaction through More at the 720px breakpoint. The
-available isolated browser did not expose viewport emulation, so that mobile
-layout is build-verified but still needs a manual narrow-window interaction
-check. The manual ledger on port 5224 was not opened or modified.
+initial browser session did not expose viewport emulation, so the first check
+was build-only. A later 390 px isolated viewport check on port 5229 confirmed
+that the desktop sidebar is hidden, the four priority destinations remain in
+the bottom bar, and More exposes Performance, Market Data, Settings, and Add
+transaction. That check also found and fixed page-level horizontal overflow by
+containing the USD cash-history table in its own scroll area. The manual ledger
+on port 5224 was not opened or modified.
+
+An isolated unified-BUY check on temporary port 5229 imported an anonymous
+schema-v2 ledger with USD 1,000.00 cash. Selecting BUY opened the grouped basic
+information, instrument, execution, and costs/notes form. Entering 1.5 AAPL at
+USD 100.00 with a USD 1.00 fee previewed USD cash falling to 849.00, 1.5 shares,
+USD 151.00 cost basis, USD 1.00 fees, and unchanged realized P&L before save. A
+deliberately excessive purchase showed negative projected cash, a clear warning,
+and a disabled save action. The valid purchase produced USD 849.00 cash, 1.5
+AAPL shares at USD 100.67 average cost, USD 1.00 accumulated fees, and the
+expected ledger entry; all values survived a full refresh with no browser
+warnings or errors. Only anonymous data was used.
 
 ## Key ledger behavior
 
@@ -404,13 +419,29 @@ For each small feature:
   separate small phase only after the IndexedDB cache and basic valuation chain
   are complete. Visual polish remains deferred.
 
+## Remaining path to the first public release
+
+The current estimate is five major workstreams, roughly 12-18 small verified
+commits. Scope can move within that range as anonymous edge cases are found:
+
+1. Complete the unified transaction workflow and transaction-detail
+   edit/delete recalculation (about 3-5 small steps).
+2. Define and implement daily snapshots, external-flow classification, NAV,
+   TWR, MWR/XIRR, Performance charts, and benchmark comparison (about 3-4).
+3. Finish market-data fallback/manual override, provider coverage, provenance,
+   and pre-publication license review (about 2-3).
+4. Add deterministic calculation tests, duplicate/error handling, storage
+   migration checks, and backup/restore release validation (about 2-3).
+5. Prepare the public repository: anonymous demo, setup and privacy docs,
+   license, contribution guidance, screenshots, and clean-browser release test
+   (about 2-3).
+
 ## Next task
 
-Continue the unified transaction workflow incrementally. The first follow-up
-should add the transaction-type selection surface and migrate the BUY form into
-the confirmed grouped structure: basic information, instrument, execution, and
-costs/notes, followed by a read-only impact preview before save. Keep the existing
-calculation and persistence path unchanged, and do not migrate all transaction
-types in one commit. Manually verify the 720px mobile bottom navigation and More
-menu early in the next session. A focused manual ledger review and local JSON
-backup remain required before substantial real history.
+Migrate SELL into the existing unified transaction flow as one independent
+step. Reuse the confirmed grouping pattern and preview USD proceeds, remaining
+quantity and moving-average cost, realized P&L, and fees before save. Reject a
+quantity above the selected holding and keep the current calculation and
+persistence paths unchanged. Do not migrate another transaction type in the
+same commit. A focused manual ledger review and local JSON backup remain
+required before substantial real history.

@@ -272,6 +272,136 @@
   margin-bottom: 24px;
 }
 
+.transaction-entry-flow {
+  margin: 24px 0;
+  padding: 20px;
+  background: var(--social-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.transaction-type-selector {
+  display: grid;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.transaction-type-selector select {
+  width: min(100%, 520px);
+}
+
+.unified-buy-form {
+  display: grid;
+  gap: 18px;
+  margin-top: 24px;
+}
+
+.transaction-flow-heading span {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+
+.transaction-flow-heading h3 {
+  margin: 4px 0 0;
+  color: var(--text-h);
+}
+
+.unified-buy-form fieldset {
+  margin: 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.unified-buy-form legend {
+  padding: 0 6px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.transaction-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.transaction-form-grid label {
+  display: grid;
+  gap: 6px;
+  color: var(--text-h);
+}
+
+.transaction-form-grid input,
+.transaction-form-grid textarea,
+.transaction-type-selector select {
+  box-sizing: border-box;
+  padding: 8px 10px;
+  font: inherit;
+}
+
+.transaction-form-grid textarea {
+  min-height: 78px;
+  resize: vertical;
+}
+
+.transaction-impact-preview {
+  padding: 18px;
+  background: var(--bg);
+  border: 1px solid var(--accent-border);
+  border-radius: 8px;
+}
+
+.transaction-impact-preview dl {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0 0;
+}
+
+.transaction-impact-preview dl div {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.transaction-impact-preview dt {
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.transaction-impact-preview dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.transaction-impact-warning {
+  margin-top: 12px;
+  color: #b42318;
+}
+
+.legacy-transaction-notice {
+  margin-top: 18px;
+  padding: 16px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.legacy-transaction-notice button {
+  margin-top: 12px;
+}
+
+.cash-history-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.cash-history-table-wrap table {
+  min-width: 760px;
+}
+
 .transaction-workspace > section {
   margin: 20px 0 0;
   padding-top: 20px;
@@ -594,6 +724,11 @@
 
   .transaction-workspace {
     padding: 18px;
+  }
+
+  .transaction-form-grid,
+  .transaction-impact-preview dl div {
+    grid-template-columns: 1fr;
   }
 
   .mobile-bottom-nav {

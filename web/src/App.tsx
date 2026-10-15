@@ -103,6 +103,57 @@ type ValuationFxRates = Partial<Record<ValuationFxKey, FxRateResolution>>;
 
 type ExpenseCategory = "ADR_FEE" | "OTHER";
 
+type TransactionEntryType =
+  | "BUY"
+  | "SELL"
+  | "CNY_DEPOSIT"
+  | "CNY_WITHDRAWAL"
+  | "FX_TO_USD"
+  | "DIVIDEND"
+  | "INTEREST"
+  | "FEE"
+  | "IN_KIND_CONTRIBUTION";
+
+const transactionEntryOptions: Array<{
+  type: TransactionEntryType;
+  label: string;
+  legacyTargetId?: string;
+}> = [
+  { type: "BUY", label: "Buy security" },
+  { type: "SELL", label: "Sell security", legacyTargetId: "legacy-sell" },
+  {
+    type: "CNY_DEPOSIT",
+    label: "CNY deposit",
+    legacyTargetId: "legacy-cny-deposit",
+  },
+  {
+    type: "CNY_WITHDRAWAL",
+    label: "CNY withdrawal",
+    legacyTargetId: "legacy-cny-withdrawal",
+  },
+  {
+    type: "FX_TO_USD",
+    label: "CNY to USD conversion",
+    legacyTargetId: "legacy-fx-to-usd",
+  },
+  {
+    type: "DIVIDEND",
+    label: "Dividend",
+    legacyTargetId: "legacy-dividend",
+  },
+  {
+    type: "INTEREST",
+    label: "Interest income",
+    legacyTargetId: "legacy-interest",
+  },
+  { type: "FEE", label: "USD expense", legacyTargetId: "legacy-expense" },
+  {
+    type: "IN_KIND_CONTRIBUTION",
+    label: "Payment cashback shares",
+    legacyTargetId: "legacy-cashback-shares",
+  },
+];
+
 type PositionQuoteState =
   | { status: "LOADING" }
   | { status: "RESOLVED"; resolution: SecurityQuoteResolution }
@@ -144,6 +195,10 @@ function displayDateTime(timestamp: string): string {
   return Number.isFinite(date.getTime())
     ? date.toLocaleString()
     : timestamp;
+}
+
+function createLedgerEventId(prefix: string): string {
+  return `${prefix}-${Date.now()}`;
 }
 
 const portfolioValuationReasonLabels: Record<
@@ -219,6 +274,7 @@ export default function App() {
   const [buyQuantity, setBuyQuantity] = useState("");
   const [buyPriceUsd, setBuyPriceUsd] = useState("");
   const [buyFeeUsd, setBuyFeeUsd] = useState("0");
+  const [buyNote, setBuyNote] = useState("");
   const [cashbackDate, setCashbackDate] = useState(() =>
     new Date().toISOString().slice(0, 10),
   );
@@ -253,6 +309,8 @@ export default function App() {
   const [expenseCategory, setExpenseCategory] =
     useState<ExpenseCategory>("ADR_FEE");
   const [expenseAmountUsd, setExpenseAmountUsd] = useState("");
+  const [selectedTransactionType, setSelectedTransactionType] =
+    useState<TransactionEntryType | "">("");
   const [isMoreNavigationOpen, setIsMoreNavigationOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [securityProfileRegistry, setSecurityProfileRegistry] = useState(
@@ -379,6 +437,37 @@ export default function App() {
     Number(dividendGrossAmountUsd) - Number(dividendWithholdingTaxUsd);
   const reinvestmentShares =
     netDividendUsd / Number(dividendReinvestmentPriceUsd);
+  const previewBuySymbol = buySymbol.trim().toUpperCase();
+  const previewBuyQuantity = Number(buyQuantity);
+  const previewBuyPriceUsd = Number(buyPriceUsd);
+  const previewBuyFeeUsd = Number(buyFeeUsd);
+  const isBuyPreviewComplete =
+    Boolean(buyDate && previewBuySymbol) &&
+    Number.isFinite(previewBuyQuantity) &&
+    previewBuyQuantity > 0 &&
+    Number.isFinite(previewBuyPriceUsd) &&
+    previewBuyPriceUsd > 0 &&
+    Number.isFinite(previewBuyFeeUsd) &&
+    previewBuyFeeUsd >= 0;
+  const previewBuyTradeCostUsd = isBuyPreviewComplete
+    ? previewBuyQuantity * previewBuyPriceUsd + previewBuyFeeUsd
+    : undefined;
+  const previewBuyPosition = balances.positions.find(
+    (position) => position.symbol === previewBuySymbol,
+  );
+  const previewBuyResultingQuantity =
+    isBuyPreviewComplete && previewBuyPosition
+      ? previewBuyPosition.quantity + previewBuyQuantity
+      : isBuyPreviewComplete
+        ? previewBuyQuantity
+        : undefined;
+  const previewBuyResultingCostUsd =
+    isBuyPreviewComplete && previewBuyTradeCostUsd !== undefined
+      ? (previewBuyPosition?.costUsd ?? 0) + previewBuyTradeCostUsd
+      : undefined;
+  const canSaveBuy =
+    previewBuyTradeCostUsd !== undefined &&
+    previewBuyTradeCostUsd <= balances.usdCash;
 
   const refreshHoldingsQuotes = useCallback(
     async (forceRefresh: boolean) => {
@@ -572,7 +661,7 @@ export default function App() {
     }
 
     const deposit: LedgerEvent = {
-      id: `deposit-${Date.now()}`,
+      id: createLedgerEventId("deposit"),
       occurredAt: depositDate,
       accountId: "personal-main",
       type: "CNY_DEPOSIT",
@@ -603,7 +692,7 @@ export default function App() {
     }
 
     const withdrawal: LedgerEvent = {
-      id: `withdrawal-${Date.now()}`,
+      id: createLedgerEventId("withdrawal"),
       occurredAt: withdrawalDate,
       accountId: "personal-main",
       type: "CNY_WITHDRAWAL",
@@ -641,7 +730,7 @@ export default function App() {
     }
 
     const fxConversion: LedgerEvent = {
-      id: `fx-usd-${Date.now()}`,
+      id: createLedgerEventId("fx-usd"),
       occurredAt: fxDate,
       accountId: "personal-main",
       type: "FX_TO_USD",
@@ -690,7 +779,7 @@ export default function App() {
     }
 
     const buy: LedgerEvent = {
-      id: `buy-${Date.now()}`,
+      id: createLedgerEventId("buy"),
       occurredAt: buyDate,
       accountId: "personal-main",
       type: "BUY",
@@ -698,7 +787,7 @@ export default function App() {
       quantity,
       priceUsd,
       feeUsd,
-      note: "Manual security purchase",
+      note: buyNote.trim() || "Manual security purchase",
     };
 
     if (!persistLedgerChanges([...ledger, buy])) {
@@ -708,6 +797,7 @@ export default function App() {
     setBuyQuantity("");
     setBuyPriceUsd("");
     setBuyFeeUsd("0");
+    setBuyNote("");
     setMessage("Buy transaction saved locally in this browser.");
   }
 
@@ -745,7 +835,7 @@ export default function App() {
     }
 
     const sell: LedgerEvent = {
-      id: `sell-${Date.now()}`,
+      id: createLedgerEventId("sell"),
       occurredAt: sellDate,
       accountId: "personal-main",
       type: "SELL",
@@ -788,7 +878,7 @@ export default function App() {
     }
 
     const contribution: LedgerEvent = {
-      id: `cashback-shares-${Date.now()}`,
+      id: createLedgerEventId("cashback-shares"),
       occurredAt: cashbackDate,
       accountId: "personal-main",
       type: "IN_KIND_CONTRIBUTION",
@@ -851,7 +941,7 @@ export default function App() {
     }
 
     const dividend: LedgerEvent = {
-      id: `dividend-${Date.now()}`,
+      id: createLedgerEventId("dividend"),
       occurredAt: dividendDate,
       accountId: "personal-main",
       type: "DIVIDEND",
@@ -866,7 +956,7 @@ export default function App() {
     const reinvestment: LedgerEvent[] = isReinvested
       ? [
           {
-            id: `dividend-reinvest-${Date.now()}`,
+            id: createLedgerEventId("dividend-reinvest"),
             occurredAt: dividendDate,
             accountId: "personal-main",
             type: "BUY",
@@ -903,7 +993,7 @@ export default function App() {
     }
 
     const interest: LedgerEvent = {
-      id: `interest-${Date.now()}`,
+      id: createLedgerEventId("interest"),
       occurredAt: interestDate,
       accountId: "personal-main",
       type: "INTEREST",
@@ -937,7 +1027,7 @@ export default function App() {
     }
 
     const expense: LedgerEvent = {
-      id: `fee-${Date.now()}`,
+      id: createLedgerEventId("fee"),
       occurredAt: expenseDate,
       accountId: "personal-main",
       type: "FEE",
@@ -1032,6 +1122,22 @@ export default function App() {
       behavior: "smooth",
       block: "start",
     });
+    document.getElementById("transaction-type")?.focus({ preventScroll: true });
+  }
+
+  function openLegacyTransactionForm() {
+    const targetId = transactionEntryOptions.find(
+      (option) => option.type === selectedTransactionType,
+    )?.legacyTargetId;
+
+    if (!targetId) {
+      return;
+    }
+
+    document.getElementById(targetId)?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
   }
 
   return (
@@ -1082,6 +1188,207 @@ export default function App() {
             </p>
           </div>
 
+          {isPersonalLedger && (
+            <div className="transaction-entry-flow">
+              <label className="transaction-type-selector" htmlFor="transaction-type">
+                <span>1. Select transaction type</span>
+                <select
+                  id="transaction-type"
+                  value={selectedTransactionType}
+                  onChange={(event) =>
+                    setSelectedTransactionType(
+                      event.target.value as TransactionEntryType | "",
+                    )
+                  }
+                >
+                  <option value="">Choose a transaction type</option>
+                  {transactionEntryOptions.map((option) => (
+                    <option key={option.type} value={option.type}>
+                      {option.label}
+                      {option.type === "BUY" ? " · unified flow" : " · existing form"}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {selectedTransactionType === "BUY" && (
+                <form className="unified-buy-form" onSubmit={addBuy}>
+                  <div className="transaction-flow-heading">
+                    <span>2. Enter details</span>
+                    <h3>Buy security</h3>
+                  </div>
+
+                  <fieldset>
+                    <legend>Basic information</legend>
+                    <div className="transaction-form-grid">
+                      <label>
+                        Date
+                        <input
+                          type="date"
+                          value={buyDate}
+                          onChange={(event) => setBuyDate(event.target.value)}
+                          required
+                        />
+                      </label>
+                      <label>
+                        Account
+                        <input value="personal-main" readOnly />
+                      </label>
+                    </div>
+                  </fieldset>
+
+                  <fieldset>
+                    <legend>Instrument</legend>
+                    <div className="transaction-form-grid">
+                      <label>
+                        Symbol
+                        <input
+                          type="text"
+                          value={buySymbol}
+                          onChange={(event) => setBuySymbol(event.target.value)}
+                          placeholder="e.g. VOO"
+                          required
+                        />
+                      </label>
+                      <label>
+                        Currency
+                        <input value="USD" readOnly />
+                      </label>
+                    </div>
+                  </fieldset>
+
+                  <fieldset>
+                    <legend>Execution</legend>
+                    <div className="transaction-form-grid">
+                      <label>
+                        Quantity
+                        <input
+                          type="number"
+                          min="0.000001"
+                          step="any"
+                          value={buyQuantity}
+                          onChange={(event) => setBuyQuantity(event.target.value)}
+                          placeholder="e.g. 2"
+                          required
+                        />
+                      </label>
+                      <label>
+                        Price (USD per share)
+                        <input
+                          type="number"
+                          min="0.000001"
+                          step="0.000001"
+                          value={buyPriceUsd}
+                          onChange={(event) => setBuyPriceUsd(event.target.value)}
+                          placeholder="e.g. 500"
+                          required
+                        />
+                      </label>
+                    </div>
+                  </fieldset>
+
+                  <fieldset>
+                    <legend>Costs and notes</legend>
+                    <div className="transaction-form-grid">
+                      <label>
+                        Fee (USD)
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={buyFeeUsd}
+                          onChange={(event) => setBuyFeeUsd(event.target.value)}
+                          placeholder="e.g. 1.23"
+                          required
+                        />
+                      </label>
+                      <label>
+                        Note (optional)
+                        <textarea
+                          value={buyNote}
+                          onChange={(event) => setBuyNote(event.target.value)}
+                          placeholder="Broker reference or reason"
+                        />
+                      </label>
+                    </div>
+                  </fieldset>
+
+                  <section
+                    className="transaction-impact-preview"
+                    aria-labelledby="buy-impact-preview"
+                    data-testid="buy-impact-preview"
+                  >
+                    <div className="transaction-flow-heading">
+                      <span>3. Preview impact</span>
+                      <h3 id="buy-impact-preview">Ledger impact</h3>
+                    </div>
+                    {isBuyPreviewComplete &&
+                    previewBuyTradeCostUsd !== undefined &&
+                    previewBuyResultingQuantity !== undefined &&
+                    previewBuyResultingCostUsd !== undefined ? (
+                      <dl>
+                        <div>
+                          <dt>USD cash</dt>
+                          <dd>
+                            {usd.format(balances.usdCash)} →{" "}
+                            {usd.format(
+                              balances.usdCash - previewBuyTradeCostUsd,
+                            )}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Position</dt>
+                          <dd>
+                            +{previewBuyQuantity} {previewBuySymbol}; resulting{" "}
+                            {previewBuyResultingQuantity}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Cost basis</dt>
+                          <dd>
+                            +{usd.format(previewBuyTradeCostUsd)}; resulting{" "}
+                            {usd.format(previewBuyResultingCostUsd)}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Fees</dt>
+                          <dd>+{usd.format(previewBuyFeeUsd)}</dd>
+                        </div>
+                        <div>
+                          <dt>Realized P&amp;L</dt>
+                          <dd>Unchanged</dd>
+                        </div>
+                      </dl>
+                    ) : (
+                      <p>Complete the required fields to preview this purchase.</p>
+                    )}
+                    {previewBuyTradeCostUsd !== undefined && !canSaveBuy && (
+                      <p className="transaction-impact-warning" role="alert">
+                        Purchase cost exceeds current USD cash.
+                      </p>
+                    )}
+                  </section>
+
+                  <button type="submit" disabled={!canSaveBuy}>
+                    4. Save purchase
+                  </button>
+                </form>
+              )}
+
+              {selectedTransactionType && selectedTransactionType !== "BUY" && (
+                <div className="legacy-transaction-notice">
+                  <p>
+                    This transaction type still uses its verified existing form.
+                    It will move into this shared flow in a later small step.
+                  </p>
+                  <button type="button" onClick={openLegacyTransactionForm}>
+                    Open existing form
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
       {!isPersonalLedger && (
         <section>
           <h2>Start personal ledger</h2>
@@ -1096,7 +1403,7 @@ export default function App() {
       )}
 
       {isPersonalLedger && (
-        <section>
+        <section id="legacy-cny-deposit">
           <h2>Add CNY deposit</h2>
           <form onSubmit={addCnyDeposit}>
             <p>
@@ -1128,7 +1435,7 @@ export default function App() {
       )}
 
       {isPersonalLedger && (
-        <section>
+        <section id="legacy-cny-withdrawal">
           <h2>Add CNY withdrawal</h2>
           <form onSubmit={addCnyWithdrawal}>
             <p>
@@ -1160,7 +1467,7 @@ export default function App() {
       )}
 
       {isPersonalLedger && (
-        <section>
+        <section id="legacy-fx-to-usd">
           <h2>Add CNY to USD conversion</h2>
           <form onSubmit={addFxToUsd}>
             <p>
@@ -1205,76 +1512,7 @@ export default function App() {
       )}
 
       {isPersonalLedger && (
-        <section>
-          <h2>Add USD security purchase</h2>
-          <form onSubmit={addBuy}>
-            <p>
-              <label>
-                Date{" "}
-                <input
-                  type="date"
-                  value={buyDate}
-                  onChange={(event) => setBuyDate(event.target.value)}
-                />
-              </label>
-            </p>
-            <p>
-              <label>
-                Symbol{" "}
-                <input
-                  type="text"
-                  value={buySymbol}
-                  onChange={(event) => setBuySymbol(event.target.value)}
-                  placeholder="e.g. VOO"
-                />
-              </label>
-            </p>
-            <p>
-              <label>
-                Quantity{" "}
-                <input
-                  type="number"
-                  min="0.000001"
-                  step="any"
-                  value={buyQuantity}
-                  onChange={(event) => setBuyQuantity(event.target.value)}
-                  placeholder="e.g. 2"
-                />
-              </label>
-            </p>
-            <p>
-              <label>
-                Price (USD per share){" "}
-                <input
-                  type="number"
-                  min="0.000001"
-                  step="0.000001"
-                  value={buyPriceUsd}
-                  onChange={(event) => setBuyPriceUsd(event.target.value)}
-                  placeholder="e.g. 500"
-                />
-              </label>
-            </p>
-            <p>
-              <label>
-                Fee (USD){" "}
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={buyFeeUsd}
-                  onChange={(event) => setBuyFeeUsd(event.target.value)}
-                  placeholder="e.g. 1.23"
-                />
-              </label>
-            </p>
-            <button type="submit">Add purchase</button>
-          </form>
-        </section>
-      )}
-
-      {isPersonalLedger && (
-        <section>
+        <section id="legacy-sell">
           <h2>Add USD security sale</h2>
           <form onSubmit={addSell}>
             <p>
@@ -1343,7 +1581,7 @@ export default function App() {
       )}
 
       {isPersonalLedger && (
-        <section>
+        <section id="legacy-cashback-shares">
           <h2>Add shares received from payment cashback</h2>
           <p>
             Record shares delivered directly by a rewards platform. This adds
@@ -1405,7 +1643,7 @@ export default function App() {
       )}
 
       {isPersonalLedger && (
-        <section>
+        <section id="legacy-dividend">
           <h2>Add USD dividend</h2>
           <form onSubmit={addDividend}>
             <p>
@@ -1505,7 +1743,7 @@ export default function App() {
       )}
 
       {isPersonalLedger && (
-        <section>
+        <section id="legacy-interest">
           <h2>Add interest income</h2>
           <form onSubmit={addInterest}>
             <p>
@@ -1552,7 +1790,7 @@ export default function App() {
       )}
 
       {isPersonalLedger && (
-        <section>
+        <section id="legacy-expense">
           <h2>Add USD expense</h2>
           <p>
             Record ADR custody fees or other USD cash deductions. Trading
@@ -1918,38 +2156,40 @@ export default function App() {
       {usdCashHistory.length === 0 ? (
         <p>No USD cash movements recorded yet.</p>
       ) : (
-        <table>
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Type</th>
-              <th>Description</th>
-              <th>Inflow</th>
-              <th>Outflow</th>
-              <th>Balance</th>
-            </tr>
-          </thead>
-          <tbody>
-            {usdCashHistory.map((transaction) => (
-              <tr key={transaction.id}>
-                <td>{transaction.occurredAt}</td>
-                <td>{transaction.eventType}</td>
-                <td>{transaction.description}</td>
-                <td>
-                  {transaction.inflowUsd > 0
-                    ? usd.format(transaction.inflowUsd)
-                    : "—"}
-                </td>
-                <td>
-                  {transaction.outflowUsd > 0
-                    ? usd.format(transaction.outflowUsd)
-                    : "—"}
-                </td>
-                <td>{usd.format(transaction.balanceUsd)}</td>
+        <div className="cash-history-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Type</th>
+                <th>Description</th>
+                <th>Inflow</th>
+                <th>Outflow</th>
+                <th>Balance</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {usdCashHistory.map((transaction) => (
+                <tr key={transaction.id}>
+                  <td>{transaction.occurredAt}</td>
+                  <td>{transaction.eventType}</td>
+                  <td>{transaction.description}</td>
+                  <td>
+                    {transaction.inflowUsd > 0
+                      ? usd.format(transaction.inflowUsd)
+                      : "—"}
+                  </td>
+                  <td>
+                    {transaction.outflowUsd > 0
+                      ? usd.format(transaction.outflowUsd)
+                      : "—"}
+                  </td>
+                  <td>{usd.format(transaction.balanceUsd)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
       {isPersonalLedger && (
