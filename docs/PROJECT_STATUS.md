@@ -4,7 +4,7 @@
 
 Latest stable feature checkpoint before this documentation update:
 
-`902b4e4 feat: add unified buy transaction flow`
+`12cf505 feat: add unified sell transaction flow`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -326,6 +326,17 @@ ledger entry all survived a full refresh with no browser warnings or errors.
 Only isolated anonymous data was used; no existing manual-test origin was
 opened or modified.
 
+The same isolated origin then verified the personal-ledger transaction-detail
+view and deletion path. Selecting the anonymous SELL entry displayed its date,
+type, account, note, and explicit full-recalculation warning. Deleting that
+entry recalculated USD cash from 775.00 to 596.00, realized P&L from 27.50 to
+0.00, cumulative fees from 5.00 to 4.00, and restored the TEST position from
+2.5 to four shares at USD 101.00 average cost. The deleted entry stayed absent
+and all recalculated values remained correct after a full refresh, with no
+browser warnings or errors. Deletion validation uses the same chronological
+balance engine and refuses a removal when a later transaction would become
+invalid.
+
 ## Key ledger behavior
 
 - BUY reduces USD cash by `quantity * price + fee` and adds that amount to
@@ -450,9 +461,9 @@ commits. Scope can move within that range as anonymous edge cases are found:
 
 ## Next task
 
-Add a transaction-detail view for personal-ledger entries and allow deletion
-only from that view. Require explicit confirmation, recalculate the entire
-remaining chronological ledger before storage, reject a deletion that would
-make later entries invalid, and leave editing for the following independent
-step. A focused manual ledger review and local JSON backup remain required
-before substantial real history.
+Add editing from the transaction-detail view as the next independent step.
+Populate an event-type-specific form from the selected immutable record,
+replace only that record on save, show the recalculated impact before commit,
+and reject edits that make any later chronological event invalid. A focused
+manual ledger review and local JSON backup remain required before substantial
+real history.

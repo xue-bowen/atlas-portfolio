@@ -402,6 +402,72 @@
   min-width: 760px;
 }
 
+.ledger-section {
+  margin: 32px 0 72px;
+}
+
+.ledger-list {
+  display: grid;
+  gap: 8px;
+  padding-left: 24px;
+}
+
+.ledger-event-button {
+  width: 100%;
+  padding: 10px 12px;
+  text-align: left;
+  color: inherit;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+}
+
+.ledger-event-button:hover,
+.ledger-event-button[aria-pressed="true"] {
+  background: var(--social-bg);
+  border-color: var(--border);
+}
+
+.transaction-detail-panel {
+  margin-top: 20px;
+  padding: 20px;
+  background: var(--social-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.transaction-detail-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.transaction-detail-heading h3 {
+  margin: 4px 0 0;
+}
+
+.transaction-detail-panel dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.transaction-detail-panel dt {
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.transaction-detail-panel dd {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.danger-button {
+  color: #b42318;
+  border-color: #b42318;
+}
+
 .transaction-workspace > section {
   margin: 20px 0 0;
   padding-top: 20px;
@@ -727,7 +793,8 @@
   }
 
   .transaction-form-grid,
-  .transaction-impact-preview dl div {
+  .transaction-impact-preview dl div,
+  .transaction-detail-panel dl {
     grid-template-columns: 1fr;
   }
 

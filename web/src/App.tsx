@@ -46,6 +46,7 @@ import {
 } from "./domain/calculatePortfolioValuation";
 import type { Currency, LedgerEvent } from "./domain/ledger";
 import type { FxRateRequest, MarketDataAssetType } from "./domain/marketData";
+import { removeLedgerEvent } from "./domain/removeLedgerEvent";
 
 const usd = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -312,6 +313,9 @@ export default function App() {
   const [expenseAmountUsd, setExpenseAmountUsd] = useState("");
   const [selectedTransactionType, setSelectedTransactionType] =
     useState<TransactionEntryType | "">("");
+  const [selectedLedgerEventId, setSelectedLedgerEventId] = useState<
+    string | null
+  >(null);
   const [isMoreNavigationOpen, setIsMoreNavigationOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [securityProfileRegistry, setSecurityProfileRegistry] = useState(
@@ -434,6 +438,9 @@ export default function App() {
     })
     .map(({ request }) => request.pair.baseCurrency);
   const usdCashHistory = calculateUsdCashHistory(ledger);
+  const selectedLedgerEvent = ledger.find(
+    (event) => event.id === selectedLedgerEventId,
+  );
   const netDividendUsd =
     Number(dividendGrossAmountUsd) - Number(dividendWithholdingTaxUsd);
   const reinvestmentShares =
@@ -1227,6 +1234,39 @@ export default function App() {
       behavior: "smooth",
       block: "start",
     });
+  }
+
+  function deleteSelectedLedgerEvent() {
+    if (!selectedLedgerEvent) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete ${describeEvent(selectedLedgerEvent)} on ${selectedLedgerEvent.occurredAt}? Atlas will recalculate the entire remaining ledger.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const remainingLedger = removeLedgerEvent(
+        ledger,
+        selectedLedgerEvent.id,
+      );
+
+      if (!persistLedgerChanges(remainingLedger)) {
+        return;
+      }
+      setSelectedLedgerEventId(null);
+      setMessage("Transaction deleted and the remaining ledger recalculated.");
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? `Could not delete the transaction: ${error.message}`
+          : "Could not delete the transaction because later records would become invalid.",
+      );
+    }
   }
 
   return (
@@ -2674,18 +2714,86 @@ export default function App() {
         )}
       </section>
 
-      <h2>{isPersonalLedger ? "Personal ledger" : "Anonymous test ledger"}</h2>
-      {ledger.length === 0 ? (
-        <p>No transactions recorded yet.</p>
-      ) : (
-        <ol>
-          {ledger.map((event) => (
-            <li key={event.id}>
-              <strong>{event.occurredAt}</strong> — {describeEvent(event)}
-            </li>
-          ))}
-        </ol>
-      )}
+      <section className="ledger-section" aria-labelledby="ledger-heading">
+        <h2 id="ledger-heading">
+          {isPersonalLedger ? "Personal ledger" : "Anonymous test ledger"}
+        </h2>
+        {ledger.length === 0 ? (
+          <p>No transactions recorded yet.</p>
+        ) : (
+          <ol className="ledger-list">
+            {ledger.map((event) => (
+              <li key={event.id}>
+                {isPersonalLedger ? (
+                  <button
+                    type="button"
+                    className="ledger-event-button"
+                    aria-pressed={selectedLedgerEventId === event.id}
+                    onClick={() => setSelectedLedgerEventId(event.id)}
+                  >
+                    <strong>{event.occurredAt}</strong> — {describeEvent(event)}
+                  </button>
+                ) : (
+                  <>
+                    <strong>{event.occurredAt}</strong> — {describeEvent(event)}
+                  </>
+                )}
+              </li>
+            ))}
+          </ol>
+        )}
+
+        {isPersonalLedger && selectedLedgerEvent && (
+          <aside
+            className="transaction-detail-panel"
+            aria-labelledby="transaction-detail-heading"
+          >
+            <div className="transaction-detail-heading">
+              <div>
+                <p className="section-eyebrow">Transaction detail</p>
+                <h3 id="transaction-detail-heading">
+                  {describeEvent(selectedLedgerEvent)}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedLedgerEventId(null)}
+              >
+                Close
+              </button>
+            </div>
+            <dl>
+              <div>
+                <dt>Date</dt>
+                <dd>{selectedLedgerEvent.occurredAt}</dd>
+              </div>
+              <div>
+                <dt>Type</dt>
+                <dd>{selectedLedgerEvent.type}</dd>
+              </div>
+              <div>
+                <dt>Account</dt>
+                <dd>{selectedLedgerEvent.accountId}</dd>
+              </div>
+              <div>
+                <dt>Note</dt>
+                <dd>{selectedLedgerEvent.note || "—"}</dd>
+              </div>
+            </dl>
+            <p>
+              Deletion recalculates the complete ledger and is rejected if a
+              later transaction would become invalid.
+            </p>
+            <button
+              className="danger-button"
+              type="button"
+              onClick={deleteSelectedLedgerEvent}
+            >
+              Delete transaction
+            </button>
+          </aside>
+        )}
+      </section>
 
         <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
           <a href="#dashboard">Dashboard</a>
