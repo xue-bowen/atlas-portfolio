@@ -4,7 +4,7 @@
 
 Latest stable feature checkpoint before this documentation update:
 
-`12cf505 feat: add unified sell transaction flow`
+`1e485ff feat: add transaction detail deletion`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -337,6 +337,13 @@ browser warnings or errors. Deletion validation uses the same chronological
 balance engine and refuses a removal when a later transaction would become
 invalid.
 
+The first automated regression suite now runs with `npm test`. Six deterministic
+tests cover moving-average cost, net sale proceeds, realized P&L, cumulative
+fees, CNY/HKD/USD after-tax interest, chronological stable sorting without
+input mutation, deletion recalculation, and rejection of a deletion that would
+leave a later sale without sufficient holdings. The suite, production build,
+and lint all pass together.
+
 ## Key ledger behavior
 
 - BUY reduces USD cash by `quantity * price + fee` and adds that amount to
@@ -363,6 +370,8 @@ From the repository root:
 From the `web` directory:
 
 `npm run build`
+
+`npm test`
 
 `npm run dev`
 
