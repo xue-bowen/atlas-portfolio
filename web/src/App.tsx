@@ -7,6 +7,8 @@ import {
   type FormEvent,
 } from "react";
 import "./App.css";
+import { TransactionEditor } from "./components/TransactionEditor";
+import { replaceLedgerEvent } from "./domain/editLedgerEvent";
 import {
   CachedFxRateService,
   type FxRateResolution,
@@ -316,6 +318,7 @@ export default function App() {
   const [selectedLedgerEventId, setSelectedLedgerEventId] = useState<
     string | null
   >(null);
+  const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [isMoreNavigationOpen, setIsMoreNavigationOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [securityProfileRegistry, setSecurityProfileRegistry] = useState(
@@ -732,6 +735,8 @@ export default function App() {
     clearSecurityProfiles();
     setSecurityProfileRegistry({ status: "EMPTY", profiles: [] });
     resetSecurityProfileForm();
+    setEditingEventId(null);
+    setSelectedLedgerEventId(null);
     setLedger(initializeEmptyPersonalLedger());
     setIsPersonalLedger(true);
     setMessage("Empty personal ledger initialized locally in this browser.");
@@ -1200,6 +1205,8 @@ export default function App() {
         setSecurityProfileRegistry({ status: "EMPTY", profiles: [] });
       }
       resetSecurityProfileForm();
+      setEditingEventId(null);
+      setSelectedLedgerEventId(null);
       setLedger(importedLedger);
       setIsPersonalLedger(true);
       setMessage(
@@ -1234,6 +1241,21 @@ export default function App() {
       behavior: "smooth",
       block: "start",
     });
+  }
+
+  function saveEditedLedgerEvent(replacement: LedgerEvent): boolean {
+    try {
+      const updatedLedger = replaceLedgerEvent(ledger, replacement);
+      if (!persistLedgerChanges(updatedLedger)) return false;
+      setEditingEventId(null);
+      setMessage("Transaction updated and the entire ledger recalculated.");
+      return true;
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "Could not save this edit.",
+      );
+      return false;
+    }
   }
 
   function deleteSelectedLedgerEvent() {
@@ -2729,7 +2751,10 @@ export default function App() {
                     type="button"
                     className="ledger-event-button"
                     aria-pressed={selectedLedgerEventId === event.id}
-                    onClick={() => setSelectedLedgerEventId(event.id)}
+                    onClick={() => {
+                      setEditingEventId(null);
+                      setSelectedLedgerEventId(event.id);
+                    }}
                   >
                     <strong>{event.occurredAt}</strong> — {describeEvent(event)}
                   </button>
@@ -2757,7 +2782,10 @@ export default function App() {
               </div>
               <button
                 type="button"
-                onClick={() => setSelectedLedgerEventId(null)}
+                onClick={() => {
+                  setEditingEventId(null);
+                  setSelectedLedgerEventId(null);
+                }}
               >
                 Close
               </button>
@@ -2780,17 +2808,37 @@ export default function App() {
                 <dd>{selectedLedgerEvent.note || "—"}</dd>
               </div>
             </dl>
-            <p>
-              Deletion recalculates the complete ledger and is rejected if a
-              later transaction would become invalid.
-            </p>
-            <button
-              className="danger-button"
-              type="button"
-              onClick={deleteSelectedLedgerEvent}
-            >
-              Delete transaction
-            </button>
+            {editingEventId === selectedLedgerEvent.id ? (
+              <TransactionEditor
+                key={selectedLedgerEvent.id}
+                event={selectedLedgerEvent}
+                ledger={ledger}
+                onSave={saveEditedLedgerEvent}
+                onCancel={() => setEditingEventId(null)}
+              />
+            ) : (
+              <>
+                <p>
+                  Editing or deletion recalculates the complete ledger and is
+                  rejected if a later transaction would become invalid.
+                </p>
+                <div className="transaction-edit-actions">
+                  <button
+                    type="button"
+                    onClick={() => setEditingEventId(selectedLedgerEvent.id)}
+                  >
+                    Edit transaction
+                  </button>
+                  <button
+                    className="danger-button"
+                    type="button"
+                    onClick={deleteSelectedLedgerEvent}
+                  >
+                    Delete transaction
+                  </button>
+                </div>
+              </>
+            )}
           </aside>
         )}
       </section>

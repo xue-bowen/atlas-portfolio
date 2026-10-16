@@ -337,6 +337,19 @@ browser warnings or errors. Deletion validation uses the same chronological
 balance engine and refuses a removal when a later transaction would become
 invalid.
 
+An isolated transaction-edit check on temporary port 5233 imported four
+anonymous events, including a four-share ANON purchase followed by a 1.5-share
+sale. The detail view prefilled the immutable record, and reducing the purchase
+below the later sale displayed the chronological insufficient-position error
+and disabled save. Changing the purchase price from USD 100.00 to USD 90.00
+previewed USD cash rising from 775.00 to 815.00, realized P&L rising from USD
+27.50 to 42.50, remaining cost basis falling from USD 252.50 to 227.50, and
+average cost falling from USD 101.00 to 91.00. Saving replaced only the selected
+record; its ID, type, account, later sale, and event count remained unchanged.
+The edited value, note, balances, costs, and realized P&L survived a full page
+refresh. A 390 px viewport showed no horizontal page overflow, and the browser
+reported no warnings or errors. Only isolated anonymous data was used.
+
 The first automated regression suite now runs with `npm test`. Six deterministic
 tests cover moving-average cost, net sale proceeds, realized P&L, cumulative
 fees, CNY/HKD/USD after-tax interest, chronological stable sorting without
@@ -475,9 +488,8 @@ commits. Scope can move within that range as anonymous edge cases are found:
 
 ## Next task
 
-Add editing from the transaction-detail view as the next independent step.
-Populate an event-type-specific form from the selected immutable record,
-replace only that record on save, show the recalculated impact before commit,
-and reject edits that make any later chronological event invalid. A focused
-manual ledger review and local JSON backup remain required before substantial
-real history.
+Migrate CNY deposits into the unified transaction flow as the next independent
+step. Reuse the grouped form and show the resulting CNY cash before save. Keep
+the existing chronological calculation and persistence path, and do not migrate
+another transaction type in the same commit. A focused manual ledger review and
+local JSON backup remain required before substantial real history.
