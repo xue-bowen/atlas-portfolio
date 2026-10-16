@@ -4,7 +4,7 @@
 
 Latest stable feature checkpoint before this documentation update:
 
-`1e485ff feat: add transaction detail deletion`
+`d023f44 test: add core ledger regression suite`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -343,6 +343,11 @@ fees, CNY/HKD/USD after-tax interest, chronological stable sorting without
 input mutation, deletion recalculation, and rejection of a deletion that would
 leave a later sale without sufficient holdings. The suite, production build,
 and lint all pass together.
+
+The npm development dependency audit initially reported two denial-of-service
+advisories inherited through the lint/build toolchain. Exact overrides now pin
+`brace-expansion` 5.0.12 and `source-map-js` 1.2.2; `npm audit` reports zero
+known vulnerabilities, and tests, build, and lint still pass.
 
 ## Key ledger behavior
 
