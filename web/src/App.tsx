@@ -131,7 +131,6 @@ const transactionEntryOptions: Array<{
   {
     type: "CNY_WITHDRAWAL",
     label: "CNY withdrawal",
-    legacyTargetId: "legacy-cny-withdrawal",
   },
   {
     type: "FX_TO_USD",
@@ -265,6 +264,7 @@ export default function App() {
     new Date().toISOString().slice(0, 10),
   );
   const [withdrawalAmount, setWithdrawalAmount] = useState("");
+  const [withdrawalNote, setWithdrawalNote] = useState("");
   const [fxDate, setFxDate] = useState(() =>
     new Date().toISOString().slice(0, 10),
   );
@@ -464,6 +464,31 @@ export default function App() {
   const canSaveDeposit = Boolean(
     projectedDepositBalances &&
       Number.isFinite(projectedDepositBalances.cnyCash),
+  );
+  const previewWithdrawalAmountCny = Number(withdrawalAmount);
+  const isWithdrawalPreviewComplete =
+    Boolean(withdrawalDate) &&
+    Number.isFinite(previewWithdrawalAmountCny) &&
+    previewWithdrawalAmountCny > 0;
+  const projectedWithdrawalBalances = isWithdrawalPreviewComplete
+    ? calculateBalances([
+        ...ledger,
+        {
+          id: "withdrawal-preview",
+          occurredAt: withdrawalDate,
+          accountId: "personal-main",
+          type: "CNY_WITHDRAWAL",
+          amountCny: previewWithdrawalAmountCny,
+        },
+      ])
+    : undefined;
+  const withdrawalExceedsCash =
+    isWithdrawalPreviewComplete &&
+    previewWithdrawalAmountCny > balances.cnyCash;
+  const canSaveWithdrawal = Boolean(
+    projectedWithdrawalBalances &&
+      Number.isFinite(projectedWithdrawalBalances.cnyCash) &&
+      !withdrawalExceedsCash,
   );
   const netDividendUsd =
     Number(dividendGrossAmountUsd) - Number(dividendWithholdingTaxUsd);
@@ -795,12 +820,12 @@ export default function App() {
 
     const amountCny = Number(withdrawalAmount);
 
-    if (!withdrawalDate || !Number.isFinite(amountCny) || amountCny <= 0) {
+    if (!isWithdrawalPreviewComplete) {
       setMessage("Please enter a valid date and a positive CNY amount.");
       return;
     }
 
-    if (amountCny > balances.cnyCash) {
+    if (!canSaveWithdrawal) {
       setMessage("Withdrawal cannot exceed current CNY cash.");
       return;
     }
@@ -811,13 +836,14 @@ export default function App() {
       accountId: "personal-main",
       type: "CNY_WITHDRAWAL",
       amountCny,
-      note: "Manual CNY withdrawal",
+      note: withdrawalNote.trim() || "Manual CNY withdrawal",
     };
 
     if (!persistLedgerChanges([...ledger, withdrawal])) {
       return;
     }
     setWithdrawalAmount("");
+    setWithdrawalNote("");
     setMessage("CNY withdrawal saved locally in this browser.");
   }
 
@@ -1383,7 +1409,8 @@ export default function App() {
                       {option.label}
                       {option.type === "BUY" ||
                       option.type === "SELL" ||
-                      option.type === "CNY_DEPOSIT"
+                      option.type === "CNY_DEPOSIT" ||
+                      option.type === "CNY_WITHDRAWAL"
                         ? " · unified flow"
                         : " · existing form"}
                     </option>
@@ -1862,10 +1889,125 @@ export default function App() {
                 </form>
               )}
 
+              {selectedTransactionType === "CNY_WITHDRAWAL" && (
+                <form
+                  className="unified-transaction-form"
+                  onSubmit={addCnyWithdrawal}
+                >
+                  <div className="transaction-flow-heading">
+                    <span>2. Enter details</span>
+                    <h3>CNY withdrawal</h3>
+                  </div>
+
+                  <fieldset>
+                    <legend>Basic information</legend>
+                    <div className="transaction-form-grid">
+                      <label>
+                        Date
+                        <input
+                          type="date"
+                          value={withdrawalDate}
+                          onChange={(event) =>
+                            setWithdrawalDate(event.target.value)
+                          }
+                          required
+                        />
+                      </label>
+                      <label>
+                        Account
+                        <input value="personal-main" readOnly />
+                      </label>
+                    </div>
+                  </fieldset>
+
+                  <fieldset>
+                    <legend>Cash flow</legend>
+                    <div className="transaction-form-grid">
+                      <label>
+                        Amount withdrawn (CNY)
+                        <input
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          value={withdrawalAmount}
+                          onChange={(event) =>
+                            setWithdrawalAmount(event.target.value)
+                          }
+                          placeholder="e.g. 500"
+                          required
+                        />
+                      </label>
+                      <label>
+                        Currency
+                        <input value="CNY" readOnly />
+                      </label>
+                    </div>
+                  </fieldset>
+
+                  <fieldset>
+                    <legend>Notes</legend>
+                    <div className="transaction-form-grid">
+                      <label>
+                        Note (optional)
+                        <textarea
+                          value={withdrawalNote}
+                          onChange={(event) =>
+                            setWithdrawalNote(event.target.value)
+                          }
+                          placeholder="Bank reference or destination"
+                        />
+                      </label>
+                    </div>
+                  </fieldset>
+
+                  <section
+                    className="transaction-impact-preview"
+                    aria-labelledby="withdrawal-impact-preview"
+                    data-testid="withdrawal-impact-preview"
+                  >
+                    <div className="transaction-flow-heading">
+                      <span>3. Preview impact</span>
+                      <h3 id="withdrawal-impact-preview">Ledger impact</h3>
+                    </div>
+                    {projectedWithdrawalBalances ? (
+                      <dl>
+                        <div>
+                          <dt>CNY withdrawal</dt>
+                          <dd>{cny.format(-previewWithdrawalAmountCny)}</dd>
+                        </div>
+                        <div>
+                          <dt>CNY cash</dt>
+                          <dd>
+                            {cny.format(balances.cnyCash)} →{" "}
+                            {cny.format(projectedWithdrawalBalances.cnyCash)}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Other balances</dt>
+                          <dd>Unchanged</dd>
+                        </div>
+                      </dl>
+                    ) : (
+                      <p>Enter a positive CNY amount to preview this withdrawal.</p>
+                    )}
+                    {withdrawalExceedsCash && (
+                      <p className="transaction-impact-warning" role="alert">
+                        Withdrawal exceeds current CNY cash.
+                      </p>
+                    )}
+                  </section>
+
+                  <button type="submit" disabled={!canSaveWithdrawal}>
+                    4. Save withdrawal
+                  </button>
+                </form>
+              )}
+
               {selectedTransactionType &&
                 selectedTransactionType !== "BUY" &&
                 selectedTransactionType !== "SELL" &&
-                selectedTransactionType !== "CNY_DEPOSIT" && (
+                selectedTransactionType !== "CNY_DEPOSIT" &&
+                selectedTransactionType !== "CNY_WITHDRAWAL" && (
                   <div className="legacy-transaction-notice">
                     <p>
                       This transaction type still uses its verified existing form.
@@ -1889,38 +2031,6 @@ export default function App() {
           <button type="button" onClick={startEmptyPersonalLedger}>
             Start with an empty personal ledger
           </button>
-        </section>
-      )}
-
-      {isPersonalLedger && (
-        <section id="legacy-cny-withdrawal">
-          <h2>Add CNY withdrawal</h2>
-          <form onSubmit={addCnyWithdrawal}>
-            <p>
-              <label>
-                Date{" "}
-                <input
-                  type="date"
-                  value={withdrawalDate}
-                  onChange={(event) => setWithdrawalDate(event.target.value)}
-                />
-              </label>
-            </p>
-            <p>
-              <label>
-                Amount withdrawn (CNY){" "}
-                <input
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  value={withdrawalAmount}
-                  onChange={(event) => setWithdrawalAmount(event.target.value)}
-                  placeholder="e.g. 500"
-                />
-              </label>
-            </p>
-            <button type="submit">Add withdrawal</button>
-          </form>
         </section>
       )}
 
