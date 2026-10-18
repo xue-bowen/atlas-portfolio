@@ -4,7 +4,7 @@
 
 Latest stable feature checkpoint before this documentation update:
 
-`d023f44 test: add core ledger regression suite`
+`61e5ab2 feat: edit ledger transactions`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -12,7 +12,7 @@ Windows local path:
 
 `C:\Users\28301\atlas-portfolio`
 
-Last updated: 2026-10-16
+Last updated: 2026-10-19
 
 The working tree was clean after the latest commit. Personal ledger data is
 browser-local and is never committed to GitHub.
@@ -350,6 +350,16 @@ The edited value, note, balances, costs, and realized P&L survived a full page
 refresh. A 390 px viewport showed no horizontal page overflow, and the browser
 reported no warnings or errors. Only isolated anonymous data was used.
 
+An isolated unified-CNY-deposit check on temporary port 5234 imported an empty
+anonymous ledger. Selecting CNY deposit opened the grouped basic information,
+cash flow, and notes form. Entering CNY 1,234.56 previewed CNY cash rising from
+zero to CNY 1,234.56 while other balances remained unchanged. Save stayed
+disabled until the required amount was valid. The saved event, amount, note,
+and resulting cash survived a full page refresh, and the duplicate legacy CNY
+deposit form was absent. A 390 px viewport showed the same preview without
+horizontal page overflow, and the browser reported no warnings or errors. Only
+isolated anonymous data was used; no existing manual-test origin was opened.
+
 The first automated regression suite now runs with `npm test`. Six deterministic
 tests cover moving-average cost, net sale proceeds, realized P&L, cumulative
 fees, CNY/HKD/USD after-tax interest, chronological stable sorting without
@@ -488,8 +498,9 @@ commits. Scope can move within that range as anonymous edge cases are found:
 
 ## Next task
 
-Migrate CNY deposits into the unified transaction flow as the next independent
-step. Reuse the grouped form and show the resulting CNY cash before save. Keep
-the existing chronological calculation and persistence path, and do not migrate
-another transaction type in the same commit. A focused manual ledger review and
-local JSON backup remain required before substantial real history.
+Migrate CNY withdrawals into the unified transaction flow as the next
+independent step. Reuse the grouped form, preview the resulting CNY cash, and
+disable save when the withdrawal exceeds available cash. Keep the existing
+chronological calculation and persistence path, and do not migrate another
+transaction type in the same commit. A focused manual ledger review and local
+JSON backup remain required before substantial real history.

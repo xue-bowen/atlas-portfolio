@@ -127,7 +127,6 @@ const transactionEntryOptions: Array<{
   {
     type: "CNY_DEPOSIT",
     label: "CNY deposit",
-    legacyTargetId: "legacy-cny-deposit",
   },
   {
     type: "CNY_WITHDRAWAL",
@@ -261,6 +260,7 @@ export default function App() {
     new Date().toISOString().slice(0, 10),
   );
   const [depositAmount, setDepositAmount] = useState("");
+  const [depositNote, setDepositNote] = useState("");
   const [withdrawalDate, setWithdrawalDate] = useState(() =>
     new Date().toISOString().slice(0, 10),
   );
@@ -443,6 +443,27 @@ export default function App() {
   const usdCashHistory = calculateUsdCashHistory(ledger);
   const selectedLedgerEvent = ledger.find(
     (event) => event.id === selectedLedgerEventId,
+  );
+  const previewDepositAmountCny = Number(depositAmount);
+  const isDepositPreviewComplete =
+    Boolean(depositDate) &&
+    Number.isFinite(previewDepositAmountCny) &&
+    previewDepositAmountCny > 0;
+  const projectedDepositBalances = isDepositPreviewComplete
+    ? calculateBalances([
+        ...ledger,
+        {
+          id: "deposit-preview",
+          occurredAt: depositDate,
+          accountId: "personal-main",
+          type: "CNY_DEPOSIT",
+          amountCny: previewDepositAmountCny,
+        },
+      ])
+    : undefined;
+  const canSaveDeposit = Boolean(
+    projectedDepositBalances &&
+      Number.isFinite(projectedDepositBalances.cnyCash),
   );
   const netDividendUsd =
     Number(dividendGrossAmountUsd) - Number(dividendWithholdingTaxUsd);
@@ -747,7 +768,7 @@ export default function App() {
 
     const amountCny = Number(depositAmount);
 
-    if (!depositDate || !Number.isFinite(amountCny) || amountCny <= 0) {
+    if (!canSaveDeposit) {
       setMessage("Please enter a valid date and a positive CNY amount.");
       return;
     }
@@ -758,13 +779,14 @@ export default function App() {
       accountId: "personal-main",
       type: "CNY_DEPOSIT",
       amountCny,
-      note: "Manual CNY deposit",
+      note: depositNote.trim() || "Manual CNY deposit",
     };
 
     if (!persistLedgerChanges([...ledger, deposit])) {
       return;
     }
     setDepositAmount("");
+    setDepositNote("");
     setMessage("Deposit saved locally in this browser.");
   }
 
@@ -1359,7 +1381,9 @@ export default function App() {
                   {transactionEntryOptions.map((option) => (
                     <option key={option.type} value={option.type}>
                       {option.label}
-                      {option.type === "BUY" || option.type === "SELL"
+                      {option.type === "BUY" ||
+                      option.type === "SELL" ||
+                      option.type === "CNY_DEPOSIT"
                         ? " · unified flow"
                         : " · existing form"}
                     </option>
@@ -1729,9 +1753,119 @@ export default function App() {
                 </form>
               )}
 
+              {selectedTransactionType === "CNY_DEPOSIT" && (
+                <form
+                  className="unified-transaction-form"
+                  onSubmit={addCnyDeposit}
+                >
+                  <div className="transaction-flow-heading">
+                    <span>2. Enter details</span>
+                    <h3>CNY deposit</h3>
+                  </div>
+
+                  <fieldset>
+                    <legend>Basic information</legend>
+                    <div className="transaction-form-grid">
+                      <label>
+                        Date
+                        <input
+                          type="date"
+                          value={depositDate}
+                          onChange={(event) =>
+                            setDepositDate(event.target.value)
+                          }
+                          required
+                        />
+                      </label>
+                      <label>
+                        Account
+                        <input value="personal-main" readOnly />
+                      </label>
+                    </div>
+                  </fieldset>
+
+                  <fieldset>
+                    <legend>Cash flow</legend>
+                    <div className="transaction-form-grid">
+                      <label>
+                        Amount deposited (CNY)
+                        <input
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          value={depositAmount}
+                          onChange={(event) =>
+                            setDepositAmount(event.target.value)
+                          }
+                          placeholder="e.g. 1000"
+                          required
+                        />
+                      </label>
+                      <label>
+                        Currency
+                        <input value="CNY" readOnly />
+                      </label>
+                    </div>
+                  </fieldset>
+
+                  <fieldset>
+                    <legend>Notes</legend>
+                    <div className="transaction-form-grid">
+                      <label>
+                        Note (optional)
+                        <textarea
+                          value={depositNote}
+                          onChange={(event) =>
+                            setDepositNote(event.target.value)
+                          }
+                          placeholder="Bank reference or source"
+                        />
+                      </label>
+                    </div>
+                  </fieldset>
+
+                  <section
+                    className="transaction-impact-preview"
+                    aria-labelledby="deposit-impact-preview"
+                    data-testid="deposit-impact-preview"
+                  >
+                    <div className="transaction-flow-heading">
+                      <span>3. Preview impact</span>
+                      <h3 id="deposit-impact-preview">Ledger impact</h3>
+                    </div>
+                    {projectedDepositBalances ? (
+                      <dl>
+                        <div>
+                          <dt>CNY deposit</dt>
+                          <dd>+{cny.format(previewDepositAmountCny)}</dd>
+                        </div>
+                        <div>
+                          <dt>CNY cash</dt>
+                          <dd>
+                            {cny.format(balances.cnyCash)} →{" "}
+                            {cny.format(projectedDepositBalances.cnyCash)}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Other balances</dt>
+                          <dd>Unchanged</dd>
+                        </div>
+                      </dl>
+                    ) : (
+                      <p>Enter a positive CNY amount to preview this deposit.</p>
+                    )}
+                  </section>
+
+                  <button type="submit" disabled={!canSaveDeposit}>
+                    4. Save deposit
+                  </button>
+                </form>
+              )}
+
               {selectedTransactionType &&
                 selectedTransactionType !== "BUY" &&
-                selectedTransactionType !== "SELL" && (
+                selectedTransactionType !== "SELL" &&
+                selectedTransactionType !== "CNY_DEPOSIT" && (
                   <div className="legacy-transaction-notice">
                     <p>
                       This transaction type still uses its verified existing form.
@@ -1755,38 +1889,6 @@ export default function App() {
           <button type="button" onClick={startEmptyPersonalLedger}>
             Start with an empty personal ledger
           </button>
-        </section>
-      )}
-
-      {isPersonalLedger && (
-        <section id="legacy-cny-deposit">
-          <h2>Add CNY deposit</h2>
-          <form onSubmit={addCnyDeposit}>
-            <p>
-              <label>
-                Date{" "}
-                <input
-                  type="date"
-                  value={depositDate}
-                  onChange={(event) => setDepositDate(event.target.value)}
-                />
-              </label>
-            </p>
-            <p>
-              <label>
-                Amount (CNY){" "}
-                <input
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  value={depositAmount}
-                  onChange={(event) => setDepositAmount(event.target.value)}
-                  placeholder="e.g. 1000"
-                />
-              </label>
-            </p>
-            <button type="submit">Add deposit</button>
-          </form>
         </section>
       )}
 
