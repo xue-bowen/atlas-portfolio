@@ -139,7 +139,6 @@ const transactionEntryOptions: Array<{
   {
     type: "DIVIDEND",
     label: "Dividend",
-    legacyTargetId: "legacy-dividend",
   },
   {
     type: "INTEREST",
@@ -302,6 +301,7 @@ export default function App() {
   const [dividendPaymentMethod, setDividendPaymentMethod] = useState("CASH");
   const [dividendReinvestmentPriceUsd, setDividendReinvestmentPriceUsd] =
     useState("");
+  const [dividendNote, setDividendNote] = useState("");
   const [interestDate, setInterestDate] = useState(() =>
     new Date().toISOString().slice(0, 10),
   );
@@ -524,10 +524,74 @@ export default function App() {
       Number.isFinite(previewFxEffectiveCnyPerUsd) &&
       !fxExceedsCnyCash,
   );
-  const netDividendUsd =
-    Number(dividendGrossAmountUsd) - Number(dividendWithholdingTaxUsd);
-  const reinvestmentShares =
-    netDividendUsd / Number(dividendReinvestmentPriceUsd);
+  const previewDividendSymbol = dividendSymbol.trim().toUpperCase();
+  const previewDividendGrossAmountUsd = Number(dividendGrossAmountUsd);
+  const previewDividendWithholdingTaxUsd = Number(
+    dividendWithholdingTaxUsd,
+  );
+  const previewDividendNetAmountUsd =
+    previewDividendGrossAmountUsd - previewDividendWithholdingTaxUsd;
+  const previewDividendReinvestmentPriceUsd = Number(
+    dividendReinvestmentPriceUsd,
+  );
+  const isDividendReinvested = dividendPaymentMethod === "REINVEST";
+  const isDividendPreviewComplete =
+    Boolean(dividendDate && previewDividendSymbol) &&
+    Number.isFinite(previewDividendGrossAmountUsd) &&
+    previewDividendGrossAmountUsd > 0 &&
+    Number.isFinite(previewDividendWithholdingTaxUsd) &&
+    previewDividendWithholdingTaxUsd >= 0 &&
+    previewDividendWithholdingTaxUsd <= previewDividendGrossAmountUsd &&
+    (!isDividendReinvested ||
+      (previewDividendNetAmountUsd > 0 &&
+        Number.isFinite(previewDividendReinvestmentPriceUsd) &&
+        previewDividendReinvestmentPriceUsd > 0));
+  const previewDividendReinvestmentShares =
+    isDividendPreviewComplete && isDividendReinvested
+      ? previewDividendNetAmountUsd / previewDividendReinvestmentPriceUsd
+      : undefined;
+  const previewDividendEvents: LedgerEvent[] = isDividendPreviewComplete
+    ? [
+        {
+          id: "dividend-preview",
+          occurredAt: dividendDate,
+          accountId: "personal-main",
+          type: "DIVIDEND",
+          symbol: previewDividendSymbol,
+          grossAmountUsd: previewDividendGrossAmountUsd,
+          withholdingTaxUsd: previewDividendWithholdingTaxUsd,
+        },
+        ...(previewDividendReinvestmentShares !== undefined
+          ? [
+              {
+                id: "dividend-reinvestment-preview",
+                occurredAt: dividendDate,
+                accountId: "personal-main",
+                type: "BUY" as const,
+                symbol: previewDividendSymbol,
+                quantity: previewDividendReinvestmentShares,
+                priceUsd: previewDividendReinvestmentPriceUsd,
+                feeUsd: 0,
+              },
+            ]
+          : []),
+      ]
+    : [];
+  const projectedDividendBalances = isDividendPreviewComplete
+    ? calculateBalances([...ledger, ...previewDividendEvents])
+    : undefined;
+  const previewDividendPosition = balances.positions.find(
+    (position) => position.symbol === previewDividendSymbol,
+  );
+  const projectedDividendPosition = projectedDividendBalances?.positions.find(
+    (position) => position.symbol === previewDividendSymbol,
+  );
+  const canSaveDividend = Boolean(
+    projectedDividendBalances &&
+      Number.isFinite(projectedDividendBalances.usdCash) &&
+      (previewDividendReinvestmentShares === undefined ||
+        Number.isFinite(previewDividendReinvestmentShares)),
+  );
   const previewBuySymbol = buySymbol.trim().toUpperCase();
   const previewBuyQuantity = Number(buyQuantity);
   const previewBuyPriceUsd = Number(buyPriceUsd);
@@ -1131,9 +1195,11 @@ export default function App() {
       symbol,
       grossAmountUsd,
       withholdingTaxUsd,
-      note: isReinvested
-        ? "Manual dividend payment with reinvestment"
-        : "Manual cash dividend payment",
+      note:
+        dividendNote.trim() ||
+        (isReinvested
+          ? "Manual dividend payment with reinvestment"
+          : "Manual cash dividend payment"),
     };
 
     const reinvestment: LedgerEvent[] = isReinvested
@@ -1158,6 +1224,7 @@ export default function App() {
     setDividendGrossAmountUsd("");
     setDividendWithholdingTaxUsd("0");
     setDividendReinvestmentPriceUsd("");
+    setDividendNote("");
     setMessage(
       isReinvested
         ? "Dividend and reinvestment saved locally in this browser."
@@ -1445,7 +1512,8 @@ export default function App() {
                       option.type === "SELL" ||
                       option.type === "CNY_DEPOSIT" ||
                       option.type === "CNY_WITHDRAWAL" ||
-                      option.type === "FX_TO_USD"
+                      option.type === "FX_TO_USD" ||
+                      option.type === "DIVIDEND"
                         ? " · unified flow"
                         : " · existing form"}
                     </option>
@@ -2173,12 +2241,224 @@ export default function App() {
                 </form>
               )}
 
+              {selectedTransactionType === "DIVIDEND" && (
+                <form
+                  className="unified-transaction-form"
+                  onSubmit={addDividend}
+                >
+                  <div className="transaction-flow-heading">
+                    <span>2. Enter details</span>
+                    <h3>Dividend</h3>
+                  </div>
+
+                  <fieldset>
+                    <legend>Basic information</legend>
+                    <div className="transaction-form-grid">
+                      <label>
+                        Date
+                        <input
+                          type="date"
+                          value={dividendDate}
+                          onChange={(event) =>
+                            setDividendDate(event.target.value)
+                          }
+                          required
+                        />
+                      </label>
+                      <label>
+                        Account
+                        <input value="personal-main" readOnly />
+                      </label>
+                      <label>
+                        Symbol
+                        <input
+                          type="text"
+                          value={dividendSymbol}
+                          onChange={(event) =>
+                            setDividendSymbol(event.target.value)
+                          }
+                          placeholder="e.g. VOO"
+                          required
+                        />
+                      </label>
+                      <label>
+                        Currency
+                        <input value="USD" readOnly />
+                      </label>
+                    </div>
+                  </fieldset>
+
+                  <fieldset>
+                    <legend>Payment and tax</legend>
+                    <div className="transaction-form-grid">
+                      <label>
+                        Gross amount (USD)
+                        <input
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          value={dividendGrossAmountUsd}
+                          onChange={(event) =>
+                            setDividendGrossAmountUsd(event.target.value)
+                          }
+                          placeholder="e.g. 6.20"
+                          required
+                        />
+                      </label>
+                      <label>
+                        Withholding tax (USD)
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={dividendWithholdingTaxUsd}
+                          onChange={(event) =>
+                            setDividendWithholdingTaxUsd(event.target.value)
+                          }
+                          placeholder="e.g. 0.62"
+                          required
+                        />
+                      </label>
+                      <label>
+                        Payment method
+                        <select
+                          value={dividendPaymentMethod}
+                          onChange={(event) =>
+                            setDividendPaymentMethod(event.target.value)
+                          }
+                        >
+                          <option value="CASH">Cash dividend</option>
+                          <option value="REINVEST">Reinvest dividend</option>
+                        </select>
+                      </label>
+                      {isDividendReinvested && (
+                        <label>
+                          Reinvestment price (USD per share)
+                          <input
+                            type="number"
+                            min="0.000001"
+                            step="0.000001"
+                            value={dividendReinvestmentPriceUsd}
+                            onChange={(event) =>
+                              setDividendReinvestmentPriceUsd(
+                                event.target.value,
+                              )
+                            }
+                            placeholder="e.g. 500"
+                            required
+                          />
+                        </label>
+                      )}
+                    </div>
+                  </fieldset>
+
+                  <fieldset>
+                    <legend>Notes</legend>
+                    <div className="transaction-form-grid">
+                      <label>
+                        Note (optional)
+                        <textarea
+                          value={dividendNote}
+                          onChange={(event) =>
+                            setDividendNote(event.target.value)
+                          }
+                          placeholder="Broker reference or payment details"
+                        />
+                      </label>
+                    </div>
+                  </fieldset>
+
+                  <section
+                    className="transaction-impact-preview"
+                    aria-labelledby="dividend-impact-preview"
+                    data-testid="dividend-impact-preview"
+                  >
+                    <div className="transaction-flow-heading">
+                      <span>3. Preview impact</span>
+                      <h3 id="dividend-impact-preview">Ledger impact</h3>
+                    </div>
+                    {projectedDividendBalances ? (
+                      <dl>
+                        <div>
+                          <dt>Net dividend</dt>
+                          <dd>+{usd.format(previewDividendNetAmountUsd)}</dd>
+                        </div>
+                        <div>
+                          <dt>Withholding tax</dt>
+                          <dd>{usd.format(previewDividendWithholdingTaxUsd)}</dd>
+                        </div>
+                        <div>
+                          <dt>USD cash</dt>
+                          <dd>
+                            {usd.format(balances.usdCash)} →{" "}
+                            {usd.format(projectedDividendBalances.usdCash)}
+                          </dd>
+                        </div>
+                        {previewDividendReinvestmentShares !== undefined && (
+                          <>
+                            <div>
+                              <dt>Reinvested shares</dt>
+                              <dd>
+                                +{previewDividendReinvestmentShares.toFixed(6)}{" "}
+                                {previewDividendSymbol}
+                              </dd>
+                            </div>
+                            <div>
+                              <dt>Position</dt>
+                              <dd>
+                                {previewDividendPosition?.quantity ?? 0} →{" "}
+                                {projectedDividendPosition?.quantity ?? 0}{" "}
+                                {previewDividendSymbol}
+                              </dd>
+                            </div>
+                            <div>
+                              <dt>Cost basis</dt>
+                              <dd>
+                                {usd.format(
+                                  previewDividendPosition?.costUsd ?? 0,
+                                )}{" "}
+                                →{" "}
+                                {usd.format(
+                                  projectedDividendPosition?.costUsd ?? 0,
+                                )}
+                              </dd>
+                            </div>
+                          </>
+                        )}
+                      </dl>
+                    ) : (
+                      <p>
+                        Complete the dividend and tax details
+                        {isDividendReinvested
+                          ? " plus the reinvestment price"
+                          : ""}{" "}
+                        to preview this payment.
+                      </p>
+                    )}
+                    {Number.isFinite(previewDividendGrossAmountUsd) &&
+                      previewDividendGrossAmountUsd > 0 &&
+                      Number.isFinite(previewDividendWithholdingTaxUsd) &&
+                      previewDividendWithholdingTaxUsd >
+                        previewDividendGrossAmountUsd && (
+                        <p className="transaction-impact-warning" role="alert">
+                          Withholding tax cannot exceed the gross dividend.
+                        </p>
+                      )}
+                  </section>
+
+                  <button type="submit" disabled={!canSaveDividend}>
+                    4. Save dividend
+                  </button>
+                </form>
+              )}
+
               {selectedTransactionType &&
                 selectedTransactionType !== "BUY" &&
                 selectedTransactionType !== "SELL" &&
                 selectedTransactionType !== "CNY_DEPOSIT" &&
                 selectedTransactionType !== "CNY_WITHDRAWAL" &&
-                selectedTransactionType !== "FX_TO_USD" && (
+                selectedTransactionType !== "FX_TO_USD" &&
+                selectedTransactionType !== "DIVIDEND" && (
                   <div className="legacy-transaction-notice">
                     <p>
                       This transaction type still uses its verified existing form.
@@ -2263,106 +2543,6 @@ export default function App() {
             </p>
             <p>Source: Payment cashback · Account: personal-main</p>
             <button type="submit">Add cashback shares</button>
-          </form>
-        </section>
-      )}
-
-      {isPersonalLedger && (
-        <section id="legacy-dividend">
-          <h2>Add USD dividend</h2>
-          <form onSubmit={addDividend}>
-            <p>
-              <label>
-                Date{" "}
-                <input
-                  type="date"
-                  value={dividendDate}
-                  onChange={(event) => setDividendDate(event.target.value)}
-                />
-              </label>
-            </p>
-            <p>
-              <label>
-                Symbol{" "}
-                <input
-                  type="text"
-                  value={dividendSymbol}
-                  onChange={(event) => setDividendSymbol(event.target.value)}
-                  placeholder="e.g. VOO"
-                />
-              </label>
-            </p>
-            <p>
-              <label>
-                Gross amount (USD){" "}
-                <input
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  value={dividendGrossAmountUsd}
-                  onChange={(event) =>
-                    setDividendGrossAmountUsd(event.target.value)
-                  }
-                  placeholder="e.g. 6.20"
-                />
-              </label>
-            </p>
-            <p>
-              <label>
-                Withholding tax (USD){" "}
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={dividendWithholdingTaxUsd}
-                  onChange={(event) =>
-                    setDividendWithholdingTaxUsd(event.target.value)
-                  }
-                  placeholder="e.g. 0.62"
-                />
-              </label>
-            </p>
-            <p>
-              <label>
-                Payment method{" "}
-                <select
-                  value={dividendPaymentMethod}
-                  onChange={(event) =>
-                    setDividendPaymentMethod(event.target.value)
-                  }
-                >
-                  <option value="CASH">Cash dividend</option>
-                  <option value="REINVEST">Reinvest dividend</option>
-                </select>
-              </label>
-            </p>
-            {dividendPaymentMethod === "REINVEST" && (
-              <>
-                <p>
-                  <label>
-                    Reinvestment price (USD per share){" "}
-                    <input
-                      type="number"
-                      min="0.000001"
-                      step="0.000001"
-                      value={dividendReinvestmentPriceUsd}
-                      onChange={(event) =>
-                        setDividendReinvestmentPriceUsd(event.target.value)
-                      }
-                      placeholder="e.g. 500"
-                    />
-                  </label>
-                </p>
-                <p>
-                  Reinvestment shares: {" "}
-                  {Number.isFinite(reinvestmentShares) &&
-                  reinvestmentShares > 0
-                    ? reinvestmentShares.toFixed(6)
-                    : "Not available"}
-                </p>
-              </>
-            )}
-            <button type="submit">Add dividend</button>
           </form>
         </section>
       )}

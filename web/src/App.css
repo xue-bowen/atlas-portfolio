@@ -335,6 +335,7 @@
 }
 
 .transaction-form-grid input,
+.transaction-form-grid select,
 .transaction-form-grid textarea,
 .transaction-type-selector select {
   box-sizing: border-box;
