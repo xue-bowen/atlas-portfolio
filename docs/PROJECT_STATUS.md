@@ -4,7 +4,7 @@
 
 Latest stable feature checkpoint before this documentation update:
 
-`f639290 feat: unify CNY to USD flow`
+`7fd97f9 feat: unify dividend flow`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -58,7 +58,8 @@ browser-local and is never committed to GitHub.
 - Dividend reinvestment: records a dividend followed by a zero-fee buy using
   all net dividend proceeds. The user enters the reinvestment price; the app
   calculates the fractional shares automatically.
-- Multi-currency after-tax interest entry for USD, HKD, and CNY.
+- Unified multi-currency after-tax interest flow for USD, HKD, and CNY with
+  grouped payment and note fields plus a pre-save cash impact preview.
 - Separate HKD cash balance.
 - USD cash transaction history with inflow, outflow, and running balance.
 - Manual ADR custody fee and other USD expense entry; standalone commission
@@ -397,6 +398,16 @@ absent. A 390 px viewport showed no horizontal page overflow, and the browser
 reported no warnings or errors. Only isolated anonymous data was used; no
 existing manual-test origin was opened.
 
+An isolated unified-interest check on temporary port 5238 started with a fresh
+anonymous personal ledger. USD 12.34, HKD 88.88, and CNY 66.66 after-tax
+interest payments each previewed and changed only the selected currency's cash
+balance; zero amount kept save disabled. All three events and balances survived
+a full refresh, the saved CNY note appeared in transaction detail, the USD
+event appeared in USD cash history, and the duplicate legacy interest form was
+absent. A 390 px viewport showed no horizontal page overflow, and the browser
+reported no warnings or errors. Only isolated anonymous data was used; no
+existing manual-test origin was opened.
+
 The first automated regression suite now runs with `npm test`. Six deterministic
 tests cover moving-average cost, net sale proceeds, realized P&L, cumulative
 fees, CNY/HKD/USD after-tax interest, chronological stable sorting without
@@ -535,10 +546,10 @@ commits. Scope can move within that range as anonymous edge cases are found:
 
 ## Next task
 
-Migrate interest income into the unified transaction flow as the next
-independent step. Preserve the existing USD, HKD, and CNY after-tax cash
-behavior, group currency and payment details clearly, and preview the affected
-cash balance before save. Keep the existing chronological calculation and
-persistence path, and do not migrate another transaction type in the same
-commit. A focused manual ledger review and local JSON backup remain required
-before substantial real history.
+Migrate USD expenses into the unified transaction flow as the next independent
+step. Preserve ADR custody fee and other-expense categories, group category and
+payment details clearly, and preview USD cash plus accumulated fees before
+save. Keep the existing chronological calculation and persistence path, and do
+not migrate another transaction type in the same commit. A focused manual
+ledger review and local JSON backup remain required before substantial real
+history.

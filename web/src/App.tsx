@@ -143,7 +143,6 @@ const transactionEntryOptions: Array<{
   {
     type: "INTEREST",
     label: "Interest income",
-    legacyTargetId: "legacy-interest",
   },
   { type: "FEE", label: "USD expense", legacyTargetId: "legacy-expense" },
   {
@@ -307,6 +306,7 @@ export default function App() {
   );
   const [interestCurrency, setInterestCurrency] = useState<Currency>("USD");
   const [interestAmount, setInterestAmount] = useState("");
+  const [interestNote, setInterestNote] = useState("");
   const [expenseDate, setExpenseDate] = useState(() =>
     new Date().toISOString().slice(0, 10),
   );
@@ -592,6 +592,40 @@ export default function App() {
       (previewDividendReinvestmentShares === undefined ||
         Number.isFinite(previewDividendReinvestmentShares)),
   );
+  const previewInterestAmount = Number(interestAmount);
+  const isInterestPreviewComplete =
+    Boolean(interestDate) &&
+    Number.isFinite(previewInterestAmount) &&
+    previewInterestAmount > 0;
+  const projectedInterestBalances = isInterestPreviewComplete
+    ? calculateBalances([
+        ...ledger,
+        {
+          id: "interest-preview",
+          occurredAt: interestDate,
+          accountId: "personal-main",
+          type: "INTEREST",
+          currency: interestCurrency,
+          amount: previewInterestAmount,
+        },
+      ])
+    : undefined;
+  const currentInterestCash =
+    interestCurrency === "CNY"
+      ? balances.cnyCash
+      : interestCurrency === "HKD"
+        ? balances.hkdCash
+        : balances.usdCash;
+  const projectedInterestCash = projectedInterestBalances
+    ? interestCurrency === "CNY"
+      ? projectedInterestBalances.cnyCash
+      : interestCurrency === "HKD"
+        ? projectedInterestBalances.hkdCash
+        : projectedInterestBalances.usdCash
+    : undefined;
+  const canSaveInterest =
+    projectedInterestCash !== undefined &&
+    Number.isFinite(projectedInterestCash);
   const previewBuySymbol = buySymbol.trim().toUpperCase();
   const previewBuyQuantity = Number(buyQuantity);
   const previewBuyPriceUsd = Number(buyPriceUsd);
@@ -1249,13 +1283,15 @@ export default function App() {
       type: "INTEREST",
       currency: interestCurrency,
       amount,
-      note: "Manual interest payment received after tax",
+      note:
+        interestNote.trim() || "Manual interest payment received after tax",
     };
 
     if (!persistLedgerChanges([...ledger, interest])) {
       return;
     }
     setInterestAmount("");
+    setInterestNote("");
     setMessage(
       `${interestCurrency} interest saved locally as an after-tax amount.`,
     );
@@ -1513,7 +1549,8 @@ export default function App() {
                       option.type === "CNY_DEPOSIT" ||
                       option.type === "CNY_WITHDRAWAL" ||
                       option.type === "FX_TO_USD" ||
-                      option.type === "DIVIDEND"
+                      option.type === "DIVIDEND" ||
+                      option.type === "INTEREST"
                         ? " · unified flow"
                         : " · existing form"}
                     </option>
@@ -2452,13 +2489,144 @@ export default function App() {
                 </form>
               )}
 
+              {selectedTransactionType === "INTEREST" && (
+                <form
+                  className="unified-transaction-form"
+                  onSubmit={addInterest}
+                >
+                  <div className="transaction-flow-heading">
+                    <span>2. Enter details</span>
+                    <h3>Interest income</h3>
+                  </div>
+
+                  <fieldset>
+                    <legend>Basic information</legend>
+                    <div className="transaction-form-grid">
+                      <label>
+                        Date
+                        <input
+                          type="date"
+                          value={interestDate}
+                          onChange={(event) =>
+                            setInterestDate(event.target.value)
+                          }
+                          required
+                        />
+                      </label>
+                      <label>
+                        Account
+                        <input value="personal-main" readOnly />
+                      </label>
+                    </div>
+                  </fieldset>
+
+                  <fieldset>
+                    <legend>Payment details</legend>
+                    <div className="transaction-form-grid">
+                      <label>
+                        Currency
+                        <select
+                          value={interestCurrency}
+                          onChange={(event) =>
+                            setInterestCurrency(event.target.value as Currency)
+                          }
+                        >
+                          <option value="USD">USD</option>
+                          <option value="HKD">HKD</option>
+                          <option value="CNY">CNY</option>
+                        </select>
+                      </label>
+                      <label>
+                        Amount received after tax ({interestCurrency})
+                        <input
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          value={interestAmount}
+                          onChange={(event) =>
+                            setInterestAmount(event.target.value)
+                          }
+                          placeholder="e.g. 12.34"
+                          required
+                        />
+                      </label>
+                    </div>
+                  </fieldset>
+
+                  <fieldset>
+                    <legend>Notes</legend>
+                    <div className="transaction-form-grid">
+                      <label>
+                        Note (optional)
+                        <textarea
+                          value={interestNote}
+                          onChange={(event) =>
+                            setInterestNote(event.target.value)
+                          }
+                          placeholder="Bank reference or interest period"
+                        />
+                      </label>
+                    </div>
+                  </fieldset>
+
+                  <section
+                    className="transaction-impact-preview"
+                    aria-labelledby="interest-impact-preview"
+                    data-testid="interest-impact-preview"
+                  >
+                    <div className="transaction-flow-heading">
+                      <span>3. Preview impact</span>
+                      <h3 id="interest-impact-preview">Ledger impact</h3>
+                    </div>
+                    {projectedInterestCash !== undefined ? (
+                      <dl>
+                        <div>
+                          <dt>Interest received</dt>
+                          <dd>
+                            +{currencyFormatters[interestCurrency].format(
+                              previewInterestAmount,
+                            )}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>{interestCurrency} cash</dt>
+                          <dd>
+                            {currencyFormatters[interestCurrency].format(
+                              currentInterestCash,
+                            )}{" "}
+                            →{" "}
+                            {currencyFormatters[interestCurrency].format(
+                              projectedInterestCash,
+                            )}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Other balances</dt>
+                          <dd>Unchanged</dd>
+                        </div>
+                      </dl>
+                    ) : (
+                      <p>
+                        Enter a positive after-tax amount to preview this
+                        interest payment.
+                      </p>
+                    )}
+                  </section>
+
+                  <button type="submit" disabled={!canSaveInterest}>
+                    4. Save interest
+                  </button>
+                </form>
+              )}
+
               {selectedTransactionType &&
                 selectedTransactionType !== "BUY" &&
                 selectedTransactionType !== "SELL" &&
                 selectedTransactionType !== "CNY_DEPOSIT" &&
                 selectedTransactionType !== "CNY_WITHDRAWAL" &&
                 selectedTransactionType !== "FX_TO_USD" &&
-                selectedTransactionType !== "DIVIDEND" && (
+                selectedTransactionType !== "DIVIDEND" &&
+                selectedTransactionType !== "INTEREST" && (
                   <div className="legacy-transaction-notice">
                     <p>
                       This transaction type still uses its verified existing form.
@@ -2543,53 +2711,6 @@ export default function App() {
             </p>
             <p>Source: Payment cashback · Account: personal-main</p>
             <button type="submit">Add cashback shares</button>
-          </form>
-        </section>
-      )}
-
-      {isPersonalLedger && (
-        <section id="legacy-interest">
-          <h2>Add interest income</h2>
-          <form onSubmit={addInterest}>
-            <p>
-              <label>
-                Date{" "}
-                <input
-                  type="date"
-                  value={interestDate}
-                  onChange={(event) => setInterestDate(event.target.value)}
-                />
-              </label>
-            </p>
-            <p>
-              <label>
-                Currency{" "}
-                <select
-                  value={interestCurrency}
-                  onChange={(event) =>
-                    setInterestCurrency(event.target.value as Currency)
-                  }
-                >
-                  <option value="USD">USD</option>
-                  <option value="HKD">HKD</option>
-                  <option value="CNY">CNY</option>
-                </select>
-              </label>
-            </p>
-            <p>
-              <label>
-                Amount received after tax ({interestCurrency}){" "}
-                <input
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  value={interestAmount}
-                  onChange={(event) => setInterestAmount(event.target.value)}
-                  placeholder="e.g. 12.34"
-                />
-              </label>
-            </p>
-            <button type="submit">Add interest income</button>
           </form>
         </section>
       )}
