@@ -4,7 +4,7 @@
 
 Latest stable feature checkpoint before this documentation update:
 
-`7fd97f9 feat: unify dividend flow`
+`f2fe95d feat: unify interest income flow`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -62,7 +62,8 @@ browser-local and is never committed to GitHub.
   grouped payment and note fields plus a pre-save cash impact preview.
 - Separate HKD cash balance.
 - USD cash transaction history with inflow, outflow, and running balance.
-- Manual ADR custody fee and other USD expense entry; standalone commission
+- Unified ADR custody fee and other USD expense flow with grouped payment and
+  note fields plus USD cash and accumulated-fee previews. Standalone commission
   entry is intentionally excluded because trading commission belongs to the
   related buy or sell.
 - Manual CNY withdrawal with current-cash validation.
@@ -408,6 +409,17 @@ absent. A 390 px viewport showed no horizontal page overflow, and the browser
 reported no warnings or errors. Only isolated anonymous data was used; no
 existing manual-test origin was opened.
 
+An isolated unified-USD-expense check on temporary port 5239 created an
+anonymous USD 100.00 cash balance through the existing deposit and conversion
+flows. A USD 120.00 expense previewed negative USD 20.00 cash, displayed the
+insufficient-cash warning, and kept save disabled. Saving a USD 2.50 ADR
+custody fee followed by a USD 7.50 other expense previewed and produced USD
+90.00 cash plus USD 10.00 accumulated fees. Both events, cash, fees, cash
+history, category descriptions, and the saved note survived a full refresh,
+and the duplicate legacy expense form was absent. A 390 px viewport showed no
+horizontal page overflow, and the browser reported no warnings or errors. Only
+isolated anonymous data was used; no existing manual-test origin was opened.
+
 The first automated regression suite now runs with `npm test`. Six deterministic
 tests cover moving-average cost, net sale proceeds, realized P&L, cumulative
 fees, CNY/HKD/USD after-tax interest, chronological stable sorting without
@@ -546,10 +558,10 @@ commits. Scope can move within that range as anonymous edge cases are found:
 
 ## Next task
 
-Migrate USD expenses into the unified transaction flow as the next independent
-step. Preserve ADR custody fee and other-expense categories, group category and
-payment details clearly, and preview USD cash plus accumulated fees before
-save. Keep the existing chronological calculation and persistence path, and do
-not migrate another transaction type in the same commit. A focused manual
-ledger review and local JSON backup remain required before substantial real
-history.
+Migrate payment cashback shares into the unified transaction flow as the next
+independent step. Preserve the non-cash contribution behavior, group source,
+instrument, and acquisition details clearly, and preview the added shares and
+cost basis while showing that cash, realized P&L, and fees remain unchanged.
+Keep the existing chronological calculation and persistence path, and do not
+migrate another transaction type in the same commit. A focused manual ledger
+review and local JSON backup remain required before substantial real history.

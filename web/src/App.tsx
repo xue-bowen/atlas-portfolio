@@ -144,7 +144,7 @@ const transactionEntryOptions: Array<{
     type: "INTEREST",
     label: "Interest income",
   },
-  { type: "FEE", label: "USD expense", legacyTargetId: "legacy-expense" },
+  { type: "FEE", label: "USD expense" },
   {
     type: "IN_KIND_CONTRIBUTION",
     label: "Payment cashback shares",
@@ -313,6 +313,7 @@ export default function App() {
   const [expenseCategory, setExpenseCategory] =
     useState<ExpenseCategory>("ADR_FEE");
   const [expenseAmountUsd, setExpenseAmountUsd] = useState("");
+  const [expenseNote, setExpenseNote] = useState("");
   const [selectedTransactionType, setSelectedTransactionType] =
     useState<TransactionEntryType | "">("");
   const [selectedLedgerEventId, setSelectedLedgerEventId] = useState<
@@ -626,6 +627,32 @@ export default function App() {
   const canSaveInterest =
     projectedInterestCash !== undefined &&
     Number.isFinite(projectedInterestCash);
+  const previewExpenseAmountUsd = Number(expenseAmountUsd);
+  const isExpensePreviewComplete =
+    Boolean(expenseDate) &&
+    Number.isFinite(previewExpenseAmountUsd) &&
+    previewExpenseAmountUsd > 0;
+  const projectedExpenseBalances = isExpensePreviewComplete
+    ? calculateBalances([
+        ...ledger,
+        {
+          id: "expense-preview",
+          occurredAt: expenseDate,
+          accountId: "personal-main",
+          type: "FEE",
+          amountUsd: previewExpenseAmountUsd,
+          category: expenseCategory,
+        },
+      ])
+    : undefined;
+  const expenseExceedsUsdCash =
+    isExpensePreviewComplete && previewExpenseAmountUsd > balances.usdCash;
+  const canSaveExpense = Boolean(
+    projectedExpenseBalances &&
+      Number.isFinite(projectedExpenseBalances.usdCash) &&
+      Number.isFinite(projectedExpenseBalances.totalFeesUsd) &&
+      !expenseExceedsUsdCash,
+  );
   const previewBuySymbol = buySymbol.trim().toUpperCase();
   const previewBuyQuantity = Number(buyQuantity);
   const previewBuyPriceUsd = Number(buyPriceUsd);
@@ -1320,15 +1347,17 @@ export default function App() {
       amountUsd,
       category: expenseCategory,
       note:
-        expenseCategory === "ADR_FEE"
+        expenseNote.trim() ||
+        (expenseCategory === "ADR_FEE"
           ? "Manual ADR custody fee"
-          : "Manual other USD expense",
+          : "Manual other USD expense"),
     };
 
     if (!persistLedgerChanges([...ledger, expense])) {
       return;
     }
     setExpenseAmountUsd("");
+    setExpenseNote("");
     setMessage(
       expenseCategory === "ADR_FEE"
         ? "ADR custody fee saved locally in this browser."
@@ -1550,7 +1579,8 @@ export default function App() {
                       option.type === "CNY_WITHDRAWAL" ||
                       option.type === "FX_TO_USD" ||
                       option.type === "DIVIDEND" ||
-                      option.type === "INTEREST"
+                      option.type === "INTEREST" ||
+                      option.type === "FEE"
                         ? " · unified flow"
                         : " · existing form"}
                     </option>
@@ -2619,6 +2649,152 @@ export default function App() {
                 </form>
               )}
 
+              {selectedTransactionType === "FEE" && (
+                <form
+                  className="unified-transaction-form"
+                  onSubmit={addUsdExpense}
+                >
+                  <div className="transaction-flow-heading">
+                    <span>2. Enter details</span>
+                    <h3>USD expense</h3>
+                  </div>
+                  <p>
+                    Record ADR custody fees or other USD cash deductions.
+                    Trading commissions belong in the related buy or sell
+                    transaction.
+                  </p>
+
+                  <fieldset>
+                    <legend>Basic information</legend>
+                    <div className="transaction-form-grid">
+                      <label>
+                        Date
+                        <input
+                          type="date"
+                          value={expenseDate}
+                          onChange={(event) =>
+                            setExpenseDate(event.target.value)
+                          }
+                          required
+                        />
+                      </label>
+                      <label>
+                        Account
+                        <input value="personal-main" readOnly />
+                      </label>
+                    </div>
+                  </fieldset>
+
+                  <fieldset>
+                    <legend>Payment details</legend>
+                    <div className="transaction-form-grid">
+                      <label>
+                        Expense category
+                        <select
+                          value={expenseCategory}
+                          onChange={(event) =>
+                            setExpenseCategory(
+                              event.target.value as ExpenseCategory,
+                            )
+                          }
+                        >
+                          <option value="ADR_FEE">ADR custody fee</option>
+                          <option value="OTHER">Other USD expense</option>
+                        </select>
+                      </label>
+                      <label>
+                        Amount paid (USD)
+                        <input
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          value={expenseAmountUsd}
+                          onChange={(event) =>
+                            setExpenseAmountUsd(event.target.value)
+                          }
+                          placeholder="e.g. 2.50"
+                          required
+                        />
+                      </label>
+                    </div>
+                  </fieldset>
+
+                  <fieldset>
+                    <legend>Notes</legend>
+                    <div className="transaction-form-grid">
+                      <label>
+                        Note (optional)
+                        <textarea
+                          value={expenseNote}
+                          onChange={(event) =>
+                            setExpenseNote(event.target.value)
+                          }
+                          placeholder="Broker reference or fee period"
+                        />
+                      </label>
+                    </div>
+                  </fieldset>
+
+                  <section
+                    className="transaction-impact-preview"
+                    aria-labelledby="expense-impact-preview"
+                    data-testid="expense-impact-preview"
+                  >
+                    <div className="transaction-flow-heading">
+                      <span>3. Preview impact</span>
+                      <h3 id="expense-impact-preview">Ledger impact</h3>
+                    </div>
+                    {projectedExpenseBalances ? (
+                      <dl>
+                        <div>
+                          <dt>Expense</dt>
+                          <dd>-{usd.format(previewExpenseAmountUsd)}</dd>
+                        </div>
+                        <div>
+                          <dt>Category</dt>
+                          <dd>
+                            {expenseCategory === "ADR_FEE"
+                              ? "ADR custody fee"
+                              : "Other USD expense"}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>USD cash</dt>
+                          <dd>
+                            {usd.format(balances.usdCash)} →{" "}
+                            {usd.format(projectedExpenseBalances.usdCash)}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Accumulated fees</dt>
+                          <dd>
+                            {usd.format(balances.totalFeesUsd)} →{" "}
+                            {usd.format(projectedExpenseBalances.totalFeesUsd)}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Other balances</dt>
+                          <dd>Unchanged</dd>
+                        </div>
+                      </dl>
+                    ) : (
+                      <p>
+                        Enter a positive USD amount to preview this expense.
+                      </p>
+                    )}
+                    {expenseExceedsUsdCash && (
+                      <p className="transaction-impact-warning" role="alert">
+                        USD expense cannot exceed current USD cash.
+                      </p>
+                    )}
+                  </section>
+
+                  <button type="submit" disabled={!canSaveExpense}>
+                    4. Save expense
+                  </button>
+                </form>
+              )}
+
               {selectedTransactionType &&
                 selectedTransactionType !== "BUY" &&
                 selectedTransactionType !== "SELL" &&
@@ -2626,7 +2802,8 @@ export default function App() {
                 selectedTransactionType !== "CNY_WITHDRAWAL" &&
                 selectedTransactionType !== "FX_TO_USD" &&
                 selectedTransactionType !== "DIVIDEND" &&
-                selectedTransactionType !== "INTEREST" && (
+                selectedTransactionType !== "INTEREST" &&
+                selectedTransactionType !== "FEE" && (
                   <div className="legacy-transaction-notice">
                     <p>
                       This transaction type still uses its verified existing form.
@@ -2711,56 +2888,6 @@ export default function App() {
             </p>
             <p>Source: Payment cashback · Account: personal-main</p>
             <button type="submit">Add cashback shares</button>
-          </form>
-        </section>
-      )}
-
-      {isPersonalLedger && (
-        <section id="legacy-expense">
-          <h2>Add USD expense</h2>
-          <p>
-            Record ADR custody fees or other USD cash deductions. Trading
-            commissions belong in the related buy or sell transaction.
-          </p>
-          <form onSubmit={addUsdExpense}>
-            <p>
-              <label>
-                Date{" "}
-                <input
-                  type="date"
-                  value={expenseDate}
-                  onChange={(event) => setExpenseDate(event.target.value)}
-                />
-              </label>
-            </p>
-            <p>
-              <label>
-                Expense category{" "}
-                <select
-                  value={expenseCategory}
-                  onChange={(event) =>
-                    setExpenseCategory(event.target.value as ExpenseCategory)
-                  }
-                >
-                  <option value="ADR_FEE">ADR custody fee</option>
-                  <option value="OTHER">Other USD expense</option>
-                </select>
-              </label>
-            </p>
-            <p>
-              <label>
-                Amount paid (USD){" "}
-                <input
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  value={expenseAmountUsd}
-                  onChange={(event) => setExpenseAmountUsd(event.target.value)}
-                  placeholder="e.g. 2.50"
-                />
-              </label>
-            </p>
-            <button type="submit">Add USD expense</button>
           </form>
         </section>
       )}
