@@ -4,7 +4,7 @@
 
 Latest stable feature checkpoint before this documentation update:
 
-`8583b5c feat: unify CNY deposit flow`
+`9fac917 feat: unify CNY withdrawal flow`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -12,7 +12,7 @@ Windows local path:
 
 `C:\Users\28301\atlas-portfolio`
 
-Last updated: 2026-10-19
+Last updated: 2026-10-20
 
 The working tree was clean after the latest commit. Personal ledger data is
 browser-local and is never committed to GitHub.
@@ -371,6 +371,19 @@ viewport showed no horizontal page overflow, and the browser reported no
 warnings or errors. Only isolated anonymous data was used; no existing
 manual-test origin was opened.
 
+An isolated unified-CNY-to-USD check on temporary port 5236 imported one
+anonymous CNY 10,000.00 deposit. Selecting CNY to USD conversion opened the
+grouped basic information, conversion, and notes form. An excessive CNY
+12,000.00 spend previewed negative CNY 2,000.00 cash, displayed the
+insufficient-cash warning, and kept save disabled. A valid CNY 7,200.00 to USD
+1,000.00 conversion previewed CNY cash falling to CNY 2,800.00, USD cash rising
+to USD 1,000.00, and an effective transaction rate of 1 USD = 7.2000 CNY. The
+saved event, note, both cash balances, and USD cash-history entry survived a
+full page refresh, and the duplicate legacy conversion form was absent. A 390
+px viewport showed no horizontal page overflow, and the browser reported no
+warnings or errors. Only isolated anonymous data was used; no existing
+manual-test origin was opened.
+
 The first automated regression suite now runs with `npm test`. Six deterministic
 tests cover moving-average cost, net sale proceeds, realized P&L, cumulative
 fees, CNY/HKD/USD after-tax interest, chronological stable sorting without
@@ -509,10 +522,10 @@ commits. Scope can move within that range as anonymous edge cases are found:
 
 ## Next task
 
-Migrate CNY-to-USD conversions into the unified transaction flow as the next
-independent step. Reuse the grouped form, preview the resulting CNY and USD
-cash plus the effective transaction rate, and disable save when CNY spent
-exceeds available cash. Keep the existing chronological calculation and
-persistence path, and do not migrate another transaction type in the same
-commit. A focused manual ledger review and local JSON backup remain required
-before substantial real history.
+Migrate dividends into the unified transaction flow as the next independent
+step. Preserve cash and reinvested dividend behavior, group withholding tax and
+payment details clearly, and preview net cash plus any reinvested shares before
+save. Keep the existing chronological calculation and persistence path, and do
+not migrate another transaction type in the same commit. A focused manual
+ledger review and local JSON backup remain required before substantial real
+history.

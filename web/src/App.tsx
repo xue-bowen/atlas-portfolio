@@ -135,7 +135,6 @@ const transactionEntryOptions: Array<{
   {
     type: "FX_TO_USD",
     label: "CNY to USD conversion",
-    legacyTargetId: "legacy-fx-to-usd",
   },
   {
     type: "DIVIDEND",
@@ -270,6 +269,7 @@ export default function App() {
   );
   const [fxAmountCny, setFxAmountCny] = useState("");
   const [fxAmountUsd, setFxAmountUsd] = useState("");
+  const [fxNote, setFxNote] = useState("");
   const [buyDate, setBuyDate] = useState(() =>
     new Date().toISOString().slice(0, 10),
   );
@@ -489,6 +489,40 @@ export default function App() {
     projectedWithdrawalBalances &&
       Number.isFinite(projectedWithdrawalBalances.cnyCash) &&
       !withdrawalExceedsCash,
+  );
+  const previewFxAmountCny = Number(fxAmountCny);
+  const previewFxAmountUsd = Number(fxAmountUsd);
+  const isFxPreviewComplete =
+    Boolean(fxDate) &&
+    Number.isFinite(previewFxAmountCny) &&
+    previewFxAmountCny > 0 &&
+    Number.isFinite(previewFxAmountUsd) &&
+    previewFxAmountUsd > 0;
+  const previewFxEffectiveCnyPerUsd = isFxPreviewComplete
+    ? previewFxAmountCny / previewFxAmountUsd
+    : undefined;
+  const projectedFxBalances = isFxPreviewComplete
+    ? calculateBalances([
+        ...ledger,
+        {
+          id: "fx-to-usd-preview",
+          occurredAt: fxDate,
+          accountId: "personal-main",
+          type: "FX_TO_USD",
+          amountCny: previewFxAmountCny,
+          amountUsd: previewFxAmountUsd,
+        },
+      ])
+    : undefined;
+  const fxExceedsCnyCash =
+    isFxPreviewComplete && previewFxAmountCny > balances.cnyCash;
+  const canSaveFx = Boolean(
+    projectedFxBalances &&
+      Number.isFinite(projectedFxBalances.cnyCash) &&
+      Number.isFinite(projectedFxBalances.usdCash) &&
+      previewFxEffectiveCnyPerUsd !== undefined &&
+      Number.isFinite(previewFxEffectiveCnyPerUsd) &&
+      !fxExceedsCnyCash,
   );
   const netDividendUsd =
     Number(dividendGrossAmountUsd) - Number(dividendWithholdingTaxUsd);
@@ -853,19 +887,18 @@ export default function App() {
     const amountCny = Number(fxAmountCny);
     const amountUsd = Number(fxAmountUsd);
 
-    if (
-      !fxDate ||
-      !Number.isFinite(amountCny) ||
-      amountCny <= 0 ||
-      !Number.isFinite(amountUsd) ||
-      amountUsd <= 0
-    ) {
+    if (!isFxPreviewComplete) {
       setMessage("Please enter a valid date, CNY amount, and USD amount.");
       return;
     }
 
-    if (amountCny > balances.cnyCash) {
+    if (fxExceedsCnyCash) {
       setMessage("CNY spent cannot exceed current CNY cash.");
+      return;
+    }
+
+    if (!canSaveFx) {
+      setMessage("Conversion amounts are too large. Enter smaller values.");
       return;
     }
 
@@ -876,7 +909,7 @@ export default function App() {
       type: "FX_TO_USD",
       amountCny,
       amountUsd,
-      note: "Manual CNY to USD conversion",
+      note: fxNote.trim() || "Manual CNY to USD conversion",
     };
 
     if (!persistLedgerChanges([...ledger, fxConversion])) {
@@ -884,6 +917,7 @@ export default function App() {
     }
     setFxAmountCny("");
     setFxAmountUsd("");
+    setFxNote("");
     setMessage("FX conversion saved locally in this browser.");
   }
 
@@ -1410,7 +1444,8 @@ export default function App() {
                       {option.type === "BUY" ||
                       option.type === "SELL" ||
                       option.type === "CNY_DEPOSIT" ||
-                      option.type === "CNY_WITHDRAWAL"
+                      option.type === "CNY_WITHDRAWAL" ||
+                      option.type === "FX_TO_USD"
                         ? " · unified flow"
                         : " · existing form"}
                     </option>
@@ -2003,11 +2038,147 @@ export default function App() {
                 </form>
               )}
 
+              {selectedTransactionType === "FX_TO_USD" && (
+                <form
+                  className="unified-transaction-form"
+                  onSubmit={addFxToUsd}
+                >
+                  <div className="transaction-flow-heading">
+                    <span>2. Enter details</span>
+                    <h3>CNY to USD conversion</h3>
+                  </div>
+
+                  <fieldset>
+                    <legend>Basic information</legend>
+                    <div className="transaction-form-grid">
+                      <label>
+                        Date
+                        <input
+                          type="date"
+                          value={fxDate}
+                          onChange={(event) => setFxDate(event.target.value)}
+                          required
+                        />
+                      </label>
+                      <label>
+                        Account
+                        <input value="personal-main" readOnly />
+                      </label>
+                    </div>
+                  </fieldset>
+
+                  <fieldset>
+                    <legend>Conversion</legend>
+                    <div className="transaction-form-grid">
+                      <label>
+                        CNY spent
+                        <input
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          value={fxAmountCny}
+                          onChange={(event) =>
+                            setFxAmountCny(event.target.value)
+                          }
+                          placeholder="e.g. 7200"
+                          required
+                        />
+                      </label>
+                      <label>
+                        USD received
+                        <input
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          value={fxAmountUsd}
+                          onChange={(event) =>
+                            setFxAmountUsd(event.target.value)
+                          }
+                          placeholder="e.g. 1000"
+                          required
+                        />
+                      </label>
+                    </div>
+                  </fieldset>
+
+                  <fieldset>
+                    <legend>Notes</legend>
+                    <div className="transaction-form-grid">
+                      <label>
+                        Note (optional)
+                        <textarea
+                          value={fxNote}
+                          onChange={(event) => setFxNote(event.target.value)}
+                          placeholder="Bank reference or conversion details"
+                        />
+                      </label>
+                    </div>
+                  </fieldset>
+
+                  <section
+                    className="transaction-impact-preview"
+                    aria-labelledby="fx-impact-preview"
+                    data-testid="fx-impact-preview"
+                  >
+                    <div className="transaction-flow-heading">
+                      <span>3. Preview impact</span>
+                      <h3 id="fx-impact-preview">Ledger impact</h3>
+                    </div>
+                    {projectedFxBalances &&
+                    previewFxEffectiveCnyPerUsd !== undefined ? (
+                      <dl>
+                        <div>
+                          <dt>CNY cash</dt>
+                          <dd>
+                            {cny.format(balances.cnyCash)} →{" "}
+                            {cny.format(projectedFxBalances.cnyCash)}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>USD cash</dt>
+                          <dd>
+                            {usd.format(balances.usdCash)} →{" "}
+                            {usd.format(projectedFxBalances.usdCash)}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Effective rate</dt>
+                          <dd>
+                            1 USD = {fxRateNumber.format(
+                              previewFxEffectiveCnyPerUsd,
+                            )} CNY
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Other balances</dt>
+                          <dd>Unchanged</dd>
+                        </div>
+                      </dl>
+                    ) : (
+                      <p>
+                        Enter positive CNY spent and USD received amounts to
+                        preview this conversion.
+                      </p>
+                    )}
+                    {fxExceedsCnyCash && (
+                      <p className="transaction-impact-warning" role="alert">
+                        CNY spent exceeds current CNY cash.
+                      </p>
+                    )}
+                  </section>
+
+                  <button type="submit" disabled={!canSaveFx}>
+                    4. Save conversion
+                  </button>
+                </form>
+              )}
+
               {selectedTransactionType &&
                 selectedTransactionType !== "BUY" &&
                 selectedTransactionType !== "SELL" &&
                 selectedTransactionType !== "CNY_DEPOSIT" &&
-                selectedTransactionType !== "CNY_WITHDRAWAL" && (
+                selectedTransactionType !== "CNY_WITHDRAWAL" &&
+                selectedTransactionType !== "FX_TO_USD" && (
                   <div className="legacy-transaction-notice">
                     <p>
                       This transaction type still uses its verified existing form.
@@ -2031,51 +2202,6 @@ export default function App() {
           <button type="button" onClick={startEmptyPersonalLedger}>
             Start with an empty personal ledger
           </button>
-        </section>
-      )}
-
-      {isPersonalLedger && (
-        <section id="legacy-fx-to-usd">
-          <h2>Add CNY to USD conversion</h2>
-          <form onSubmit={addFxToUsd}>
-            <p>
-              <label>
-                Date{" "}
-                <input
-                  type="date"
-                  value={fxDate}
-                  onChange={(event) => setFxDate(event.target.value)}
-                />
-              </label>
-            </p>
-            <p>
-              <label>
-                CNY spent{" "}
-                <input
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  value={fxAmountCny}
-                  onChange={(event) => setFxAmountCny(event.target.value)}
-                  placeholder="e.g. 10000"
-                />
-              </label>
-            </p>
-            <p>
-              <label>
-                USD received{" "}
-                <input
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  value={fxAmountUsd}
-                  onChange={(event) => setFxAmountUsd(event.target.value)}
-                  placeholder="e.g. 1380"
-                />
-              </label>
-            </p>
-            <button type="submit">Add FX conversion</button>
-          </form>
         </section>
       )}
 
