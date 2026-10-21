@@ -4,7 +4,7 @@
 
 Latest stable feature checkpoint before this documentation update:
 
-`f2fe95d feat: unify interest income flow`
+`9c00004 feat: unify USD expense flow`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -60,6 +60,8 @@ browser-local and is never committed to GitHub.
   calculates the fractional shares automatically.
 - Unified multi-currency after-tax interest flow for USD, HKD, and CNY with
   grouped payment and note fields plus a pre-save cash impact preview.
+- Unified payment cashback shares flow with grouped source, instrument,
+  acquisition, and note fields plus a pre-save non-cash contribution preview.
 - Separate HKD cash balance.
 - USD cash transaction history with inflow, outflow, and running balance.
 - Unified ADR custody fee and other USD expense flow with grouped payment and
@@ -420,6 +422,20 @@ and the duplicate legacy expense form was absent. A 390 px viewport showed no
 horizontal page overflow, and the browser reported no warnings or errors. Only
 isolated anonymous data was used; no existing manual-test origin was opened.
 
+An isolated unified-payment-cashback check on temporary port 5240 started with
+a fresh anonymous personal ledger. Entering 0.125 VOO shares at USD 640.00 per
+share previewed USD 80.00 contribution value, position growth from zero to
+0.125 shares, and cost basis growth from zero to USD 80.00. The preview stated
+that cash balances, realized P&L, and accumulated fees remain unchanged; a zero
+quantity kept save disabled. After save and refresh, the position, cost,
+IN_KIND_CONTRIBUTION ledger event, source description, and note persisted,
+while all cash balances, realized P&L, fees, and USD cash history remained
+zero. The final duplicate legacy form and legacy-form navigation code were
+removed, so every listed transaction type now uses the unified flow. A 390 px
+viewport showed no horizontal page overflow, and the browser reported no
+warnings or errors. Only isolated anonymous data was used; no existing
+manual-test origin was opened.
+
 The first automated regression suite now runs with `npm test`. Six deterministic
 tests cover moving-average cost, net sale proceeds, realized P&L, cumulative
 fees, CNY/HKD/USD after-tax interest, chronological stable sorting without
@@ -558,10 +574,10 @@ commits. Scope can move within that range as anonymous edge cases are found:
 
 ## Next task
 
-Migrate payment cashback shares into the unified transaction flow as the next
-independent step. Preserve the non-cash contribution behavior, group source,
-instrument, and acquisition details clearly, and preview the added shares and
-cost basis while showing that cash, realized P&L, and fees remain unchanged.
-Keep the existing chronological calculation and persistence path, and do not
-migrate another transaction type in the same commit. A focused manual ledger
-review and local JSON backup remain required before substantial real history.
+Add the first Performance data-layer building block as the next independent
+step: define daily portfolio snapshots and classify deposits, withdrawals, and
+in-kind contributions as external flows with deterministic domain tests. Keep
+valuation inputs explicit, preserve chronological ledger behavior, and do not
+add return charts or another performance metric in the same commit. A focused
+manual ledger review and local JSON backup remain required before substantial
+real history.

@@ -120,7 +120,6 @@ type TransactionEntryType =
 const transactionEntryOptions: Array<{
   type: TransactionEntryType;
   label: string;
-  legacyTargetId?: string;
 }> = [
   { type: "BUY", label: "Buy security" },
   { type: "SELL", label: "Sell security" },
@@ -148,7 +147,6 @@ const transactionEntryOptions: Array<{
   {
     type: "IN_KIND_CONTRIBUTION",
     label: "Payment cashback shares",
-    legacyTargetId: "legacy-cashback-shares",
   },
 ];
 
@@ -282,6 +280,7 @@ export default function App() {
   const [cashbackSymbol, setCashbackSymbol] = useState("");
   const [cashbackQuantity, setCashbackQuantity] = useState("");
   const [cashbackPriceUsd, setCashbackPriceUsd] = useState("");
+  const [cashbackNote, setCashbackNote] = useState("");
   const [sellDate, setSellDate] = useState(() =>
     new Date().toISOString().slice(0, 10),
   );
@@ -652,6 +651,48 @@ export default function App() {
       Number.isFinite(projectedExpenseBalances.usdCash) &&
       Number.isFinite(projectedExpenseBalances.totalFeesUsd) &&
       !expenseExceedsUsdCash,
+  );
+  const previewCashbackSymbol = cashbackSymbol.trim().toUpperCase();
+  const previewCashbackQuantity = Number(cashbackQuantity);
+  const previewCashbackPriceUsd = Number(cashbackPriceUsd);
+  const isCashbackPreviewComplete =
+    Boolean(cashbackDate && previewCashbackSymbol) &&
+    Number.isFinite(previewCashbackQuantity) &&
+    previewCashbackQuantity > 0 &&
+    Number.isFinite(previewCashbackPriceUsd) &&
+    previewCashbackPriceUsd > 0;
+  const previewCashbackValueUsd = isCashbackPreviewComplete
+    ? previewCashbackQuantity * previewCashbackPriceUsd
+    : undefined;
+  const projectedCashbackBalances = isCashbackPreviewComplete
+    ? calculateBalances([
+        ...ledger,
+        {
+          id: "cashback-shares-preview",
+          occurredAt: cashbackDate,
+          accountId: "personal-main",
+          type: "IN_KIND_CONTRIBUTION",
+          source: "CASHBACK_REWARD",
+          symbol: previewCashbackSymbol,
+          quantity: previewCashbackQuantity,
+          priceUsd: previewCashbackPriceUsd,
+          currency: "USD",
+        },
+      ])
+    : undefined;
+  const previewCashbackPosition = balances.positions.find(
+    (position) => position.symbol === previewCashbackSymbol,
+  );
+  const projectedCashbackPosition = projectedCashbackBalances?.positions.find(
+    (position) => position.symbol === previewCashbackSymbol,
+  );
+  const canSaveCashback = Boolean(
+    projectedCashbackBalances &&
+      previewCashbackValueUsd !== undefined &&
+      Number.isFinite(previewCashbackValueUsd) &&
+      projectedCashbackPosition &&
+      Number.isFinite(projectedCashbackPosition.quantity) &&
+      Number.isFinite(projectedCashbackPosition.costUsd),
   );
   const previewBuySymbol = buySymbol.trim().toUpperCase();
   const previewBuyQuantity = Number(buyQuantity);
@@ -1195,7 +1236,8 @@ export default function App() {
       quantity,
       priceUsd,
       currency: "USD",
-      note: "Payment cashback received directly as shares",
+      note:
+        cashbackNote.trim() || "Payment cashback received directly as shares",
     };
 
     if (!persistLedgerChanges([...ledger, contribution])) {
@@ -1204,6 +1246,7 @@ export default function App() {
     setCashbackSymbol("");
     setCashbackQuantity("");
     setCashbackPriceUsd("");
+    setCashbackNote("");
     setMessage(
       "Cashback shares saved as a non-cash contribution. Cash balances were not changed.",
     );
@@ -1442,21 +1485,6 @@ export default function App() {
     document.getElementById("transaction-type")?.focus({ preventScroll: true });
   }
 
-  function openLegacyTransactionForm() {
-    const targetId = transactionEntryOptions.find(
-      (option) => option.type === selectedTransactionType,
-    )?.legacyTargetId;
-
-    if (!targetId) {
-      return;
-    }
-
-    document.getElementById(targetId)?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
-  }
-
   function saveEditedLedgerEvent(replacement: LedgerEvent): boolean {
     try {
       const updatedLedger = replaceLedgerEvent(ledger, replacement);
@@ -1548,8 +1576,8 @@ export default function App() {
             <p className="section-eyebrow">Transactions</p>
             <h2>Add transaction</h2>
             <p>
-              Choose the relevant transaction form below. A shared type,
-              preview, and save flow will replace these forms incrementally.
+              Choose a transaction type, enter its details, preview the ledger
+              impact, and save it locally.
             </p>
           </div>
 
@@ -1572,17 +1600,7 @@ export default function App() {
                   <option value="">Choose a transaction type</option>
                   {transactionEntryOptions.map((option) => (
                     <option key={option.type} value={option.type}>
-                      {option.label}
-                      {option.type === "BUY" ||
-                      option.type === "SELL" ||
-                      option.type === "CNY_DEPOSIT" ||
-                      option.type === "CNY_WITHDRAWAL" ||
-                      option.type === "FX_TO_USD" ||
-                      option.type === "DIVIDEND" ||
-                      option.type === "INTEREST" ||
-                      option.type === "FEE"
-                        ? " · unified flow"
-                        : " · existing form"}
+                      {option.label} · unified flow
                     </option>
                   ))}
                 </select>
@@ -2795,25 +2813,178 @@ export default function App() {
                 </form>
               )}
 
-              {selectedTransactionType &&
-                selectedTransactionType !== "BUY" &&
-                selectedTransactionType !== "SELL" &&
-                selectedTransactionType !== "CNY_DEPOSIT" &&
-                selectedTransactionType !== "CNY_WITHDRAWAL" &&
-                selectedTransactionType !== "FX_TO_USD" &&
-                selectedTransactionType !== "DIVIDEND" &&
-                selectedTransactionType !== "INTEREST" &&
-                selectedTransactionType !== "FEE" && (
-                  <div className="legacy-transaction-notice">
-                    <p>
-                      This transaction type still uses its verified existing form.
-                      It will move into this shared flow in a later small step.
-                    </p>
-                    <button type="button" onClick={openLegacyTransactionForm}>
-                      Open existing form
-                    </button>
+              {selectedTransactionType === "IN_KIND_CONTRIBUTION" && (
+                <form
+                  className="unified-transaction-form"
+                  onSubmit={addCashbackShares}
+                >
+                  <div className="transaction-flow-heading">
+                    <span>2. Enter details</span>
+                    <h3>Payment cashback shares</h3>
                   </div>
-                )}
+                  <p>
+                    Record shares delivered directly by a rewards platform.
+                    This is a non-cash contribution and does not create a cash
+                    deposit or FX conversion.
+                  </p>
+
+                  <fieldset>
+                    <legend>Basic information</legend>
+                    <div className="transaction-form-grid">
+                      <label>
+                        Date
+                        <input
+                          type="date"
+                          value={cashbackDate}
+                          onChange={(event) =>
+                            setCashbackDate(event.target.value)
+                          }
+                          required
+                        />
+                      </label>
+                      <label>
+                        Account
+                        <input value="personal-main" readOnly />
+                      </label>
+                      <label>
+                        Source
+                        <input value="Payment cashback" readOnly />
+                      </label>
+                    </div>
+                  </fieldset>
+
+                  <fieldset>
+                    <legend>Instrument</legend>
+                    <div className="transaction-form-grid">
+                      <label>
+                        Symbol
+                        <input
+                          type="text"
+                          value={cashbackSymbol}
+                          onChange={(event) =>
+                            setCashbackSymbol(event.target.value)
+                          }
+                          placeholder="e.g. VOO"
+                          required
+                        />
+                      </label>
+                      <label>
+                        Currency
+                        <input value="USD" readOnly />
+                      </label>
+                    </div>
+                  </fieldset>
+
+                  <fieldset>
+                    <legend>Acquisition details</legend>
+                    <div className="transaction-form-grid">
+                      <label>
+                        Actual shares received
+                        <input
+                          type="number"
+                          min="0.000001"
+                          step="any"
+                          value={cashbackQuantity}
+                          onChange={(event) =>
+                            setCashbackQuantity(event.target.value)
+                          }
+                          placeholder="e.g. 0.125"
+                          required
+                        />
+                      </label>
+                      <label>
+                        Acquisition price (USD per share)
+                        <input
+                          type="number"
+                          min="0.000001"
+                          step="0.000001"
+                          value={cashbackPriceUsd}
+                          onChange={(event) =>
+                            setCashbackPriceUsd(event.target.value)
+                          }
+                          placeholder="e.g. 500"
+                          required
+                        />
+                      </label>
+                    </div>
+                  </fieldset>
+
+                  <fieldset>
+                    <legend>Notes</legend>
+                    <div className="transaction-form-grid">
+                      <label>
+                        Note (optional)
+                        <textarea
+                          value={cashbackNote}
+                          onChange={(event) =>
+                            setCashbackNote(event.target.value)
+                          }
+                          placeholder="Reward reference or acquisition details"
+                        />
+                      </label>
+                    </div>
+                  </fieldset>
+
+                  <section
+                    className="transaction-impact-preview"
+                    aria-labelledby="cashback-impact-preview"
+                    data-testid="cashback-impact-preview"
+                  >
+                    <div className="transaction-flow-heading">
+                      <span>3. Preview impact</span>
+                      <h3 id="cashback-impact-preview">Ledger impact</h3>
+                    </div>
+                    {projectedCashbackBalances &&
+                    projectedCashbackPosition &&
+                    previewCashbackValueUsd !== undefined ? (
+                      <dl>
+                        <div>
+                          <dt>Contribution value</dt>
+                          <dd>+{usd.format(previewCashbackValueUsd)}</dd>
+                        </div>
+                        <div>
+                          <dt>Position</dt>
+                          <dd>
+                            {previewCashbackPosition?.quantity ?? 0} →{" "}
+                            {projectedCashbackPosition.quantity}{" "}
+                            {previewCashbackSymbol}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Cost basis</dt>
+                          <dd>
+                            {usd.format(
+                              previewCashbackPosition?.costUsd ?? 0,
+                            )}{" "}
+                            → {usd.format(projectedCashbackPosition.costUsd)}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Cash balances</dt>
+                          <dd>Unchanged</dd>
+                        </div>
+                        <div>
+                          <dt>Realized P&amp;L</dt>
+                          <dd>Unchanged</dd>
+                        </div>
+                        <div>
+                          <dt>Accumulated fees</dt>
+                          <dd>Unchanged</dd>
+                        </div>
+                      </dl>
+                    ) : (
+                      <p>
+                        Complete the instrument and acquisition details to
+                        preview this non-cash contribution.
+                      </p>
+                    )}
+                  </section>
+
+                  <button type="submit" disabled={!canSaveCashback}>
+                    4. Save cashback shares
+                  </button>
+                </form>
+              )}
             </div>
           )}
 
@@ -2827,68 +2998,6 @@ export default function App() {
           <button type="button" onClick={startEmptyPersonalLedger}>
             Start with an empty personal ledger
           </button>
-        </section>
-      )}
-
-      {isPersonalLedger && (
-        <section id="legacy-cashback-shares">
-          <h2>Add shares received from payment cashback</h2>
-          <p>
-            Record shares delivered directly by a rewards platform. This adds
-            position quantity and cost basis at the acquisition value without
-            creating a cash deposit, FX conversion, or USD cash movement.
-          </p>
-          <form onSubmit={addCashbackShares}>
-            <p>
-              <label>
-                Date{" "}
-                <input
-                  type="date"
-                  value={cashbackDate}
-                  onChange={(event) => setCashbackDate(event.target.value)}
-                />
-              </label>
-            </p>
-            <p>
-              <label>
-                Symbol{" "}
-                <input
-                  type="text"
-                  value={cashbackSymbol}
-                  onChange={(event) => setCashbackSymbol(event.target.value)}
-                  placeholder="e.g. VOO"
-                />
-              </label>
-            </p>
-            <p>
-              <label>
-                Actual shares received{" "}
-                <input
-                  type="number"
-                  min="0.000001"
-                  step="any"
-                  value={cashbackQuantity}
-                  onChange={(event) => setCashbackQuantity(event.target.value)}
-                  placeholder="e.g. 0.125"
-                />
-              </label>
-            </p>
-            <p>
-              <label>
-                Acquisition price (USD per share){" "}
-                <input
-                  type="number"
-                  min="0.000001"
-                  step="0.000001"
-                  value={cashbackPriceUsd}
-                  onChange={(event) => setCashbackPriceUsd(event.target.value)}
-                  placeholder="e.g. 500"
-                />
-              </label>
-            </p>
-            <p>Source: Payment cashback · Account: personal-main</p>
-            <button type="submit">Add cashback shares</button>
-          </form>
         </section>
       )}
 
