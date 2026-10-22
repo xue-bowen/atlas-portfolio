@@ -4,7 +4,7 @@
 
 Latest stable feature checkpoint before this documentation update:
 
-`9c00004 feat: unify USD expense flow`
+`3419461 feat: unify cashback shares flow`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -12,7 +12,7 @@ Windows local path:
 
 `C:\Users\28301\atlas-portfolio`
 
-Last updated: 2026-10-21
+Last updated: 2026-10-23
 
 The working tree was clean after the latest commit. Personal ledger data is
 browser-local and is never committed to GitHub.
@@ -171,6 +171,17 @@ browser-local and is never committed to GitHub.
   order. Every manual entry is reordered and fully recalculated before storage;
   an invalid backdated sequence such as a sale before sufficient holdings is
   rejected without overwriting the valid local ledger.
+- Versioned daily portfolio snapshot calculation that replays the ledger
+  through each requested close, values CNY/HKD/USD cash and USD securities with
+  explicit dated market inputs, and retains the exact quote, FX, provider, and
+  timestamp provenance used. Missing security coverage or a required FX rate
+  blocks a complete NAV instead of treating the missing asset as zero.
+- External-flow classification at the portfolio boundary: CNY deposits are
+  cash contributions, CNY withdrawals are withdrawals, and direct share
+  cashback is an in-kind contribution valued at its entry USD value and that
+  date's USD/CNY rate. FX, buys, sells, dividends, interest, and fees remain
+  internal activity. The rules and an anonymous hand-worked example are fixed
+  in `docs/PERFORMANCE_METRICS.md`.
 
 Anonymous browser tests verified balance updates and persistence after refresh.
 The latest reinvestment test confirmed that buying below the existing average
@@ -436,12 +447,23 @@ viewport showed no horizontal page overflow, and the browser reported no
 warnings or errors. Only isolated anonymous data was used; no existing
 manual-test origin was opened.
 
-The first automated regression suite now runs with `npm test`. Six deterministic
-tests cover moving-average cost, net sale proceeds, realized P&L, cumulative
-fees, CNY/HKD/USD after-tax interest, chronological stable sorting without
-input mutation, deletion recalculation, and rejection of a deletion that would
-leave a later sale without sufficient holdings. The suite, production build,
-and lint all pass together.
+The daily-snapshot domain check used a four-day anonymous ledger with a CNY
+8,000 contribution, internal conversion and purchase, a USD 60 in-kind share
+contribution, a CNY 300 withdrawal, and HKD interest. The calculated CNY NAVs
+were 8,000.00, 8,252.00, 8,952.00, and 8,249.60; only the deposit, in-kind
+contribution, and withdrawal appeared as external flows. Tests also confirmed
+chronological output without input mutation, complete internal-event exclusion,
+duplicate-date rejection, and rejection of missing closing-price coverage. A
+read-only smoke check on temporary port 5241 retained the anonymous demo
+balances after refresh; a 390 px viewport had no horizontal page overflow and
+the browser reported no warnings or errors. The manual ledger on port 5224 was
+not opened or modified.
+
+The automated regression suite now runs with `npm test`. Forty-three
+deterministic tests cover the ledger, editing and deletion, valuation, daily
+snapshots, external-flow classification, chronological stable sorting without
+input mutation, and invalid-input rejection. The suite, production build, and
+lint all pass together.
 
 The npm development dependency audit initially reported two denial-of-service
 advisories inherited through the lint/build toolchain. Exact overrides now pin
@@ -574,10 +596,10 @@ commits. Scope can move within that range as anonymous edge cases are found:
 
 ## Next task
 
-Add the first Performance data-layer building block as the next independent
-step: define daily portfolio snapshots and classify deposits, withdrawals, and
-in-kind contributions as external flows with deterministic domain tests. Keep
-valuation inputs explicit, preserve chronological ledger behavior, and do not
-add return charts or another performance metric in the same commit. A focused
+Use the versioned daily snapshots and external-flow totals to calculate
+cumulative net contributions and total CNY P&L as the next independent domain
+step. Verify the documented identity `P&L = ending NAV + withdrawals - cash
+contributions - in-kind contributions` with deterministic anonymous examples,
+while leaving XIRR, TWR, charts, and UI integration for later commits. A focused
 manual ledger review and local JSON backup remain required before substantial
 real history.
