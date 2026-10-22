@@ -1,8 +1,8 @@
 import { sampleLedger } from "./sampleLedger";
-import { calculateBalances } from "../domain/calculateBalances";
 import type { LedgerEvent } from "../domain/ledger";
 import type { PositionSecurityMapping } from "../domain/calculateHoldingsValuation";
 import { sortLedgerEventsChronologically } from "../domain/sortLedgerEvents";
+import { validateLedgerTimeline } from "../domain/validateLedgerTimeline";
 import { parseSecurityProfiles } from "./securityProfileStorage";
 
 const STORAGE_KEY = "atlas-portfolio-ledger";
@@ -166,9 +166,8 @@ export function loadLedger(): LedgerEvent[] {
 }
 
 export function saveLedger(events: LedgerEvent[]): LedgerEvent[] {
-  const orderedEvents = sortLedgerEventsChronologically(events);
+  const orderedEvents = validateLedgerTimeline(events);
 
-  calculateBalances(orderedEvents);
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(orderedEvents));
   return orderedEvents;
 }

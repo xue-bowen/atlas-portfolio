@@ -1,6 +1,5 @@
-import { calculateBalances } from "./calculateBalances";
 import type { LedgerEvent } from "./ledger";
-import { sortLedgerEventsChronologically } from "./sortLedgerEvents";
+import { validateLedgerTimeline } from "./validateLedgerTimeline";
 
 export interface EditField {
   key: string;
@@ -162,30 +161,7 @@ export function replaceLedgerEvent(
     );
   }
   const validated = buildLedgerEdit(matches[0], ledgerEditValues(replacement));
-  const ordered = sortLedgerEventsChronologically(
+  return validateLedgerTimeline(
     events.map((event) => (event.id === replacement.id ? validated : event)),
   );
-  // Validate the whole timeline before exposing a saveable preview.
-  for (let index = 0; index < ordered.length; index += 1) {
-    const result = calculateBalances(ordered.slice(0, index + 1));
-    const cash = [result.cnyCash, result.hkdCash, result.usdCash];
-    if (cash.some((balance) => balance < -1e-8)) {
-      throw new Error(
-        `Insufficient cash after ${ordered[index].type} on ${ordered[index].occurredAt}.`,
-      );
-    }
-    if (
-      ![
-        ...cash,
-        result.realizedPnlUsd,
-        result.totalFeesUsd,
-        ...result.positions.flatMap((position) => [
-          position.quantity,
-          position.costUsd,
-        ]),
-      ].every(Number.isFinite)
-    )
-      throw new Error("Transaction amounts are too large.");
-  }
-  return ordered;
 }

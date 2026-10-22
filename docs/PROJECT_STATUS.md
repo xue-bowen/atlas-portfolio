@@ -4,7 +4,7 @@
 
 Latest stable feature checkpoint before this documentation update:
 
-`3419461 feat: unify cashback shares flow`
+`9f0a1b8 feat: add daily portfolio snapshots`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -31,6 +31,9 @@ browser-local and is never committed to GitHub.
   lot selection to sales.
 - Personal records are browser-local only. Never commit real transactions,
   account details, exports, backups, or secrets.
+- Manual additions, edits, deletions, and complete imports are sorted and
+  validated as one chronological timeline before local data is replaced. A
+  batch may arrive out of date order; same-day source order remains meaningful.
 - When a payment-reward platform directly grants shares without first crediting
   cash, record an `IN_KIND_CONTRIBUTION` with source `CASHBACK_REWARD`. It adds
   quantity and acquisition cost but no CNY, USD, or HKD cash; its entry value is
@@ -171,6 +174,13 @@ browser-local and is never committed to GitHub.
   order. Every manual entry is reordered and fully recalculated before storage;
   an invalid backdated sequence such as a sale before sufficient holdings is
   rejected without overwriting the valid local ledger.
+- Linear full-timeline validation shared by additions, edits, deletions, and
+  complete backup imports. After stable date sorting, every event checks CNY,
+  HKD, and USD cash plus position availability before the next event runs. A
+  later deposit or conversion cannot hide an earlier cash shortfall, and an
+  invalid batch is rejected before localStorage changes. This replaces the
+  prior edit-only prefix recalculation with one reusable pass suitable for
+  larger backfills and migration batches.
 - Versioned daily portfolio snapshot calculation that replays the ledger
   through each requested close, values CNY/HKD/USD cash and USD securities with
   explicit dated market inputs, and retains the exact quote, FX, provider, and
@@ -459,7 +469,18 @@ balances after refresh; a 390 px viewport had no horizontal page overflow and
 the browser reported no warnings or errors. The manual ledger on port 5224 was
 not opened or modified.
 
-The automated regression suite now runs with `npm test`. Forty-three
+The chronological-validation check accepted a complete anonymous deposit,
+conversion, and purchase batch supplied out of date order, then returned it in
+valid date order without mutating the source array. It rejected CNY and USD
+shortfalls that were hidden by later funding, rejected an invalid same-day
+dependency order, and rejected deletion of funding needed by a later outflow.
+A read-only smoke check on temporary port 5242 retained the six-event anonymous
+demo ledger and its CNY 5,680.00 and USD 333.67 balances after refresh. The
+390 px layout had no horizontal page overflow, mobile navigation remained
+visible, and the browser reported no warnings or errors. The manual ledger on
+port 5224 was not opened or modified.
+
+The automated regression suite now runs with `npm test`. Forty-eight
 deterministic tests cover the ledger, editing and deletion, valuation, daily
 snapshots, external-flow classification, chronological stable sorting without
 input mutation, and invalid-input rejection. The suite, production build, and

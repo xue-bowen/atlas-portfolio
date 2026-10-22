@@ -139,4 +139,34 @@ describe("removeLedgerEvent", () => {
       /insufficient position/i,
     );
   });
+
+  it("rejects deletion when a later cash outflow would become unfunded", () => {
+    const cashLedger: LedgerEvent[] = [
+      {
+        id: "first-deposit",
+        occurredAt: "2026-01-01",
+        accountId: "test",
+        type: "CNY_DEPOSIT",
+        amountCny: 100,
+      },
+      {
+        id: "withdrawal",
+        occurredAt: "2026-01-02",
+        accountId: "test",
+        type: "CNY_WITHDRAWAL",
+        amountCny: 80,
+      },
+      {
+        id: "later-deposit",
+        occurredAt: "2026-01-03",
+        accountId: "test",
+        type: "CNY_DEPOSIT",
+        amountCny: 100,
+      },
+    ];
+
+    expect(() => removeLedgerEvent(cashLedger, "first-deposit")).toThrow(
+      /insufficient cash in CNY/i,
+    );
+  });
 });

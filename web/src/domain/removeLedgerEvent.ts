@@ -1,6 +1,5 @@
-import { calculateBalances } from "./calculateBalances";
 import type { LedgerEvent } from "./ledger";
-import { sortLedgerEventsChronologically } from "./sortLedgerEvents";
+import { validateLedgerTimeline } from "./validateLedgerTimeline";
 
 export function removeLedgerEvent(
   events: readonly LedgerEvent[],
@@ -13,8 +12,5 @@ export function removeLedgerEvent(
   }
 
   const remainingEvents = events.filter((_, index) => index !== eventIndex);
-  const orderedEvents = sortLedgerEventsChronologically(remainingEvents);
-
-  calculateBalances(orderedEvents);
-  return orderedEvents;
+  return validateLedgerTimeline(remainingEvents);
 }

@@ -16,8 +16,13 @@ export interface PortfolioBalances {
   totalFeesUsd: number;
 }
 
+export interface BalanceCalculationOptions {
+  validateTimeline?: boolean;
+}
+
 export function calculateBalances(
-  events: LedgerEvent[],
+  events: readonly LedgerEvent[],
+  options: BalanceCalculationOptions = {},
 ): PortfolioBalances {
   let cnyCash = 0;
   let hkdCash = 0;
@@ -127,6 +132,42 @@ export function calculateBalances(
         usdCash -= event.amountUsd;
         totalFeesUsd += event.amountUsd;
         break;
+    }
+
+    if (options.validateTimeline) {
+      const cashBalances = [
+        ["CNY", cnyCash],
+        ["HKD", hkdCash],
+        ["USD", usdCash],
+      ] as const;
+      const insufficientCash = cashBalances.find(
+        ([, balance]) => balance < -1e-8,
+      );
+
+      if (insufficientCash) {
+        throw new Error(
+          `Insufficient cash in ${insufficientCash[0]} after ${event.type} on ${event.occurredAt}.`,
+        );
+      }
+
+      const affectedPosition =
+        "symbol" in event ? positions.get(event.symbol) : undefined;
+      const calculatedValues = [
+        cnyCash,
+        hkdCash,
+        usdCash,
+        realizedPnlUsd,
+        totalFeesUsd,
+        ...(affectedPosition
+          ? [affectedPosition.quantity, affectedPosition.costUsd]
+          : []),
+      ];
+
+      if (!calculatedValues.every(Number.isFinite)) {
+        throw new Error(
+          `Transaction amounts are too large after ${event.type} on ${event.occurredAt}.`,
+        );
+      }
     }
   }
 
