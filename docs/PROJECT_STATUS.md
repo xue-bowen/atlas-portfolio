@@ -4,7 +4,7 @@
 
 Latest stable feature checkpoint before this documentation update:
 
-`9f0a1b8 feat: add daily portfolio snapshots`
+`69dafdb feat: validate full ledger timeline`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -192,6 +192,12 @@ browser-local and is never committed to GitHub.
   date's USD/CNY rate. FX, buys, sells, dividends, interest, and fees remain
   internal activity. The rules and an anonymous hand-worked example are fixed
   in `docs/PERFORMANCE_METRICS.md`.
+- Chronological CNY performance series derived from versioned daily snapshots.
+  It keeps cumulative cash contributions, in-kind contributions, withdrawals,
+  and net contributions separate, then calculates total CNY P&L as ending NAV
+  plus withdrawals minus both contribution categories. Duplicate dates,
+  unsupported versions, inconsistent daily flow totals, invalid values, and
+  cumulative overflow are rejected rather than producing a misleading result.
 
 Anonymous browser tests verified balance updates and persistence after refresh.
 The latest reinvestment test confirmed that buying below the existing average
@@ -480,7 +486,20 @@ demo ledger and its CNY 5,680.00 and USD 333.67 balances after refresh. The
 visible, and the browser reported no warnings or errors. The manual ledger on
 port 5224 was not opened or modified.
 
-The automated regression suite now runs with `npm test`. Forty-eight
+The cumulative CNY performance check reused the four-day anonymous snapshot
+example. It reconciled CNY 8,000.00 cash contributions, CNY 420.00 in-kind
+contributions, and CNY 300.00 withdrawals to CNY 8,120.00 net contributions;
+against CNY 8,249.60 ending NAV, total CNY P&L was CNY 129.60. Tests also
+covered multiple external-flow categories on one date, out-of-order snapshot
+inputs without mutation, duplicate dates, inconsistent flow totals, unsupported
+calculation versions, invalid values, and cumulative overflow. A read-only
+smoke check on temporary port 5243 retained the anonymous demo ledger and its
+CNY 5,680.00 and USD 333.67 balances after refresh. The 390 px layout had no
+horizontal page overflow, mobile navigation remained visible, and the browser
+reported no warnings or errors. The manual ledger on port 5224 was not opened
+or modified.
+
+The automated regression suite now runs with `npm test`. Fifty-two
 deterministic tests cover the ledger, editing and deletion, valuation, daily
 snapshots, external-flow classification, chronological stable sorting without
 input mutation, and invalid-input rejection. The suite, production build, and
@@ -617,10 +636,11 @@ commits. Scope can move within that range as anonymous edge cases are found:
 
 ## Next task
 
-Use the versioned daily snapshots and external-flow totals to calculate
-cumulative net contributions and total CNY P&L as the next independent domain
-step. Verify the documented identity `P&L = ending NAV + withdrawals - cash
-contributions - in-kind contributions` with deterministic anonymous examples,
-while leaving XIRR, TWR, charts, and UI integration for later commits. A focused
+Implement CNY XIRR / money-weighted return as the next independent domain step.
+Use investor-perspective dated cash flows: cash and in-kind contributions are
+negative, withdrawals are positive, and the ending CNY NAV is the final
+positive value. Fix day-count, convergence, invalid-series, and multiple-root
+handling in `docs/PERFORMANCE_METRICS.md` and deterministic anonymous tests,
+while leaving TWR, charts, and UI integration for later commits. A focused
 manual ledger review and local JSON backup remain required before substantial
 real history.

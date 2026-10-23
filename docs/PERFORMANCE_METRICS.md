@@ -50,6 +50,25 @@ identifier or closing quote, a held currency lacks its valuation rate, an FX
 pair is reversed, or a required value is invalid. This prevents missing assets
 from being treated as zero.
 
+## CNY contributions and total P&L
+
+Daily external-flow totals accumulate independently so cash funding, in-kind
+funding, and withdrawals remain auditable:
+
+\[
+Net\ Contributions=Cumulative\ Cash\ Contributions+Cumulative\ InKind\ Contributions-Cumulative\ Withdrawals
+\]
+
+\[
+Total\ P\&L_{CNY}=NAV_{CNY}+Cumulative\ Withdrawals-Cumulative\ Cash\ Contributions-Cumulative\ InKind\ Contributions
+\]
+
+The same relationship can be written as `Total P&L = NAV - Net
+Contributions`. Total P&L is a currency amount, not a return rate. The series is
+calculated in date order from complete versioned snapshots. Duplicate dates,
+unsupported calculation versions, negative external-flow totals, or a daily net
+flow that does not reconcile to its components invalidate the series.
+
 ## Recalculation
 
 The ledger remains the source of truth. Prices, rates, and daily snapshots are
@@ -72,7 +91,10 @@ from investment performance.
 
 On day four, a CNY 300 withdrawal gives a signed daily external flow of CNY
 -300. With CNY 700, USD 596, HKD 20, 4.5 shares at USD 100, USD/CNY 7.20, and
-HKD/CNY 0.92, the end-of-day NAV is CNY 8,249.60.
+HKD/CNY 0.92, the end-of-day NAV is CNY 8,249.60. Cumulative cash
+contributions are CNY 8,000, cumulative in-kind contributions are CNY 420, and
+cumulative withdrawals are CNY 300. Net contributions are therefore CNY 8,120
+and total CNY P&L is CNY 129.60.
 
 Return formulas and chart presentation build on this snapshot series. Their
 cash-flow timing and annualization rules will be fixed in this document before
