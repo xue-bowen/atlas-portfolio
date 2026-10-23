@@ -4,7 +4,7 @@
 
 Latest stable feature checkpoint before this documentation update:
 
-`69dafdb feat: validate full ledger timeline`
+`dd8600b feat: calculate cumulative CNY performance`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -198,6 +198,11 @@ browser-local and is never committed to GitHub.
   plus withdrawals minus both contribution categories. Duplicate dates,
   unsupported versions, inconsistent daily flow totals, invalid values, and
   cumulative overflow are rejected rather than producing a misleading result.
+- CNY XIRR / money-weighted return derived from the same versioned snapshots.
+  Cash and in-kind contributions become negative investor cash flows,
+  withdrawals are positive, and ending CNY NAV is the terminal value. The
+  `ACTUAL/365` solver rejects one-sided, single-date, unsolved, and
+  multiple-root series instead of displaying a misleading annual rate.
 
 Anonymous browser tests verified balance updates and persistence after refresh.
 The latest reinvestment test confirmed that buying below the existing average
@@ -499,11 +504,21 @@ horizontal page overflow, mobile navigation remained visible, and the browser
 reported no warnings or errors. The manual ledger on port 5224 was not opened
 or modified.
 
-The automated regression suite now runs with `npm test`. Fifty-two
+The CNY XIRR check confirmed a one-year 10% result, an irregular-flow 20%
+result, investor-perspective contribution/withdrawal signs, zero-ending-NAV
+as-of dates, and explicit rejection of one-sided, single-date, unsolved, and
+multiple-root series. A read-only smoke check on temporary port 5244 retained
+the six-event anonymous demo ledger and its CNY 5,680.00 and USD 333.67 balances
+after refresh. At 390 x 844, mobile navigation was visible, desktop navigation
+was hidden, and document width remained within the viewport. The browser
+reported no warnings or errors; the tab and server were closed afterward. The
+manual ledger on port 5224 was not opened or modified.
+
+The automated regression suite now runs with `npm test`. Fifty-nine
 deterministic tests cover the ledger, editing and deletion, valuation, daily
 snapshots, external-flow classification, chronological stable sorting without
-input mutation, and invalid-input rejection. The suite, production build, and
-lint all pass together.
+input mutation, CNY performance, XIRR, and invalid-input rejection. The suite,
+production build, and lint all pass together.
 
 The npm development dependency audit initially reported two denial-of-service
 advisories inherited through the lint/build toolchain. Exact overrides now pin
@@ -553,18 +568,21 @@ For each small feature:
 
 - Free-First: reliable delayed/EOD data is preferred over unnecessary paid
   real-time data.
-- Paid APIs and paid market-data subscriptions are out of scope. If free
-  providers cannot cover an asset, Atlas uses cache or manual input instead of
-  upgrading to a paid source.
+- Paid APIs and paid market-data subscriptions are out of scope. If the current
+  free provider and cache cannot cover an asset, the first public release shows
+  it as unavailable instead of upgrading to a paid source.
 - Stock/ETF and FX providers are separate behind a replaceable
   `MarketDataProvider` layer.
 - All pages share an IndexedDB market cache with TTL; historical data is
   downloaded once and incrementally extended.
 - Initial refresh behavior is launch-time refresh plus manual refresh.
-- Provider, original source institution, market timestamp, fetch timestamp,
-  delay status, and manual overrides remain traceable.
-- Provider fallback, explicit stale-data display, API request budgets, license
-  review, and manual price input are mandatory parts of the market-data phase.
+- Existing provider, original source institution, market timestamp, fetch
+  timestamp, and delay metadata remain stored. The first public release does
+  not add a larger source-tracing interface.
+- The existing automatic provider, fresh/stale cache behavior, and explicit
+  unavailable state are sufficient for the first public release. Additional
+  provider fallback and manual closing-price/rate entry are post-release work;
+  pre-publication license review remains required.
 - Frankfurter is the first FX candidate; stock provider candidates must be
   re-evaluated against official pricing, market coverage, delay, and license
   terms immediately before integration.
@@ -582,20 +600,12 @@ For each small feature:
   must be reviewed before making the repository public.
 - TradingView is reserved for a user-initiated per-security chart/quote display.
   Widget content is not scraped or extracted into the portfolio valuation.
-- Explicit fresh/stale cache status remains mandatory. Manual price override is
-  a later failure fallback, not the normal user workflow. The dormant Twelve
-  Data adapter may be reconsidered later, but it is not part of the current UI
-  or required setup.
-- Phase 3 includes portfolio return charts and benchmark comparison. Initial
-  benchmark candidates are US Treasury, China government bond, and China
-  one-year term-deposit return series, normalized to a common starting value
-  with explicit currency and compounding assumptions.
-- Phase 3 also includes SPX Delta, defined as the estimated percentage change
-  in total portfolio NAV for a 1% change in SPX. It will also show estimated
-  portfolio percentage and USD changes for SPX +/-1% scenarios and market-value
-  coverage. The first version covers stocks and ETFs; options Greeks are
-  deferred until the ledger supports options. Missing price/beta inputs must
-  remain visible rather than being treated as zero exposure.
+- Explicit fresh/stale cache status remains mandatory. The dormant Twelve Data
+  adapter and manual quote entry may be reconsidered after launch, but neither
+  is part of the current UI or required setup.
+- Phase 3 includes CNY XIRR, USD TWR, return charts, and USD benchmark
+  comparison limited to IVV and QQQ. SPX Delta, government-bond/deposit series,
+  additional indexes, and advanced attribution are post-release work.
 
 ## Confirmed information architecture
 
@@ -619,28 +629,30 @@ For each small feature:
 
 ## Remaining path to the first public release
 
-The current estimate is five major workstreams, roughly 12-18 small verified
-commits. Scope can move within that range as anonymous edge cases are found:
+The fast public-release estimate is four workstreams, roughly 8-12 small
+verified commits. Scope can move within that range as anonymous edge cases are
+found:
 
-1. Complete the unified transaction workflow and transaction-detail
-   edit/delete recalculation (about 3-5 small steps).
-2. Define and implement daily snapshots, external-flow classification, NAV,
-   TWR, MWR/XIRR, Performance charts, and benchmark comparison (about 3-4).
-3. Finish market-data fallback/manual override, provider coverage, provenance,
-   and pre-publication license review (about 2-3).
-4. Add deterministic calculation tests, duplicate/error handling, storage
-   migration checks, and backup/restore release validation (about 2-3).
-5. Prepare the public repository: anonymous demo, setup and privacy docs,
-   license, contribution guidance, screenshots, and clean-browser release test
-   (about 2-3).
+1. Build the basic responsive Performance page, then add USD TWR and IVV/QQQ
+   benchmark comparison on the versioned snapshot series (about 3-4 steps).
+2. Move the personal ledger from localStorage to versioned IndexedDB with safe
+   migration and backup/restore verification (about 1-2 steps).
+3. Add generic batch import preview and duplicate detection, prioritizing Atlas
+   JSON and a documented CSV format; broker-specific adapters can follow after
+   launch (about 1-2 steps).
+4. Complete license/privacy/setup documentation, anonymous screenshots,
+   production checks, and a clean-browser desktop/mobile release test (about
+   2-4 steps).
+
+Additional market-data fallback, manual quote entry, expanded provenance UI,
+SPX Delta, advanced attribution, and more benchmarks are deferred until after
+the first public release. Existing market metadata remains intact.
 
 ## Next task
 
-Implement CNY XIRR / money-weighted return as the next independent domain step.
-Use investor-perspective dated cash flows: cash and in-kind contributions are
-negative, withdrawals are positive, and the ending CNY NAV is the final
-positive value. Fix day-count, convergence, invalid-series, and multiple-root
-handling in `docs/PERFORMANCE_METRICS.md` and deterministic anonymous tests,
-while leaving TWR, charts, and UI integration for later commits. A focused
-manual ledger review and local JSON backup remain required before substantial
-real history.
+Connect current CNY NAV, net contributions, total P&L, and CNY XIRR to the
+basic responsive Performance page. Build the smallest useful desktop/mobile
+summary first and display an explicit unavailable state when the dated inputs
+needed by XIRR do not yet exist. Leave USD TWR and IVV/QQQ comparison for the
+following independent commits. A focused manual ledger review and local JSON
+backup remain required before substantial real history.

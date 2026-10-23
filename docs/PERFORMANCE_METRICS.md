@@ -69,6 +69,26 @@ calculated in date order from complete versioned snapshots. Duplicate dates,
 unsupported calculation versions, negative external-flow totals, or a daily net
 flow that does not reconcile to its components invalidate the series.
 
+## CNY XIRR / money-weighted return
+
+CNY XIRR measures the annualized return experienced by the investor. Atlas
+converts dated external flows to the investor perspective before solving:
+
+- cash and in-kind contributions are negative cash flows;
+- withdrawals are positive cash flows;
+- the ending CNY NAV is appended on the final snapshot date as the terminal
+  portfolio value, including when that value is zero.
+
+The solver uses actual UTC calendar-day differences divided by 365
+(`ACTUAL/365`). It searches annual rates from `-99.9999%` through `1,000,000%`
+and retains full floating-point precision internally. The interface may round
+the displayed percentage but must not round the cash flows before calculation.
+
+A valid series needs at least one positive cash flow, one negative cash flow,
+and cash-flow dates spanning at least two dates. If no root exists in the
+supported range, XIRR is unavailable. If more than one root exists, Atlas
+reports the series as ambiguous instead of silently choosing one result.
+
 ## Recalculation
 
 The ledger remains the source of truth. Prices, rates, and daily snapshots are
@@ -96,6 +116,10 @@ contributions are CNY 8,000, cumulative in-kind contributions are CNY 420, and
 cumulative withdrawals are CNY 300. Net contributions are therefore CNY 8,120
 and total CNY P&L is CNY 129.60.
 
-Return formulas and chart presentation build on this snapshot series. Their
-cash-flow timing and annualization rules will be fixed in this document before
-those metrics connect to the interface.
+A separate one-year XIRR check contributes CNY 1,000 on 2025-01-01 and ends
+with CNY 1,100 NAV on 2026-01-01. Its investor cash flows are CNY -1,000 and
+CNY +1,100, producing an annualized CNY XIRR of 10% under `ACTUAL/365`.
+
+TWR timing rules and chart presentation will be fixed in this document before
+those metrics connect to the interface. Public-version benchmark comparison is
+limited to IVV and QQQ.
