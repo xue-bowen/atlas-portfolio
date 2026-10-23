@@ -531,6 +531,84 @@
   color: #b42318;
 }
 
+.performance-panel {
+  margin: 32px 0;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.performance-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 20px 0 0;
+}
+
+.performance-summary-grid > div {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.performance-summary-grid dt,
+.performance-ledger-results dt {
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.performance-summary-grid dd {
+  margin: 8px 0 4px;
+  font-size: 20px;
+  color: var(--text-h);
+  overflow-wrap: anywhere;
+}
+
+.performance-summary-grid small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.performance-unavailable {
+  margin-top: 16px;
+  padding: 14px 16px;
+  color: #7a2e0e;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+}
+
+.performance-unavailable ul {
+  margin-bottom: 0;
+}
+
+.performance-ledger-results {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.performance-ledger-results h3 {
+  margin-top: 0;
+}
+
+.performance-ledger-results dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 0;
+}
+
+.performance-ledger-results dl > div {
+  min-width: 0;
+}
+
+.performance-ledger-results dd {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+}
+
 .cash-valuation-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -840,7 +918,9 @@
   }
 
   .portfolio-valuation-grid,
-  .cash-valuation-grid {
+  .cash-valuation-grid,
+  .performance-summary-grid,
+  .performance-ledger-results dl {
     grid-template-columns: 1fr;
   }
 
@@ -872,7 +952,8 @@
 }
 
 @media (min-width: 721px) and (max-width: 1024px) {
-  .cash-valuation-grid {
+  .cash-valuation-grid,
+  .performance-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

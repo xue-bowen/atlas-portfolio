@@ -37,6 +37,10 @@ import {
 } from "./data/securityProfileStorage";
 import { calculateBalances } from "./domain/calculateBalances";
 import { calculateCashValuation } from "./domain/calculateCashValuation";
+import {
+  calculateCurrentCnyPerformance,
+  type CurrentCnyPerformanceUnavailableReason,
+} from "./domain/calculateCurrentCnyPerformance";
 import { calculateUsdCashHistory } from "./domain/calculateUsdCashHistory";
 import {
   calculateHoldingsValuation,
@@ -74,6 +78,12 @@ const currencyFormatters: Record<Currency, Intl.NumberFormat> = {
 const fxRateNumber = new Intl.NumberFormat("en-US", {
   minimumFractionDigits: 4,
   maximumFractionDigits: 6,
+});
+
+const percentage = new Intl.NumberFormat("en-US", {
+  style: "percent",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
 });
 
 type ValuationFxKey = "USD_CNY" | "HKD_CNY";
@@ -157,6 +167,16 @@ type PositionQuoteState =
 
 type PositionQuoteStates = Record<string, PositionQuoteState>;
 
+type InKindContributionValueState =
+  | { status: "LOADING"; inputKey: string }
+  | { status: "RESOLVED"; inputKey: string; valueCny: number }
+  | { status: "ERROR"; inputKey: string; error: string };
+
+type InKindContributionValueStates = Record<
+  string,
+  InKindContributionValueState
+>;
+
 function describeFxStatus(resolution: FxRateResolution): string {
   const baseStatus =
     resolution.status === "PROVIDER_FRESH"
@@ -207,6 +227,32 @@ const portfolioValuationReasonLabels: Record<
   USD_CNY_RATE_UNAVAILABLE:
     "USD/CNY is unavailable for securities conversion",
 };
+
+const performanceUnavailableReasonLabels: Record<
+  CurrentCnyPerformanceUnavailableReason,
+  string
+> = {
+  NAV_UNAVAILABLE:
+    "Current CNY NAV needs complete security-price and FX coverage.",
+  IN_KIND_CONTRIBUTION_VALUE_UNAVAILABLE:
+    "A historical USD/CNY rate is still needed for an in-kind contribution.",
+  XIRR_UNAVAILABLE:
+    "CNY XIRR needs complete NAV and dated investor cash flows with one valid solution.",
+};
+
+function currentLocalDate(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function inKindContributionInputKey(
+  event: Extract<LedgerEvent, { type: "IN_KIND_CONTRIBUTION" }>,
+): string {
+  return `${event.occurredAt}:${event.quantity}:${event.priceUsd}`;
+}
 
 function describeEvent(event: LedgerEvent): string {
   switch (event.type) {
@@ -336,6 +382,9 @@ export default function App() {
     useState<ValuationFxRates>({});
   const [isValuationFxLoading, setIsValuationFxLoading] = useState(false);
   const [valuationFxError, setValuationFxError] = useState("");
+  const [inKindContributionValueStates, setInKindContributionValueStates] =
+    useState<InKindContributionValueStates>({});
+  const inKindContributionValueRequestId = useRef(0);
 
   const refreshValuationFxRates = useCallback(
     async (forceRefresh: boolean) => {
@@ -393,6 +442,81 @@ export default function App() {
     return () => window.clearTimeout(refreshTimer);
   }, [refreshValuationFxRates]);
 
+  useEffect(() => {
+    const requestId = inKindContributionValueRequestId.current + 1;
+    inKindContributionValueRequestId.current = requestId;
+    const inKindContributions = ledger.filter(
+      (event) => event.type === "IN_KIND_CONTRIBUTION",
+    );
+    const loadTimer = window.setTimeout(() => {
+      if (inKindContributions.length === 0) {
+        setInKindContributionValueStates({});
+        return;
+      }
+
+      setInKindContributionValueStates(
+        Object.fromEntries(
+          inKindContributions.map((event) => [
+            event.id,
+            {
+              status: "LOADING",
+              inputKey: inKindContributionInputKey(event),
+            },
+          ]),
+        ),
+      );
+
+      void Promise.all(
+        inKindContributions.map(async (event) => {
+          try {
+            const resolution = await valuationFxService.getFxRate({
+              pair: { baseCurrency: "USD", quoteCurrency: "CNY" },
+              date: event.occurredAt,
+            });
+            return {
+              eventId: event.id,
+              state: {
+                status: "RESOLVED" as const,
+                inputKey: inKindContributionInputKey(event),
+                valueCny:
+                  event.quantity * event.priceUsd * resolution.rate.rate,
+              },
+            };
+          } catch (error) {
+            return {
+              eventId: event.id,
+              state: {
+                status: "ERROR" as const,
+                inputKey: inKindContributionInputKey(event),
+                error:
+                  error instanceof Error
+                    ? error.message
+                    : "Unknown historical USD/CNY error.",
+              },
+            };
+          }
+        }),
+      ).then((results) => {
+        if (inKindContributionValueRequestId.current !== requestId) {
+          return;
+        }
+
+        setInKindContributionValueStates(
+          Object.fromEntries(
+            results.map((result) => [result.eventId, result.state]),
+          ),
+        );
+      });
+    }, 0);
+
+    return () => {
+      window.clearTimeout(loadTimer);
+      if (inKindContributionValueRequestId.current === requestId) {
+        inKindContributionValueRequestId.current += 1;
+      }
+    };
+  }, [ledger]);
+
   const balances = calculateBalances(ledger);
   const securityProfiles = securityProfileRegistry.profiles;
   const resolvedSecurityQuotes = Object.values(positionQuoteStates)
@@ -417,6 +541,47 @@ export default function App() {
     cashValuation,
     holdingsValuation,
     usdCnyRate: valuationFxRates.USD_CNY?.rate.rate,
+  });
+  const performanceAsOfDate = [
+    currentLocalDate(),
+    ...ledger.map((event) => event.occurredAt),
+  ]
+    .sort((left, right) => left.localeCompare(right))
+    .at(-1)!;
+  const currentInKindContributionInputKeys = new Map(
+    ledger.flatMap((event) =>
+      event.type === "IN_KIND_CONTRIBUTION"
+        ? [[event.id, inKindContributionInputKey(event)] as const]
+        : [],
+    ),
+  );
+  const resolvedInKindContributionValues = Object.entries(
+    inKindContributionValueStates,
+  ).flatMap(([eventId, state]) =>
+    state.status === "RESOLVED" &&
+    currentInKindContributionInputKeys.get(eventId) === state.inputKey
+      ? [{ eventId, valueCny: state.valueCny }]
+      : [],
+  );
+  const isInKindContributionValueLoading = Object.entries(
+    inKindContributionValueStates,
+  ).some(
+    ([eventId, state]) =>
+      state.status === "LOADING" &&
+      currentInKindContributionInputKeys.get(eventId) === state.inputKey,
+  );
+  const hasInKindContributionValueError = Object.entries(
+    inKindContributionValueStates,
+  ).some(
+    ([eventId, state]) =>
+      state.status === "ERROR" &&
+      currentInKindContributionInputKeys.get(eventId) === state.inputKey,
+  );
+  const currentCnyPerformance = calculateCurrentCnyPerformance({
+    events: ledger,
+    asOfDate: performanceAsOfDate,
+    navCny: portfolioValuation.totalPortfolioValueCny,
+    inKindContributionValuesCny: resolvedInKindContributionValues,
   });
   const securityQuoteDates = holdingsValuation.valuedPositions
     .map((position) => position.quote.marketTimestamp.slice(0, 10))
@@ -3302,16 +3467,108 @@ export default function App() {
         </div>
       </section>
 
-      <section id="performance" className="page-section">
-        <p className="section-eyebrow">Performance</p>
-        <h2>Realized result</h2>
-        <ul>
-          <li>Realized P&amp;L: {usd.format(balances.realizedPnlUsd)}</li>
-          <li>
-            Accumulated fees and USD expenses:{" "}
-            {usd.format(balances.totalFeesUsd)}
-          </li>
-        </ul>
+      <section id="performance" className="page-section performance-panel">
+        <div className="page-section-heading">
+          <p className="section-eyebrow">Performance</p>
+          <h2>CNY portfolio performance</h2>
+          <p>
+            Current wealth, outside funding, total profit or loss, and the
+            annualized return experienced by the investor.
+          </p>
+        </div>
+
+        <dl className="performance-summary-grid">
+          <div>
+            <dt>Current NAV</dt>
+            <dd>
+              {currentCnyPerformance.navCny === undefined
+                ? "Unavailable"
+                : cny.format(currentCnyPerformance.navCny)}
+            </dd>
+            <small>Cash plus completely covered holdings</small>
+          </div>
+          <div>
+            <dt>Net contributions</dt>
+            <dd>
+              {currentCnyPerformance.cumulativeNetContributionsCny === undefined
+                ? isInKindContributionValueLoading
+                  ? "Loading…"
+                  : "Unavailable"
+                : cny.format(
+                    currentCnyPerformance.cumulativeNetContributionsCny,
+                  )}
+            </dd>
+            <small>
+              Cash {cny.format(
+                currentCnyPerformance.cumulativeExternalCashContributionsCny,
+              )}
+              {" + in-kind "}
+              {currentCnyPerformance.cumulativeExternalInKindContributionsCny ===
+              undefined
+                ? "pending"
+                : cny.format(
+                    currentCnyPerformance.cumulativeExternalInKindContributionsCny,
+                  )}
+              {" − withdrawals "}
+              {cny.format(
+                currentCnyPerformance.cumulativeExternalWithdrawalsCny,
+              )}
+            </small>
+          </div>
+          <div>
+            <dt>Total P&amp;L</dt>
+            <dd>
+              {currentCnyPerformance.totalPnlCny === undefined
+                ? "Unavailable"
+                : cny.format(currentCnyPerformance.totalPnlCny)}
+            </dd>
+            <small>Current NAV minus net contributions</small>
+          </div>
+          <div>
+            <dt>CNY XIRR</dt>
+            <dd>
+              {currentCnyPerformance.xirrAnnualRate === undefined
+                ? "Unavailable"
+                : percentage.format(currentCnyPerformance.xirrAnnualRate)}
+            </dd>
+            <small>
+              Annualized · ACTUAL/365 · as of {currentCnyPerformance.asOfDate}
+            </small>
+          </div>
+        </dl>
+
+        {currentCnyPerformance.unavailableReasons.length > 0 && (
+          <div className="performance-unavailable" role="status">
+            <strong>Some performance metrics are unavailable</strong>
+            <ul>
+              {currentCnyPerformance.unavailableReasons.map((reason) => (
+                <li key={reason}>
+                  {reason === "IN_KIND_CONTRIBUTION_VALUE_UNAVAILABLE" &&
+                  isInKindContributionValueLoading
+                    ? "Loading the historical USD/CNY rate for an in-kind contribution."
+                    : reason === "IN_KIND_CONTRIBUTION_VALUE_UNAVAILABLE" &&
+                        hasInKindContributionValueError
+                      ? "A historical USD/CNY rate could not be loaded for an in-kind contribution."
+                      : performanceUnavailableReasonLabels[reason]}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <div className="performance-ledger-results">
+          <h3>Supporting USD ledger results</h3>
+          <dl>
+            <div>
+              <dt>Realized P&amp;L</dt>
+              <dd>{usd.format(balances.realizedPnlUsd)}</dd>
+            </div>
+            <div>
+              <dt>Accumulated fees and USD expenses</dt>
+              <dd>{usd.format(balances.totalFeesUsd)}</dd>
+            </div>
+          </dl>
+        </div>
       </section>
 
       <h2>USD cash transaction history</h2>

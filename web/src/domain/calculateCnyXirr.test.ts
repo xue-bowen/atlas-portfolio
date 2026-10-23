@@ -3,6 +3,7 @@ import type { CnyPerformanceSnapshotInput } from "./calculateCnyPerformanceSerie
 import {
   buildCnyXirrCashFlows,
   calculateCnyXirr,
+  calculateCnyXirrFromCashFlows,
 } from "./calculateCnyXirr";
 
 function snapshot(
@@ -34,6 +35,31 @@ describe("calculateCnyXirr", () => {
     expect(result.annualRate).toBeCloseTo(0.1, 9);
     expect(result.asOfDate).toBe("2026-01-01");
     expect(result.dayCountConvention).toBe("ACTUAL_365");
+  });
+
+  it("calculates from valued cash flows without mutating their order", () => {
+    const cashFlows = [
+      {
+        date: "2026-01-01",
+        amountCny: 1_100,
+        source: "ENDING_NAV" as const,
+      },
+      {
+        date: "2025-01-01",
+        amountCny: -1_000,
+        source: "EXTERNAL_FLOW" as const,
+      },
+    ];
+    const before = structuredClone(cashFlows);
+
+    const result = calculateCnyXirrFromCashFlows(cashFlows);
+
+    expect(result.annualRate).toBeCloseTo(0.1, 9);
+    expect(result.cashFlows.map((cashFlow) => cashFlow.date)).toEqual([
+      "2025-01-01",
+      "2026-01-01",
+    ]);
+    expect(cashFlows).toEqual(before);
   });
 
   it("uses actual dates and investor-perspective signs for irregular flows", () => {

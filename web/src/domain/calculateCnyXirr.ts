@@ -28,6 +28,27 @@ function dateToUtcMilliseconds(date: string): number {
   return Date.UTC(year, month - 1, day);
 }
 
+function assertCalendarDate(value: string): void {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+
+  if (!match) {
+    throw new Error(`CNY XIRR cash-flow date ${value} is invalid.`);
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+
+  if (
+    parsed.getUTCFullYear() !== year ||
+    parsed.getUTCMonth() !== month - 1 ||
+    parsed.getUTCDate() !== day
+  ) {
+    throw new Error(`CNY XIRR cash-flow date ${value} is invalid.`);
+  }
+}
+
 function xnpv(
   logGrowthFactor: number,
   cashFlows: readonly CnyXirrCashFlow[],
@@ -183,10 +204,32 @@ export function calculateCnyXirr(
   snapshots: readonly CnyPerformanceSnapshotInput[],
 ): CnyXirrResult {
   const cashFlows = buildCnyXirrCashFlows(snapshots);
-  const hasPositiveCashFlow = cashFlows.some(
+
+  return calculateCnyXirrFromCashFlows(cashFlows);
+}
+
+export function calculateCnyXirrFromCashFlows(
+  cashFlows: readonly CnyXirrCashFlow[],
+): CnyXirrResult {
+  if (cashFlows.length === 0) {
+    throw new Error("CNY XIRR requires at least one cash flow.");
+  }
+
+  const orderedCashFlows = [...cashFlows].sort((left, right) =>
+    left.date.localeCompare(right.date),
+  );
+
+  for (const cashFlow of orderedCashFlows) {
+    assertCalendarDate(cashFlow.date);
+    if (!Number.isFinite(cashFlow.amountCny)) {
+      throw new Error("CNY XIRR cash-flow amounts must be finite numbers.");
+    }
+  }
+
+  const hasPositiveCashFlow = orderedCashFlows.some(
     (cashFlow) => cashFlow.amountCny > 0,
   );
-  const hasNegativeCashFlow = cashFlows.some(
+  const hasNegativeCashFlow = orderedCashFlows.some(
     (cashFlow) => cashFlow.amountCny < 0,
   );
 
@@ -196,13 +239,15 @@ export function calculateCnyXirr(
     );
   }
 
-  const distinctDates = new Set(cashFlows.map((cashFlow) => cashFlow.date));
+  const distinctDates = new Set(
+    orderedCashFlows.map((cashFlow) => cashFlow.date),
+  );
 
   if (distinctDates.size < 2) {
     throw new Error("CNY XIRR requires cash flows on at least two dates.");
   }
 
-  const roots = findRoots(cashFlows);
+  const roots = findRoots(orderedCashFlows);
 
   if (roots.length === 0) {
     throw new Error(
@@ -218,8 +263,8 @@ export function calculateCnyXirr(
 
   return {
     annualRate: Math.expm1(roots[0]),
-    asOfDate: cashFlows.at(-1)!.date,
+    asOfDate: orderedCashFlows.at(-1)!.date,
     dayCountConvention: "ACTUAL_365",
-    cashFlows,
+    cashFlows: orderedCashFlows,
   };
 }

@@ -89,6 +89,16 @@ and cash-flow dates spanning at least two dates. If no root exists in the
 supported range, XIRR is unavailable. If more than one root exists, Atlas
 reports the series as ambiguous instead of silently choosing one result.
 
+The current Performance summary can calculate a terminal view before historical
+snapshots are persisted. It uses the complete current CNY valuation as ending
+NAV, groups CNY deposits and withdrawals by their ledger dates, and translates
+each in-kind contribution with its dated USD/CNY rate. Internal trades, FX,
+income, and expenses remain outside the investor cash-flow list. If current NAV
+or a dated in-kind-contribution rate is unavailable, Atlas keeps independent
+cash-flow totals visible but does not show the dependent total P&L or XIRR. This
+terminal view does not create substitute historical NAV points; TWR and charts
+still require real dated valuations.
+
 ## Recalculation
 
 The ledger remains the source of truth. Prices, rates, and daily snapshots are

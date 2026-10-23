@@ -4,7 +4,7 @@
 
 Latest stable feature checkpoint before this documentation update:
 
-`dd8600b feat: calculate cumulative CNY performance`
+`9a56cb5 feat: calculate CNY XIRR`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -203,6 +203,13 @@ browser-local and is never committed to GitHub.
   withdrawals are positive, and ending CNY NAV is the terminal value. The
   `ACTUAL/365` solver rejects one-sided, single-date, unsolved, and
   multiple-root series instead of displaying a misleading annual rate.
+- Responsive CNY Performance summary connected to the live ledger and current
+  complete portfolio valuation. It shows current NAV, net contributions, total
+  CNY P&L, and annualized CNY XIRR, while retaining the existing realized USD
+  P&L and fee totals. Dated CNY deposits and withdrawals feed investor cash
+  flows directly; in-kind contributions use their historical USD/CNY rate from
+  the existing provider/cache service. Metrics that depend on incomplete quote,
+  FX, or in-kind valuation inputs show an explicit unavailable reason.
 
 Anonymous browser tests verified balance updates and persistence after refresh.
 The latest reinvestment test confirmed that buying below the existing average
@@ -514,11 +521,22 @@ was hidden, and document width remained within the viewport. The browser
 reported no warnings or errors; the tab and server were closed afterward. The
 manual ledger on port 5224 was not opened or modified.
 
-The automated regression suite now runs with `npm test`. Fifty-nine
+The Performance-summary browser check on temporary port 5246 showed four CNY
+metric cards and CNY 20,000.00 net contributions for the six-event anonymous
+demo ledger. Because its two holdings intentionally lacked security profiles,
+current NAV, total P&L, and XIRR remained explicitly unavailable instead of
+using partial valuation. At 390 x 844 the cards collapsed to one column, mobile
+navigation remained visible, document width stayed inside the viewport, and a
+refresh retained all six events plus the CNY 5,680.00 and USD 333.67 balances.
+The browser reported no warnings or errors; the tab and server were closed
+afterward. The manual ledger on port 5224 was not opened or modified.
+
+The automated regression suite now runs with `npm test`. Sixty-four
 deterministic tests cover the ledger, editing and deletion, valuation, daily
 snapshots, external-flow classification, chronological stable sorting without
-input mutation, CNY performance, XIRR, and invalid-input rejection. The suite,
-production build, and lint all pass together.
+input mutation, CNY performance, current-summary availability, XIRR, and
+invalid-input rejection. The suite, production build, and lint all pass
+together.
 
 The npm development dependency audit initially reported two denial-of-service
 advisories inherited through the lint/build toolchain. Exact overrides now pin
@@ -623,18 +641,18 @@ For each small feature:
   costs/notes.
 - Editing and deletion are available only from a transaction detail view in
   Transactions. Either action triggers a full recalculation from the ledger.
-- Basic navigation and the unified transaction entry will be implemented as a
-  separate small phase only after the IndexedDB cache and basic valuation chain
-  are complete. Visual polish remains deferred.
+- Basic navigation and the unified transaction entry are implemented on top of
+  the IndexedDB market cache and valuation chain. Visual polish remains
+  deferred.
 
 ## Remaining path to the first public release
 
-The fast public-release estimate is four workstreams, roughly 8-12 small
+The fast public-release estimate is four workstreams, roughly 6-11 small
 verified commits. Scope can move within that range as anonymous edge cases are
 found:
 
-1. Build the basic responsive Performance page, then add USD TWR and IVV/QQQ
-   benchmark comparison on the versioned snapshot series (about 3-4 steps).
+1. Add USD TWR and IVV/QQQ benchmark comparison to the new responsive
+   Performance page using real versioned snapshot history (about 2-3 steps).
 2. Move the personal ledger from localStorage to versioned IndexedDB with safe
    migration and backup/restore verification (about 1-2 steps).
 3. Add generic batch import preview and duplicate detection, prioritizing Atlas
@@ -650,9 +668,9 @@ the first public release. Existing market metadata remains intact.
 
 ## Next task
 
-Connect current CNY NAV, net contributions, total P&L, and CNY XIRR to the
-basic responsive Performance page. Build the smallest useful desktop/mobile
-summary first and display an explicit unavailable state when the dated inputs
-needed by XIRR do not yet exist. Leave USD TWR and IVV/QQQ comparison for the
-following independent commits. A focused manual ledger review and local JSON
-backup remain required before substantial real history.
+Define and implement USD TWR as the next independent domain step. Fix the
+subperiod timing rule for external flows, same-day flow handling, USD portfolio
+value boundary, chain-linking, and invalid-series behavior in
+`docs/PERFORMANCE_METRICS.md` with deterministic anonymous tests. Leave chart
+integration and IVV/QQQ comparison for later commits. A focused manual ledger
+review and local JSON backup remain required before substantial real history.
