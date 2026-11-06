@@ -518,6 +518,20 @@ export default function App() {
   }, [ledger]);
 
   const balances = calculateBalances(ledger);
+  const openPositionSymbols = new Set(
+    balances.positions.map((position) => position.symbol.toUpperCase()),
+  );
+  const historicalPositionSymbols = [
+    ...new Set(
+      ledger.flatMap((event) =>
+        event.type === "BUY" ||
+        event.type === "SELL" ||
+        event.type === "IN_KIND_CONTRIBUTION"
+          ? [event.symbol.toUpperCase()]
+          : [],
+      ),
+    ),
+  ].sort((left, right) => left.localeCompare(right));
   const securityProfiles = securityProfileRegistry.profiles;
   const resolvedSecurityQuotes = Object.values(positionQuoteStates)
     .filter(
@@ -1072,13 +1086,11 @@ export default function App() {
     const positionSymbol = profilePositionSymbol.trim().toUpperCase();
     const providerSymbol = profileProviderSymbol.trim().toUpperCase();
     const exchange = profileExchange.trim().toUpperCase();
-    const positionExists = balances.positions.some(
-      (position) => position.symbol.toUpperCase() === positionSymbol,
-    );
+    const positionExists = historicalPositionSymbols.includes(positionSymbol);
 
     if (!positionExists || !providerSymbol || !exchange) {
       setMessage(
-        "Choose an open position and enter its market-data symbol and exchange.",
+        "Choose a historical position and enter its market-data symbol and exchange.",
       );
       return;
     }
@@ -3615,9 +3627,10 @@ export default function App() {
         <section className="security-profile-panel">
           <h2>Security profiles</h2>
           <p>
-            Map each open position to the identifier used by a future market
-            data provider. This does not change transactions, cash, cost, or
-            holdings. Quote currency is currently fixed to USD.
+            Map every security held now or in the past to its market-data
+            identifier. Historical mappings support past portfolio valuation.
+            This does not change transactions, cash, cost, or holdings. Quote
+            currency is currently fixed to USD.
           </p>
 
           {securityProfileRegistry.status === "INVALID" && (
@@ -3628,22 +3641,24 @@ export default function App() {
             </p>
           )}
 
-          {balances.positions.length === 0 ? (
+          {historicalPositionSymbols.length === 0 ? (
             <p>Add a security purchase before creating a profile.</p>
           ) : (
             <>
               <ul className="security-profile-list">
-                {balances.positions.map((position) => {
+                {historicalPositionSymbols.map((symbol) => {
                   const profile = securityProfiles.find(
-                    (item) => item.positionSymbol === position.symbol,
+                    (item) => item.positionSymbol === symbol,
                   );
 
                   return (
                     <li
-                      key={position.symbol}
-                      data-testid={`security-profile-status-${position.symbol}`}
+                      key={symbol}
+                      data-testid={`security-profile-status-${symbol}`}
                     >
-                      <strong>{position.symbol}</strong>
+                      <strong>
+                        {symbol}{openPositionSymbols.has(symbol) ? "" : " · closed"}
+                      </strong>
                       <span>
                         {profile
                           ? `${profile.security.symbol} · ${profile.security.exchange} · ${profile.security.assetType} · USD`
@@ -3659,7 +3674,7 @@ export default function App() {
                 onSubmit={saveSecurityProfile}
               >
                 <label htmlFor="profile-position-symbol">
-                  Open position
+                  Historical position
                   <select
                     id="profile-position-symbol"
                     value={profilePositionSymbol}
@@ -3669,9 +3684,9 @@ export default function App() {
                     required
                   >
                     <option value="">Select a position</option>
-                    {balances.positions.map((position) => (
-                      <option key={position.symbol} value={position.symbol}>
-                        {position.symbol}
+                    {historicalPositionSymbols.map((symbol) => (
+                      <option key={symbol} value={symbol}>
+                        {symbol}{openPositionSymbols.has(symbol) ? "" : " (closed)"}
                       </option>
                     ))}
                   </select>

@@ -136,6 +136,10 @@ browser-local and is never committed to GitHub.
   to the separate local registry without adding a ledger event or changing cash,
   quantity, cost, realized P&L, or fees. Backup imports update the visible
   registry immediately as well as local storage.
+- The security-profile editor also lists historical symbols from buys, sells,
+  and in-kind contributions after a position is fully closed. Closed positions
+  can be mapped for past valuations without reopening a holding or requesting
+  a current quote.
 - Read-only holdings valuation panel connected to saved security profiles, the
   cache-aware quote service, IndexedDB market cache, and the existing valuation
   calculation. Only mapped open positions trigger quote lookups. The table shows
@@ -554,6 +558,14 @@ A read-only check on temporary port 5248 again retained the same six anonymous
 events and cash balances after refresh. The 390 x 844 layout had no horizontal
 overflow, and the browser reported no warnings or errors. The tab and server
 were closed; port 5224 was not opened.
+
+An isolated anonymous import on temporary port 5249 contained a deposit, FX,
+buy, and complete sell of TEST. The closed symbol remained available in the
+security-profile editor, accepted a NASDAQ mapping, and retained that mapping
+after refresh. The four events, CNY 300.00 and USD 110.00 cash, and no open
+positions remained unchanged. The 390 x 844 layout had no horizontal overflow
+or browser warnings; the tab, server, and temporary anonymous import file were
+removed. Port 5224 was not opened.
 
 The automated regression suite now runs with `npm test`. Seventy-five
 deterministic tests cover the ledger, editing and deletion, valuation, daily
