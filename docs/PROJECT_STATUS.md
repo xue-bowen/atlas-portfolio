@@ -228,6 +228,11 @@ browser-local and is never committed to GitHub.
   resulting USD subperiod returns from a base index of 100. Incomplete FX,
   inconsistent flows, invalid values, and zero-NAV continuation are rejected.
   Intraday flow timing is outside this close-only metric.
+- Historical valuation-input loader that replays the ledger for requested dates,
+  fetches USD/CNY for every close and HKD/CNY only while HKD cash exists, and
+  requests dated quotes only for positions held on that date. It can use saved
+  profiles for positions now closed. Any missing profile, FX rate, or quote
+  returns dated issues without exposing a partial input series.
 
 Anonymous browser tests verified balance updates and persistence after refresh.
 The latest reinvestment test confirmed that buying below the existing average
@@ -567,7 +572,12 @@ positions remained unchanged. The 390 x 844 layout had no horizontal overflow
 or browser warnings; the tab, server, and temporary anonymous import file were
 removed. Port 5224 was not opened.
 
-The automated regression suite now runs with `npm test`. Seventy-five
+A read-only check on temporary port 5250 retained the six-event anonymous demo
+ledger and CNY 5,680.00 / USD 333.67 cash after refresh. At 390 x 844 the
+document had no horizontal overflow and the browser reported no warnings or
+errors. The tab and server were closed; port 5224 was not opened.
+
+The automated regression suite now runs with `npm test`. Eighty
 deterministic tests cover the ledger, editing and deletion, valuation, daily
 snapshots, external-flow classification, chronological stable sorting without
 input mutation, CNY performance, current-summary availability, XIRR, USD TWR, and
@@ -704,9 +714,9 @@ the first public release. Existing market metadata remains intact.
 
 ## Next task
 
-Build complete historical daily valuation inputs from the ledger, dated FX,
-dated security closes, and saved security profiles, then connect USD TWR to
-the Performance page. Keep missing historical inputs explicit rather than
-showing a partial return. Add IVV/QQQ comparison in a later small step. A
+Select the required historical close dates from the ledger, assemble complete
+daily snapshots with the new loader, and connect USD TWR to the Performance
+page. Keep missing historical inputs explicit rather than showing a partial
+return. Add IVV/QQQ comparison in a later small step. A
 focused manual ledger review and local JSON backup remain required before
 substantial real history.
