@@ -4,7 +4,7 @@
 
 Latest stable feature checkpoint before this documentation update:
 
-`9a56cb5 feat: calculate CNY XIRR`
+`19f4533 feat: add CNY performance summary`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -12,7 +12,7 @@ Windows local path:
 
 `C:\Users\28301\atlas-portfolio`
 
-Last updated: 2026-10-23
+Last updated: 2026-11-06
 
 The working tree was clean after the latest commit. Personal ledger data is
 browser-local and is never committed to GitHub.
@@ -210,6 +210,12 @@ browser-local and is never committed to GitHub.
   flows directly; in-kind contributions use their historical USD/CNY rate from
   the existing provider/cache service. Metrics that depend on incomplete quote,
   FX, or in-kind valuation inputs show an explicit unavailable reason.
+- USD daily-close TWR domain series derived from complete version-1 snapshots.
+  It translates the whole CNY NAV and external flows at each date's USD/CNY
+  rate, removes same-day net external flows at the close, and chain-links the
+  resulting USD subperiod returns from a base index of 100. Incomplete FX,
+  inconsistent flows, invalid values, and zero-NAV continuation are rejected.
+  Intraday flow timing is outside this close-only metric.
 
 Anonymous browser tests verified balance updates and persistence after refresh.
 The latest reinvestment test confirmed that buying below the existing average
@@ -531,10 +537,15 @@ refresh retained all six events plus the CNY 5,680.00 and USD 333.67 balances.
 The browser reported no warnings or errors; the tab and server were closed
 afterward. The manual ledger on port 5224 was not opened or modified.
 
-The automated regression suite now runs with `npm test`. Sixty-four
+A read-only smoke check on temporary port 5247 retained the six-event anonymous
+ledger after refresh with CNY 5,680.00 and USD 333.67 cash. At 390 x 844 the
+document had no horizontal overflow, and the browser reported no warnings or
+errors. The tab and server were closed; port 5224 was not opened.
+
+The automated regression suite now runs with `npm test`. Sixty-nine
 deterministic tests cover the ledger, editing and deletion, valuation, daily
 snapshots, external-flow classification, chronological stable sorting without
-input mutation, CNY performance, current-summary availability, XIRR, and
+input mutation, CNY performance, current-summary availability, XIRR, USD TWR, and
 invalid-input rejection. The suite, production build, and lint all pass
 together.
 
@@ -668,9 +679,8 @@ the first public release. Existing market metadata remains intact.
 
 ## Next task
 
-Define and implement USD TWR as the next independent domain step. Fix the
-subperiod timing rule for external flows, same-day flow handling, USD portfolio
-value boundary, chain-linking, and invalid-series behavior in
-`docs/PERFORMANCE_METRICS.md` with deterministic anonymous tests. Leave chart
-integration and IVV/QQQ comparison for later commits. A focused manual ledger
-review and local JSON backup remain required before substantial real history.
+Connect the USD TWR series to the Performance page using complete historical
+daily valuations. Keep missing historical quotes or FX explicit rather than
+showing a partial return. Add IVV/QQQ comparison in a later small step. A
+focused manual ledger review and local JSON backup remain required before
+substantial real history.
