@@ -1,4 +1,5 @@
 import {
+  isCalendarDate,
   MarketDataProviderError,
   type MarketDataErrorCode,
   type SecurityQuote,
@@ -12,6 +13,7 @@ import {
 } from "./marketDataCache";
 
 export const DEFAULT_SECURITY_QUOTE_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
+const PERMANENT_HISTORICAL_QUOTE_EXPIRY = "9999-12-31T23:59:59.999Z";
 
 export type SecurityQuoteResolutionStatus =
   | "PROVIDER_FRESH"
@@ -71,7 +73,13 @@ function matchingCachedSecurityQuote(
     normalized(hit.value.security.exchange) !==
       normalized(request.security.exchange) ||
     hit.value.security.currency !== request.security.currency ||
-    hit.value.security.assetType !== request.security.assetType
+    hit.value.security.assetType !== request.security.assetType ||
+    !Number.isFinite(hit.value.price) ||
+    hit.value.price <= 0 ||
+    !isCalendarDate(hit.value.marketTimestamp.slice(0, 10)) ||
+    !Number.isFinite(Date.parse(hit.value.marketTimestamp)) ||
+    (request.date !== undefined &&
+      hit.value.marketTimestamp.slice(0, 10) > request.date)
   ) {
     return undefined;
   }
@@ -133,7 +141,7 @@ export class CachedSecurityQuoteService {
     request: SecurityQuoteRequest,
     options: SecurityQuoteLookupOptions = {},
   ): Promise<SecurityQuoteResolution> {
-    const cacheKey = createSecurityQuoteCacheKey(request.security);
+    const cacheKey = createSecurityQuoteCacheKey(request.security, request.date);
     const forceRefresh = options.forceRefresh === true;
     const inFlightKey = `${cacheKey}:${forceRefresh ? "FORCE" : "DEFAULT"}`;
     const existingRequest = this.inFlightRequests.get(inFlightKey);
@@ -186,6 +194,25 @@ export class CachedSecurityQuoteService {
 
     try {
       providerQuote = await this.provider.getSecurityQuote(request);
+      if (
+        providerQuote.kind !== "SECURITY_QUOTE" ||
+        normalized(providerQuote.security.symbol) !== normalized(request.security.symbol) ||
+        normalized(providerQuote.security.exchange) !== normalized(request.security.exchange) ||
+        providerQuote.security.currency !== request.security.currency ||
+        providerQuote.security.assetType !== request.security.assetType ||
+        !Number.isFinite(providerQuote.price) ||
+        providerQuote.price <= 0 ||
+        !isCalendarDate(providerQuote.marketTimestamp.slice(0, 10)) ||
+        !Number.isFinite(Date.parse(providerQuote.marketTimestamp)) ||
+        (request.date !== undefined &&
+          providerQuote.marketTimestamp.slice(0, 10) > request.date)
+      ) {
+        throw new MarketDataProviderError(
+          this.provider.id,
+          "INVALID_RESPONSE",
+          "The closing price does not match the requested security or date.",
+        );
+      }
     } catch (error) {
       if (cachedQuote && cacheHit) {
         return {
@@ -201,9 +228,11 @@ export class CachedSecurityQuoteService {
       throw error;
     }
 
-    const expiresAt = new Date(
-      dateInMilliseconds(this.now(), "now") + this.quoteTtlMs,
-    ).toISOString();
+    const expiresAt = request.date
+      ? PERMANENT_HISTORICAL_QUOTE_EXPIRY
+      : new Date(
+          dateInMilliseconds(this.now(), "now") + this.quoteTtlMs,
+        ).toISOString();
 
     await this.cache.put({
       key: cacheKey,

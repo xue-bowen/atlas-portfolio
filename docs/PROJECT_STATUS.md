@@ -157,6 +157,14 @@ browser-local and is never committed to GitHub.
   Startup uses a fresh IndexedDB value without another request; manual refresh
   forces a provider request, while refresh failure keeps an explicit stale
   fallback. No quote entry or API key is required from the user.
+- Dated security closing-price requests now use a separate date-specific cache
+  key and permanent historical expiry while preserving the latest-quote key and
+  its TTL. The Eastmoney adapter requests the latest unadjusted close on or
+  before the selected date and rejects a later bar; the dormant Twelve Data EOD
+  adapter explicitly rejects dated requests. Anonymous response tests cover
+  cache separation, weekend carry-forward, invalid dates, and mismatched data.
+  Live historical endpoint connectivity remains unverified on the current
+  network, which refused a direct request on 2026-11-06.
 - User-initiated TradingView market-chart links for mapped US holdings. Atlas
   derives the TradingView exchange and symbol from the saved security profile,
   including the `NYSE ARCA`/`NYSE AMERICAN` to `AMEX` convention used by
@@ -542,7 +550,12 @@ ledger after refresh with CNY 5,680.00 and USD 333.67 cash. At 390 x 844 the
 document had no horizontal overflow, and the browser reported no warnings or
 errors. The tab and server were closed; port 5224 was not opened.
 
-The automated regression suite now runs with `npm test`. Sixty-nine
+A read-only check on temporary port 5248 again retained the same six anonymous
+events and cash balances after refresh. The 390 x 844 layout had no horizontal
+overflow, and the browser reported no warnings or errors. The tab and server
+were closed; port 5224 was not opened.
+
+The automated regression suite now runs with `npm test`. Seventy-five
 deterministic tests cover the ledger, editing and deletion, valuation, daily
 snapshots, external-flow classification, chronological stable sorting without
 input mutation, CNY performance, current-summary availability, XIRR, USD TWR, and
@@ -679,8 +692,9 @@ the first public release. Existing market metadata remains intact.
 
 ## Next task
 
-Connect the USD TWR series to the Performance page using complete historical
-daily valuations. Keep missing historical quotes or FX explicit rather than
+Build complete historical daily valuation inputs from the ledger, dated FX,
+dated security closes, and saved security profiles, then connect USD TWR to
+the Performance page. Keep missing historical inputs explicit rather than
 showing a partial return. Add IVV/QQQ comparison in a later small step. A
 focused manual ledger review and local JSON backup remain required before
 substantial real history.

@@ -1,7 +1,8 @@
-import type {
-  FxPair,
-  MarketDataValue,
-  SecurityIdentifier,
+import {
+  isCalendarDate,
+  type FxPair,
+  type MarketDataValue,
+  type SecurityIdentifier,
 } from "../domain/marketData";
 
 const DATABASE_NAME = "atlas-portfolio-market-data";
@@ -54,13 +55,19 @@ function timestampInMilliseconds(timestamp: string, fieldName: string): number {
 
 export function createSecurityQuoteCacheKey(
   security: SecurityIdentifier,
+  date?: string,
 ): string {
+  if (date !== undefined && !isCalendarDate(date)) {
+    throw new Error("Security quote cache date must use YYYY-MM-DD format.");
+  }
+
   return [
     "SECURITY_QUOTE",
     security.assetType,
     security.currency,
     normalizedIdentifierPart(security.exchange, "Security exchange"),
     normalizedIdentifierPart(security.symbol, "Security symbol"),
+    ...(date ? [date] : []),
   ].join(":");
 }
 

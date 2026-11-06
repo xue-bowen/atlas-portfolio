@@ -1,4 +1,5 @@
 import {
+  isCalendarDate,
   MarketDataProviderError,
   type MarketDataErrorCode,
   type SecurityQuote,
@@ -102,6 +103,14 @@ export class EastmoneyUsEodProvider implements SecurityQuoteProvider {
   async getSecurityQuote(
     request: SecurityQuoteRequest,
   ): Promise<SecurityQuote> {
+    if (request.date !== undefined && !isCalendarDate(request.date)) {
+      throw new MarketDataProviderError(
+        this.id,
+        "NOT_SUPPORTED",
+        "Historical closing-price dates must use YYYY-MM-DD format.",
+      );
+    }
+
     if (request.security.currency !== "USD") {
       throw new MarketDataProviderError(
         this.id,
@@ -125,8 +134,8 @@ export class EastmoneyUsEodProvider implements SecurityQuoteProvider {
       secid: `${marketId}.${symbol}`,
       klt: "101",
       fqt: "0",
-      lmt: "10",
-      end: "20500101",
+      lmt: request.date ? "1" : "10",
+      end: request.date?.replaceAll("-", "") ?? "20500101",
       fields1: "f1,f2,f3,f4,f5,f6",
       fields2: "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61",
     });
@@ -186,7 +195,8 @@ export class EastmoneyUsEodProvider implements SecurityQuoteProvider {
 
     if (
       !marketDate ||
-      !/^\d{4}-\d{2}-\d{2}$/.test(marketDate) ||
+      !isCalendarDate(marketDate) ||
+      (request.date !== undefined && marketDate > request.date) ||
       !Number.isFinite(price) ||
       price <= 0
     ) {

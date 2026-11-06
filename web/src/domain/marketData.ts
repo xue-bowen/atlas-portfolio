@@ -36,8 +36,26 @@ export interface FxRate extends MarketDataObservation {
 
 export type MarketDataValue = SecurityQuote | FxRate;
 
+export function isCalendarDate(value: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) {
+    return false;
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  return (
+    parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() === month - 1 &&
+    parsed.getUTCDate() === day
+  );
+}
+
 export interface SecurityQuoteRequest {
   security: SecurityIdentifier;
+  date?: string;
 }
 
 export interface FxRateRequest {

@@ -103,6 +103,14 @@ export class TwelveDataEodProvider implements SecurityQuoteProvider {
   async getSecurityQuote(
     request: SecurityQuoteRequest,
   ): Promise<SecurityQuote> {
+    if (request.date !== undefined) {
+      throw new MarketDataProviderError(
+        this.id,
+        "NOT_SUPPORTED",
+        "Historical closing prices are not supported by the Twelve Data EOD adapter.",
+      );
+    }
+
     if (!this.apiKey) {
       throw new MarketDataProviderError(
         this.id,
