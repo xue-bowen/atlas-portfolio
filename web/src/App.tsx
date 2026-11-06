@@ -8,6 +8,7 @@ import {
 } from "react";
 import "./App.css";
 import { TransactionEditor } from "./components/TransactionEditor";
+import { loadHistoricalValuationInputs } from "./data/loadHistoricalValuationInputs";
 import { replaceLedgerEvent } from "./domain/editLedgerEvent";
 import {
   CachedFxRateService,
@@ -37,11 +38,13 @@ import {
 } from "./data/securityProfileStorage";
 import { calculateBalances } from "./domain/calculateBalances";
 import { calculateCashValuation } from "./domain/calculateCashValuation";
+import { calculateDailyPortfolioSnapshots } from "./domain/calculateDailyPortfolioSnapshots";
 import {
   calculateCurrentCnyPerformance,
   type CurrentCnyPerformanceUnavailableReason,
 } from "./domain/calculateCurrentCnyPerformance";
 import { calculateUsdCashHistory } from "./domain/calculateUsdCashHistory";
+import { calculateUsdTwrSeries } from "./domain/calculateUsdTwrSeries";
 import {
   calculateHoldingsValuation,
   type PositionSecurityMapping,
@@ -53,6 +56,7 @@ import {
 import type { Currency, LedgerEvent } from "./domain/ledger";
 import type { FxRateRequest, MarketDataAssetType } from "./domain/marketData";
 import { removeLedgerEvent } from "./domain/removeLedgerEvent";
+import { selectUsdTwrSnapshotDates } from "./domain/selectUsdTwrSnapshotDates";
 
 const usd = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -177,6 +181,23 @@ type InKindContributionValueStates = Record<
   InKindContributionValueState
 >;
 
+type UsdTwrState =
+  | { status: "IDLE" }
+  | ({
+      sourceLedger: readonly LedgerEvent[];
+      sourceProfiles: readonly PositionSecurityMapping[];
+    } & (
+      | { status: "LOADING" }
+      | {
+          status: "READY";
+          cumulativeReturn: number;
+          startDate: string;
+          endDate: string;
+          snapshotCount: number;
+        }
+      | { status: "UNAVAILABLE"; reasons: string[] }
+    ));
+
 function describeFxStatus(resolution: FxRateResolution): string {
   const baseStatus =
     resolution.status === "PROVIDER_FRESH"
@@ -240,12 +261,17 @@ const performanceUnavailableReasonLabels: Record<
     "CNY XIRR needs complete NAV and dated investor cash flows with one valid solution.",
 };
 
-function currentLocalDate(): string {
-  const now = new Date();
+function currentLocalDate(now: Date = new Date()): string {
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, "0");
   const day = String(now.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function previousLocalDate(): string {
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  return currentLocalDate(yesterday);
 }
 
 function inKindContributionInputKey(
@@ -385,6 +411,8 @@ export default function App() {
   const [inKindContributionValueStates, setInKindContributionValueStates] =
     useState<InKindContributionValueStates>({});
   const inKindContributionValueRequestId = useRef(0);
+  const [usdTwrState, setUsdTwrState] = useState<UsdTwrState>({ status: "IDLE" });
+  const usdTwrRequestId = useRef(0);
 
   const refreshValuationFxRates = useCallback(
     async (forceRefresh: boolean) => {
@@ -533,6 +561,12 @@ export default function App() {
     ),
   ].sort((left, right) => left.localeCompare(right));
   const securityProfiles = securityProfileRegistry.profiles;
+  const displayedUsdTwrState: UsdTwrState =
+    usdTwrState.status !== "IDLE" &&
+    usdTwrState.sourceLedger === ledger &&
+    usdTwrState.sourceProfiles === securityProfiles
+      ? usdTwrState
+      : { status: "IDLE" };
   const resolvedSecurityQuotes = Object.values(positionQuoteStates)
     .filter(
       (state): state is Extract<PositionQuoteState, { status: "RESOLVED" }> =>
@@ -1127,6 +1161,76 @@ export default function App() {
           ? `Could not save the security profile: ${error.message}`
           : "Could not save the security profile.",
       );
+    }
+  }
+
+  async function calculateHistoricalUsdTwr() {
+    const dates = selectUsdTwrSnapshotDates(ledger, previousLocalDate());
+    if (dates.length < 2) {
+      setUsdTwrState({
+        status: "UNAVAILABLE",
+        sourceLedger: ledger,
+        sourceProfiles: securityProfiles,
+        reasons: ["At least one completed close after the first ledger date is needed."],
+      });
+      return;
+    }
+
+    const requestId = usdTwrRequestId.current + 1;
+    usdTwrRequestId.current = requestId;
+    setUsdTwrState({
+      status: "LOADING",
+      sourceLedger: ledger,
+      sourceProfiles: securityProfiles,
+    });
+
+    try {
+      const quoteService = new CachedSecurityQuoteService(
+        holdingsMarketDataCache,
+        new EastmoneyUsEodProvider(),
+      );
+      const loaded = await loadHistoricalValuationInputs(
+        ledger,
+        dates,
+        securityProfiles,
+        valuationFxService,
+        quoteService,
+      );
+      if (usdTwrRequestId.current !== requestId) return;
+
+      if (loaded.status === "UNAVAILABLE") {
+        setUsdTwrState({
+          status: "UNAVAILABLE",
+          sourceLedger: ledger,
+          sourceProfiles: securityProfiles,
+          reasons: loaded.issues.map(
+            (issue) => `${issue.date} · ${issue.symbol ?? issue.kind}: ${issue.message}`,
+          ),
+        });
+        return;
+      }
+
+      const snapshots = calculateDailyPortfolioSnapshots(ledger, loaded.inputs);
+      const points = calculateUsdTwrSeries(snapshots);
+      setUsdTwrState({
+        status: "READY",
+        sourceLedger: ledger,
+        sourceProfiles: securityProfiles,
+        cumulativeReturn: points.at(-1)!.cumulativeReturn,
+        startDate: points[0].date,
+        endDate: points.at(-1)!.date,
+        snapshotCount: points.length,
+      });
+    } catch (error) {
+      if (usdTwrRequestId.current !== requestId) return;
+      setUsdTwrState({
+        status: "UNAVAILABLE",
+        sourceLedger: ledger,
+        sourceProfiles: securityProfiles,
+        reasons: [
+          error instanceof Error ? error.message : "Historical return could not be calculated.",
+        ],
+      });
     }
   }
 
@@ -3567,6 +3671,50 @@ export default function App() {
             </ul>
           </div>
         )}
+
+        <div className="performance-usd-twr">
+          <h3>USD time-weighted return</h3>
+          <p>
+            Cumulative investment return in USD, with deposits, withdrawals,
+            and in-kind contributions removed at each completed daily close.
+            The first close sets the 100-point starting index.
+          </p>
+          <button
+            type="button"
+            onClick={() => void calculateHistoricalUsdTwr()}
+            disabled={!isPersonalLedger || displayedUsdTwrState.status === "LOADING"}
+          >
+            {displayedUsdTwrState.status === "LOADING"
+              ? "Calculating…"
+              : displayedUsdTwrState.status === "READY"
+                ? "Recalculate USD TWR"
+                : "Calculate USD TWR"}
+          </button>
+          {!isPersonalLedger && (
+            <p>Start or import a personal ledger to calculate historical return.</p>
+          )}
+          {displayedUsdTwrState.status === "READY" && (
+            <p className="performance-usd-twr-result" role="status">
+              <strong>{percentage.format(displayedUsdTwrState.cumulativeReturn)}</strong>
+              {" cumulative · "}
+              {displayedUsdTwrState.startDate} to {displayedUsdTwrState.endDate}
+              {` · ${displayedUsdTwrState.snapshotCount} closes`}
+            </p>
+          )}
+          {displayedUsdTwrState.status === "UNAVAILABLE" && (
+            <div className="performance-unavailable" role="status">
+              <strong>USD TWR unavailable</strong>
+              <ul>
+                {displayedUsdTwrState.reasons.slice(0, 3).map((reason, index) => (
+                  <li key={`${index}:${reason}`}>{reason}</li>
+                ))}
+              </ul>
+              {displayedUsdTwrState.reasons.length > 3 && (
+                <p>{displayedUsdTwrState.reasons.length - 3} more missing inputs.</p>
+              )}
+            </div>
+          )}
+        </div>
 
         <div className="performance-ledger-results">
           <h3>Supporting USD ledger results</h3>

@@ -583,6 +583,25 @@
   margin-bottom: 0;
 }
 
+.performance-usd-twr {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.performance-usd-twr h3 {
+  margin-top: 0;
+}
+
+.performance-usd-twr-result {
+  overflow-wrap: anywhere;
+}
+
+.performance-usd-twr-result strong {
+  color: var(--text-h);
+  font-size: 24px;
+}
+
 .performance-ledger-results {
   margin-top: 24px;
   padding-top: 20px;
