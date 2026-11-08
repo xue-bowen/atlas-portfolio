@@ -244,6 +244,10 @@ browser-local and is never committed to GitHub.
 - Complete USD TWR points also render as a responsive 100-base growth-index
   line with calendar-spaced dates. The chart is shown only after every required
   historical valuation input has loaded successfully.
+- A versioned IndexedDB personal-ledger store is implemented and tested but is
+  not yet connected to the UI. It distinguishes absent from empty personal
+  ledgers, validates the full timeline before writes, and rejects corrupt or
+  unsupported records without displaying demo data in their place.
 
 Anonymous browser tests verified balance updates and persistence after refresh.
 The latest reinvestment test confirmed that buying below the existing average
@@ -607,7 +611,12 @@ calendar-spaced endpoints. The mobile SVG fit within its section at 390 x 844;
 the document had no horizontal overflow or console warnings. Port 5224 was not
 opened.
 
-The automated regression suite now runs with `npm test`. Eighty-seven
+A read-only anonymous smoke test on temporary port 5255 retained the six-event
+demo ledger after refresh. Its 390 x 844 layout had no horizontal overflow or
+console warnings. The new personal-ledger store is not yet active in this UI.
+Port 5224 was not opened.
+
+The automated regression suite now runs with `npm test`. Ninety-one
 deterministic tests cover the ledger, editing and deletion, valuation, daily
 snapshots, external-flow classification, chronological stable sorting without
 input mutation, CNY performance, current-summary availability, XIRR, USD TWR, and
@@ -615,9 +624,11 @@ invalid-input rejection. The suite, production build, and lint all pass
 together.
 
 The npm development dependency audit initially reported two denial-of-service
-advisories inherited through the lint/build toolchain. Exact overrides now pin
-`brace-expansion` 5.0.12 and `source-map-js` 1.2.2; `npm audit` reports zero
-known vulnerabilities, and tests, build, and lint still pass.
+advisories inherited through the lint/build toolchain. Exact overrides pin
+`brace-expansion` 5.0.12 and `source-map-js` 1.2.2. As of 2026-11-09, a fresh
+full audit reports 12 newer development-tool advisories; `npm audit --omit=dev`
+reports zero production-dependency vulnerabilities. Resolve the development
+toolchain advisories during release checks. Tests, build, and lint pass.
 
 ## Key ledger behavior
 
