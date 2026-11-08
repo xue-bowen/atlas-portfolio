@@ -248,6 +248,11 @@ browser-local and is never committed to GitHub.
   not yet connected to the UI. It distinguishes absent from empty personal
   ledgers, validates the full timeline before writes, and rejects corrupt or
   unsupported records without displaying demo data in their place.
+- A migration helper prefers a valid IndexedDB ledger, validates and copies a
+  legacy localStorage ledger only once, and retains the old copy as a frozen
+  recovery source. Corrupt legacy history or a missing IndexedDB database after
+  migration blocks loading instead of silently showing anonymous demo data.
+  The helper is tested but is not yet connected to the UI.
 
 Anonymous browser tests verified balance updates and persistence after refresh.
 The latest reinvestment test confirmed that buying below the existing average
@@ -616,7 +621,11 @@ demo ledger after refresh. Its 390 x 844 layout had no horizontal overflow or
 console warnings. The new personal-ledger store is not yet active in this UI.
 Port 5224 was not opened.
 
-The automated regression suite now runs with `npm test`. Ninety-one
+A read-only anonymous smoke test on temporary port 5256 showed the six-event
+demo ledger with no console warnings or horizontal overflow at 390 x 844.
+The migration helper is not yet active in this UI. Port 5224 was not opened.
+
+The automated regression suite now runs with `npm test`. Ninety-seven
 deterministic tests cover the ledger, editing and deletion, valuation, daily
 snapshots, external-flow classification, chronological stable sorting without
 input mutation, CNY performance, current-summary availability, XIRR, USD TWR, and
