@@ -4,7 +4,7 @@
 
 Latest stable feature checkpoint before this documentation update:
 
-`19f4533 feat: add CNY performance summary`
+`20cc64b feat: validate legacy ledger migration`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -12,7 +12,7 @@ Windows local path:
 
 `C:\Users\28301\atlas-portfolio`
 
-Last updated: 2026-11-06
+Last updated: 2026-11-09
 
 The working tree was clean after the latest commit. Personal ledger data is
 browser-local and is never committed to GitHub.
@@ -50,7 +50,8 @@ browser-local and is never committed to GitHub.
 - Open positions with moving-average USD cost, total cost, and average cost
   per share.
 - Realized USD P&L and cumulative trading fees.
-- Browser localStorage read/write, plus local JSON export/import backup.
+- Versioned IndexedDB personal-ledger read/write, with validated one-time
+  migration from legacy localStorage and local JSON export/import backup.
 - Explicit separation of anonymous demo data and an empty personal ledger.
 - Personal CNY deposit and CNY-to-USD FX forms.
 - Manual USD security buy form with USD cash validation.
@@ -244,15 +245,16 @@ browser-local and is never committed to GitHub.
 - Complete USD TWR points also render as a responsive 100-base growth-index
   line with calendar-spaced dates. The chart is shown only after every required
   historical valuation input has loaded successfully.
-- A versioned IndexedDB personal-ledger store is implemented and tested but is
-  not yet connected to the UI. It distinguishes absent from empty personal
+- A versioned IndexedDB personal-ledger store is connected to the UI. It
+  distinguishes absent from empty personal
   ledgers, validates the full timeline before writes, and rejects corrupt or
   unsupported records without displaying demo data in their place.
 - A migration helper prefers a valid IndexedDB ledger, validates and copies a
   legacy localStorage ledger only once, and retains the old copy as a frozen
   recovery source. Corrupt legacy history or a missing IndexedDB database after
   migration blocks loading instead of silently showing anonymous demo data.
-  The helper is tested but is not yet connected to the UI.
+  Loading and recovery states are shown before transaction editing is enabled.
+  A successful save updates the UI only after IndexedDB commits the ledger.
 
 Anonymous browser tests verified balance updates and persistence after refresh.
 The latest reinvestment test confirmed that buying below the existing average
@@ -625,6 +627,16 @@ A read-only anonymous smoke test on temporary port 5256 showed the six-event
 demo ledger with no console warnings or horizontal overflow at 390 x 844.
 The migration helper is not yet active in this UI. Port 5224 was not opened.
 
+On temporary port 5257, the activated IndexedDB version loaded the six-event
+anonymous demo ledger without altering it. At 390 x 844, the document width
+remained within the viewport and the browser reported no console warnings or
+errors. The in-app browser did not deliver clicks or file-chooser events
+reliably, so this session did not establish an end-to-end browser migration or
+save/refresh check. The 97 passing automated tests cover validated migration,
+IndexedDB writes/reads, empty records, and corrupt-record rejection. A full
+browser write and legacy-data migration check remains part of release testing.
+Port 5224 was not opened.
+
 The automated regression suite now runs with `npm test`. Ninety-seven
 deterministic tests cover the ledger, editing and deletion, valuation, daily
 snapshots, external-flow classification, chronological stable sorting without
@@ -749,8 +761,8 @@ found:
 
 1. Add a CNY NAV history line and assess dividend-adjusted benchmark data
    before treating IVV/QQQ as total-return comparisons (about 1-2 steps).
-2. Move the personal ledger from localStorage to versioned IndexedDB with safe
-   migration and backup/restore verification (about 1-2 steps).
+2. Verify the active IndexedDB migration and backup/restore paths in a browser
+   with reliable form/file interactions (about 1 step).
 3. Add generic batch import preview and duplicate detection, prioritizing Atlas
    JSON and a documented CSV format; broker-specific adapters can follow after
    launch (about 1-2 steps).
@@ -764,7 +776,7 @@ the first public release. Existing market metadata remains intact.
 
 ## Next task
 
-Move the personal ledger to versioned IndexedDB without losing an existing
-localStorage ledger. Preserve the current JSON backup format and reject unsafe
-migration. A focused manual ledger review and local JSON backup remain required
-before substantial real history.
+Add a CNY NAV history line from complete daily snapshots, then verify active
+IndexedDB migration and backup/restore in a browser with reliable interactions.
+A focused manual ledger review and local JSON backup remain required before
+substantial real history.

@@ -24,15 +24,16 @@ import {
   type SecurityQuoteResolution,
 } from "./data/cachedSecurityQuoteService";
 import {
-  hasInitializedPersonalLedger,
-  initializeEmptyPersonalLedger,
-  loadLedger,
   parsePortfolioBackup,
-  saveLedger,
-  savePersonalLedger,
   serializePortfolioBackup,
 } from "./data/ledgerStorage";
+import { IndexedDbLedgerStore } from "./data/indexedDbLedgerStore";
 import { IndexedDbMarketDataCache } from "./data/marketDataCache";
+import {
+  LEDGER_MIGRATION_MARKER_KEY,
+  loadOrMigrateLedger,
+  type LedgerLoadResult,
+} from "./data/migrateLegacyLedger";
 import { EastmoneyUsEodProvider } from "./data/providers/eastmoneyUsEodProvider";
 import { FrankfurterFxProvider } from "./data/providers/frankfurterFxProvider";
 import { createTradingViewSymbolUrl } from "./data/tradingViewLink";
@@ -120,6 +121,7 @@ const valuationFxService = new CachedFxRateService(
 );
 
 const holdingsMarketDataCache = new IndexedDbMarketDataCache();
+const personalLedgerStore = new IndexedDbLedgerStore();
 
 type ValuationFxRates = Partial<Record<ValuationFxKey, FxRateResolution>>;
 
@@ -325,10 +327,13 @@ function describeEvent(event: LedgerEvent): string {
 }
 
 export default function App() {
-  const [ledger, setLedger] = useState(loadLedger);
-  const [isPersonalLedger, setIsPersonalLedger] = useState(
-    hasInitializedPersonalLedger,
-  );
+  const [ledger, setLedger] = useState<LedgerEvent[]>([]);
+  const [isPersonalLedger, setIsPersonalLedger] = useState(false);
+  const [ledgerLoadState, setLedgerLoadState] = useState<
+    { status: "LOADING" } | { status: "READY" } | { status: "ERROR"; message: string }
+  >({ status: "LOADING" });
+  const initialLedgerLoadPromise = useRef<Promise<LedgerLoadResult> | null>(null);
+  const ledgerWriteInFlight = useRef(false);
   const [depositDate, setDepositDate] = useState(() =>
     new Date().toISOString().slice(0, 10),
   );
@@ -420,6 +425,30 @@ export default function App() {
   const inKindContributionValueRequestId = useRef(0);
   const [usdTwrState, setUsdTwrState] = useState<UsdTwrState>({ status: "IDLE" });
   const usdTwrRequestId = useRef(0);
+
+  useEffect(() => {
+    let active = true;
+    initialLedgerLoadPromise.current ??= loadOrMigrateLedger(
+      personalLedgerStore,
+      window.localStorage,
+    );
+    void initialLedgerLoadPromise.current.then(
+      (result) => {
+        if (!active) return;
+        setLedger(result.ledger);
+        setIsPersonalLedger(result.status === "PERSONAL");
+        setLedgerLoadState({ status: "READY" });
+      },
+      (error: unknown) => {
+        if (!active) return;
+        setLedgerLoadState({
+          status: "ERROR",
+          message: error instanceof Error ? error.message : "Local ledger could not be loaded.",
+        });
+      },
+    );
+    return () => { active = false; };
+  }, []);
 
   const refreshValuationFxRates = useCallback(
     async (forceRefresh: boolean) => {
@@ -1249,10 +1278,14 @@ export default function App() {
     }
   }
 
-  function persistLedgerChanges(events: LedgerEvent[]): boolean {
+  async function persistLedgerChanges(events: LedgerEvent[]): Promise<boolean> {
+    if (ledgerWriteInFlight.current) {
+      setMessage("Please wait for the current ledger save to finish.");
+      return false;
+    }
+    ledgerWriteInFlight.current = true;
     try {
-      const orderedEvents = saveLedger(events);
-
+      const orderedEvents = await personalLedgerStore.write(events);
       setLedger(orderedEvents);
       return true;
     } catch (error) {
@@ -1262,29 +1295,30 @@ export default function App() {
           : "Could not save the transaction in chronological order.",
       );
       return false;
+    } finally {
+      ledgerWriteInFlight.current = false;
     }
   }
 
-  function startEmptyPersonalLedger() {
-    const confirmed = window.confirm(
-      "This will replace the local demo/test ledger with an empty personal ledger. Continue?",
-    );
-
-    if (!confirmed) {
-      return;
+  async function startEmptyPersonalLedger() {
+    setMessage("Initializing your personal ledger…");
+    try {
+      const emptyLedger = await personalLedgerStore.write([]);
+      window.localStorage.setItem(LEDGER_MIGRATION_MARKER_KEY, "true");
+      clearSecurityProfiles();
+      setSecurityProfileRegistry({ status: "EMPTY", profiles: [] });
+      resetSecurityProfileForm();
+      setEditingEventId(null);
+      setSelectedLedgerEventId(null);
+      setLedger(emptyLedger);
+      setIsPersonalLedger(true);
+      setMessage("Empty personal ledger initialized locally in this browser.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not initialize the personal ledger.");
     }
-
-    clearSecurityProfiles();
-    setSecurityProfileRegistry({ status: "EMPTY", profiles: [] });
-    resetSecurityProfileForm();
-    setEditingEventId(null);
-    setSelectedLedgerEventId(null);
-    setLedger(initializeEmptyPersonalLedger());
-    setIsPersonalLedger(true);
-    setMessage("Empty personal ledger initialized locally in this browser.");
   }
 
-  function addCnyDeposit(event: FormEvent<HTMLFormElement>) {
+  async function addCnyDeposit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const amountCny = Number(depositAmount);
@@ -1303,7 +1337,7 @@ export default function App() {
       note: depositNote.trim() || "Manual CNY deposit",
     };
 
-    if (!persistLedgerChanges([...ledger, deposit])) {
+    if (!await persistLedgerChanges([...ledger, deposit])) {
       return;
     }
     setDepositAmount("");
@@ -1311,7 +1345,7 @@ export default function App() {
     setMessage("Deposit saved locally in this browser.");
   }
 
-  function addCnyWithdrawal(event: FormEvent<HTMLFormElement>) {
+  async function addCnyWithdrawal(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const amountCny = Number(withdrawalAmount);
@@ -1335,7 +1369,7 @@ export default function App() {
       note: withdrawalNote.trim() || "Manual CNY withdrawal",
     };
 
-    if (!persistLedgerChanges([...ledger, withdrawal])) {
+    if (!await persistLedgerChanges([...ledger, withdrawal])) {
       return;
     }
     setWithdrawalAmount("");
@@ -1343,7 +1377,7 @@ export default function App() {
     setMessage("CNY withdrawal saved locally in this browser.");
   }
 
-  function addFxToUsd(event: FormEvent<HTMLFormElement>) {
+  async function addFxToUsd(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const amountCny = Number(fxAmountCny);
@@ -1374,7 +1408,7 @@ export default function App() {
       note: fxNote.trim() || "Manual CNY to USD conversion",
     };
 
-    if (!persistLedgerChanges([...ledger, fxConversion])) {
+    if (!await persistLedgerChanges([...ledger, fxConversion])) {
       return;
     }
     setFxAmountCny("");
@@ -1383,7 +1417,7 @@ export default function App() {
     setMessage("FX conversion saved locally in this browser.");
   }
 
-  function addBuy(event: FormEvent<HTMLFormElement>) {
+  async function addBuy(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const symbol = buySymbol.trim().toUpperCase();
@@ -1426,7 +1460,7 @@ export default function App() {
       note: buyNote.trim() || "Manual security purchase",
     };
 
-    if (!persistLedgerChanges([...ledger, buy])) {
+    if (!await persistLedgerChanges([...ledger, buy])) {
       return;
     }
     setBuySymbol("");
@@ -1437,7 +1471,7 @@ export default function App() {
     setMessage("Buy transaction saved locally in this browser.");
   }
 
-  function addSell(event: FormEvent<HTMLFormElement>) {
+  async function addSell(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const symbol = sellSymbol.trim().toUpperCase();
@@ -1490,7 +1524,7 @@ export default function App() {
       note: sellNote.trim() || "Manual security sale",
     };
 
-    if (!persistLedgerChanges([...ledger, sell])) {
+    if (!await persistLedgerChanges([...ledger, sell])) {
       return;
     }
     setSellSymbol("");
@@ -1501,7 +1535,7 @@ export default function App() {
     setMessage("Sell transaction saved locally in this browser.");
   }
 
-  function addCashbackShares(event: FormEvent<HTMLFormElement>) {
+  async function addCashbackShares(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const symbol = cashbackSymbol.trim().toUpperCase();
@@ -1536,7 +1570,7 @@ export default function App() {
         cashbackNote.trim() || "Payment cashback received directly as shares",
     };
 
-    if (!persistLedgerChanges([...ledger, contribution])) {
+    if (!await persistLedgerChanges([...ledger, contribution])) {
       return;
     }
     setCashbackSymbol("");
@@ -1548,7 +1582,7 @@ export default function App() {
     );
   }
 
-  function addDividend(event: FormEvent<HTMLFormElement>) {
+  async function addDividend(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const symbol = dividendSymbol.trim().toUpperCase();
@@ -1617,7 +1651,7 @@ export default function App() {
           },
         ]
       : [];
-    if (!persistLedgerChanges([...ledger, dividend, ...reinvestment])) {
+    if (!await persistLedgerChanges([...ledger, dividend, ...reinvestment])) {
       return;
     }
     setDividendSymbol("");
@@ -1632,7 +1666,7 @@ export default function App() {
     );
   }
 
-  function addInterest(event: FormEvent<HTMLFormElement>) {
+  async function addInterest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const amount = Number(interestAmount);
@@ -1653,7 +1687,7 @@ export default function App() {
         interestNote.trim() || "Manual interest payment received after tax",
     };
 
-    if (!persistLedgerChanges([...ledger, interest])) {
+    if (!await persistLedgerChanges([...ledger, interest])) {
       return;
     }
     setInterestAmount("");
@@ -1663,7 +1697,7 @@ export default function App() {
     );
   }
 
-  function addUsdExpense(event: FormEvent<HTMLFormElement>) {
+  async function addUsdExpense(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const amountUsd = Number(expenseAmountUsd);
@@ -1692,7 +1726,7 @@ export default function App() {
           : "Manual other USD expense"),
     };
 
-    if (!persistLedgerChanges([...ledger, expense])) {
+    if (!await persistLedgerChanges([...ledger, expense])) {
       return;
     }
     setExpenseAmountUsd("");
@@ -1744,7 +1778,8 @@ export default function App() {
     try {
       const importedBackup = parsePortfolioBackup(await backupFile.text());
 
-      const importedLedger = savePersonalLedger(importedBackup.ledger);
+      const importedLedger = await personalLedgerStore.write(importedBackup.ledger);
+      window.localStorage.setItem(LEDGER_MIGRATION_MARKER_KEY, "true");
       if (importedBackup.securityProfiles.length > 0) {
         const importedProfiles = saveSecurityProfiles(
           importedBackup.securityProfiles,
@@ -1762,11 +1797,16 @@ export default function App() {
       setSelectedLedgerEventId(null);
       setLedger(importedLedger);
       setIsPersonalLedger(true);
+      setLedgerLoadState({ status: "READY" });
       setMessage(
         `Imported ${importedBackup.ledger.length} ledger event(s) and ${importedBackup.securityProfiles.length} security profile(s).`,
       );
-    } catch {
-      setMessage("Could not import this file. Please choose a valid backup.");
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? `Could not import this file: ${error.message}`
+          : "Could not import this file. Please choose a valid backup.",
+      );
     } finally {
       fileInput.value = "";
     }
@@ -1781,10 +1821,10 @@ export default function App() {
     document.getElementById("transaction-type")?.focus({ preventScroll: true });
   }
 
-  function saveEditedLedgerEvent(replacement: LedgerEvent): boolean {
+  async function saveEditedLedgerEvent(replacement: LedgerEvent): Promise<boolean> {
     try {
       const updatedLedger = replaceLedgerEvent(ledger, replacement);
-      if (!persistLedgerChanges(updatedLedger)) return false;
+      if (!await persistLedgerChanges(updatedLedger)) return false;
       setEditingEventId(null);
       setMessage("Transaction updated and the entire ledger recalculated.");
       return true;
@@ -1796,7 +1836,7 @@ export default function App() {
     }
   }
 
-  function deleteSelectedLedgerEvent() {
+  async function deleteSelectedLedgerEvent() {
     if (!selectedLedgerEvent) {
       return;
     }
@@ -1815,7 +1855,7 @@ export default function App() {
         selectedLedgerEvent.id,
       );
 
-      if (!persistLedgerChanges(remainingLedger)) {
+      if (!await persistLedgerChanges(remainingLedger)) {
         return;
       }
       setSelectedLedgerEventId(null);
@@ -1827,6 +1867,28 @@ export default function App() {
           : "Could not delete the transaction because later records would become invalid.",
       );
     }
+  }
+
+  if (ledgerLoadState.status !== "READY") {
+    return (
+      <main className="app-shell ledger-load-screen">
+        <h1>Atlas Portfolio</h1>
+        {ledgerLoadState.status === "LOADING" ? (
+          <p role="status">Loading your local ledger…</p>
+        ) : (
+          <section role="alert">
+            <h2>Local ledger needs recovery</h2>
+            <p>{ledgerLoadState.message}</p>
+            <p>The existing browser data has not been replaced.</p>
+            <label>
+              Restore a valid Atlas JSON backup
+              <input type="file" accept="application/json,.json" onChange={importLedgerBackup} />
+            </label>
+            {message && <p>{message}</p>}
+          </section>
+        )}
+      </main>
+    );
   }
 
   return (

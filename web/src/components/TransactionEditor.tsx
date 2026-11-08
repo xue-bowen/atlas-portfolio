@@ -14,13 +14,14 @@ const money = (value: number, currency = "USD") =>
 interface Props {
   event: LedgerEvent;
   ledger: LedgerEvent[];
-  onSave: (replacement: LedgerEvent) => boolean;
+  onSave: (replacement: LedgerEvent) => Promise<boolean>;
   onCancel: () => void;
 }
 
 export function TransactionEditor({ event, ledger, onSave, onCancel }: Props) {
   const [values, setValues] = useState(() => ledgerEditValues(event));
   const [saveError, setSaveError] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
   const fields = getLedgerEditFields(event);
   const current = calculateBalances(ledger);
   let replacement: LedgerEvent | undefined;
@@ -46,13 +47,17 @@ export function TransactionEditor({ event, ledger, onSave, onCancel }: Props) {
     setValues((previous) => ({ ...previous, [key]: value }));
     setSaveError("");
   };
-  function submit(submitEvent: FormEvent<HTMLFormElement>) {
+  async function submit(submitEvent: FormEvent<HTMLFormElement>) {
     submitEvent.preventDefault();
-    if (!replacement || !projected || error) return;
-    if (!onSave(replacement))
-      setSaveError(
-        "Changes were not saved. Review the message in Transactions.",
-      );
+    if (!replacement || !projected || error || isSaving) return;
+    setIsSaving(true);
+    try {
+      if (!await onSave(replacement)) {
+        setSaveError("Changes were not saved. Review the message in Transactions.");
+      }
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -217,8 +222,8 @@ export function TransactionEditor({ event, ledger, onSave, onCancel }: Props) {
       </section>
       {saveError && <p role="alert">{saveError}</p>}
       <div className="transaction-edit-actions">
-        <button type="submit" disabled={!projected || Boolean(error)}>
-          Save changes
+        <button type="submit" disabled={!projected || Boolean(error) || isSaving}>
+          {isSaving ? "Saving…" : "Save changes"}
         </button>
         <button type="button" onClick={onCancel}>
           Cancel editing
