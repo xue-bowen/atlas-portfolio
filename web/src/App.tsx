@@ -8,6 +8,7 @@ import {
 } from "react";
 import "./App.css";
 import { TransactionEditor } from "./components/TransactionEditor";
+import { UsdTwrChart } from "./components/UsdTwrChart";
 import {
   loadBenchmarkPriceChanges,
   type BenchmarkPriceChange,
@@ -48,7 +49,7 @@ import {
   type CurrentCnyPerformanceUnavailableReason,
 } from "./domain/calculateCurrentCnyPerformance";
 import { calculateUsdCashHistory } from "./domain/calculateUsdCashHistory";
-import { calculateUsdTwrSeries } from "./domain/calculateUsdTwrSeries";
+import { calculateUsdTwrSeries, type UsdTwrPoint } from "./domain/calculateUsdTwrSeries";
 import {
   calculateHoldingsValuation,
   type PositionSecurityMapping,
@@ -199,6 +200,7 @@ type UsdTwrState =
           endDate: string;
           snapshotCount: number;
           benchmarks: BenchmarkPriceChange[];
+          points: UsdTwrPoint[];
         }
       | { status: "UNAVAILABLE"; reasons: string[] }
     ));
@@ -1232,6 +1234,7 @@ export default function App() {
         endDate: points.at(-1)!.date,
         snapshotCount: points.length,
         benchmarks,
+        points,
       });
     } catch (error) {
       if (usdTwrRequestId.current !== requestId) return;
@@ -3713,6 +3716,7 @@ export default function App() {
                 {displayedUsdTwrState.startDate} to {displayedUsdTwrState.endDate}
                 {` · ${displayedUsdTwrState.snapshotCount} closes`}
               </p>
+              <UsdTwrChart points={displayedUsdTwrState.points} />
               <h4>IVV and QQQ comparison</h4>
               <p>
                 Same period, USD closing-price change. Benchmark prices are

@@ -602,6 +602,46 @@
   font-size: 24px;
 }
 
+.performance-twr-chart {
+  margin: 16px 0 24px;
+}
+
+.performance-twr-chart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.performance-twr-chart text {
+  fill: var(--text);
+  font-size: 12px;
+}
+
+.performance-chart-reference {
+  stroke: var(--border);
+  stroke-dasharray: 5 4;
+}
+
+.performance-chart-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.5;
+}
+
+.performance-chart-point {
+  fill: var(--accent);
+}
+
+.performance-twr-chart figcaption {
+  margin-top: 8px;
+  font-size: 0.85rem;
+}
+
 .performance-benchmarks {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

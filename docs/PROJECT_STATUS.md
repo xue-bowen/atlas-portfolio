@@ -241,6 +241,9 @@ browser-local and is never committed to GitHub.
   changes over the portfolio TWR date range. Each benchmark has its own
   availability result and shows the actual close dates. The UI explicitly
   distinguishes these price changes from dividend-inclusive portfolio TWR.
+- Complete USD TWR points also render as a responsive 100-base growth-index
+  line with calendar-spaced dates. The chart is shown only after every required
+  historical valuation input has loaded successfully.
 
 Anonymous browser tests verified balance updates and persistence after refresh.
 The latest reinvestment test confirmed that buying below the existing average
@@ -598,6 +601,12 @@ close. The 390 x 844 mobile layout had no horizontal overflow or console
 warnings, and the anonymous ledger persisted after refresh. Port 5224 was not
 opened.
 
+On temporary port 5254, the same isolated anonymous deposit produced a USD
+growth-index line from 100.00 to 99.90, with an accessible description and
+calendar-spaced endpoints. The mobile SVG fit within its section at 390 x 844;
+the document had no horizontal overflow or console warnings. Port 5224 was not
+opened.
+
 The automated regression suite now runs with `npm test`. Eighty-seven
 deterministic tests cover the ledger, editing and deletion, valuation, daily
 snapshots, external-flow classification, chronological stable sorting without
@@ -718,8 +727,8 @@ The fast public-release estimate is four workstreams, roughly 6-11 small
 verified commits. Scope can move within that range as anonymous edge cases are
 found:
 
-1. Add return visualization to the responsive Performance page using the USD
-   TWR snapshots, and assess dividend-adjusted benchmark data (about 1-2 steps).
+1. Add a CNY NAV history line and assess dividend-adjusted benchmark data
+   before treating IVV/QQQ as total-return comparisons (about 1-2 steps).
 2. Move the personal ledger from localStorage to versioned IndexedDB with safe
    migration and backup/restore verification (about 1-2 steps).
 3. Add generic batch import preview and duplicate detection, prioritizing Atlas
@@ -735,7 +744,7 @@ the first public release. Existing market metadata remains intact.
 
 ## Next task
 
-Add a compact historical return visualization on the responsive Performance
-page using the complete USD TWR snapshot series. Keep unavailable intervals
-explicit. A focused manual ledger review and local JSON backup remain required
+Move the personal ledger to versioned IndexedDB without losing an existing
+localStorage ledger. Preserve the current JSON backup format and reject unsafe
+migration. A focused manual ledger review and local JSON backup remain required
 before substantial real history.
