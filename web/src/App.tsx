@@ -8,6 +8,10 @@ import {
 } from "react";
 import "./App.css";
 import { TransactionEditor } from "./components/TransactionEditor";
+import {
+  loadBenchmarkPriceChanges,
+  type BenchmarkPriceChange,
+} from "./data/loadBenchmarkPriceChanges";
 import { loadHistoricalValuationInputs } from "./data/loadHistoricalValuationInputs";
 import { replaceLedgerEvent } from "./domain/editLedgerEvent";
 import {
@@ -194,6 +198,7 @@ type UsdTwrState =
           startDate: string;
           endDate: string;
           snapshotCount: number;
+          benchmarks: BenchmarkPriceChange[];
         }
       | { status: "UNAVAILABLE"; reasons: string[] }
     ));
@@ -1212,6 +1217,12 @@ export default function App() {
 
       const snapshots = calculateDailyPortfolioSnapshots(ledger, loaded.inputs);
       const points = calculateUsdTwrSeries(snapshots);
+      const benchmarks = await loadBenchmarkPriceChanges(
+        points[0].date,
+        points.at(-1)!.date,
+        quoteService,
+      );
+      if (usdTwrRequestId.current !== requestId) return;
       setUsdTwrState({
         status: "READY",
         sourceLedger: ledger,
@@ -1220,6 +1231,7 @@ export default function App() {
         startDate: points[0].date,
         endDate: points.at(-1)!.date,
         snapshotCount: points.length,
+        benchmarks,
       });
     } catch (error) {
       if (usdTwrRequestId.current !== requestId) return;
@@ -3694,12 +3706,38 @@ export default function App() {
             <p>Start or import a personal ledger to calculate historical return.</p>
           )}
           {displayedUsdTwrState.status === "READY" && (
-            <p className="performance-usd-twr-result" role="status">
-              <strong>{percentage.format(displayedUsdTwrState.cumulativeReturn)}</strong>
-              {" cumulative · "}
-              {displayedUsdTwrState.startDate} to {displayedUsdTwrState.endDate}
-              {` · ${displayedUsdTwrState.snapshotCount} closes`}
-            </p>
+            <div role="status">
+              <p className="performance-usd-twr-result">
+                <strong>{percentage.format(displayedUsdTwrState.cumulativeReturn)}</strong>
+                {" cumulative · "}
+                {displayedUsdTwrState.startDate} to {displayedUsdTwrState.endDate}
+                {` · ${displayedUsdTwrState.snapshotCount} closes`}
+              </p>
+              <h4>IVV and QQQ comparison</h4>
+              <p>
+                Same period, USD closing-price change. Benchmark prices are
+                unadjusted and exclude distributions; portfolio TWR includes
+                recorded dividends, so these are reference prices rather than
+                like-for-like total returns.
+              </p>
+              <dl className="performance-benchmarks">
+                {displayedUsdTwrState.benchmarks.map((benchmark) => (
+                  <div key={benchmark.symbol}>
+                    <dt>{benchmark.symbol}</dt>
+                    {benchmark.status === "READY" ? (
+                      <dd>
+                        <strong>{percentage.format(benchmark.priceChange)}</strong>
+                        <span>
+                          Closes: {benchmark.startCloseDate} to {benchmark.endCloseDate}
+                        </span>
+                      </dd>
+                    ) : (
+                      <dd>Unavailable: {benchmark.reason}</dd>
+                    )}
+                  </div>
+                ))}
+              </dl>
+            </div>
           )}
           {displayedUsdTwrState.status === "UNAVAILABLE" && (
             <div className="performance-unavailable" role="status">

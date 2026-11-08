@@ -602,6 +602,35 @@
   font-size: 24px;
 }
 
+.performance-benchmarks {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.performance-benchmarks > div {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.performance-benchmarks dd {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.performance-benchmarks dd strong,
+.performance-benchmarks dd span {
+  display: block;
+}
+
+@media (max-width: 480px) {
+  .performance-benchmarks {
+    grid-template-columns: 1fr;
+  }
+}
+
 .performance-ledger-results {
   margin-top: 24px;
   padding-top: 20px;

@@ -237,6 +237,10 @@ browser-local and is never committed to GitHub.
   from every eligible ledger-event date through the latest completed close.
   It shows the return and date range, or dated missing-input reasons. Changing
   the ledger or security profiles hides a stale result until recalculation.
+- The same calculation compares IVV and QQQ unadjusted USD closing-price
+  changes over the portfolio TWR date range. Each benchmark has its own
+  availability result and shows the actual close dates. The UI explicitly
+  distinguishes these price changes from dividend-inclusive portfolio TWR.
 
 Anonymous browser tests verified balance updates and persistence after refresh.
 The latest reinvestment test confirmed that buying below the existing average
@@ -587,7 +591,14 @@ close using historical FX. A separate same-day deposit correctly showed that
 no completed later close was available. The mobile viewport had no horizontal
 overflow. Port 5224 was not opened.
 
-The automated regression suite now runs with `npm test`. Eighty-three
+On temporary port 5253, an isolated anonymous CNY 1,000 deposit dated
+2026-11-03 produced portfolio USD TWR of -0.10% through 2026-11-08, alongside
+IVV -2.53% and QQQ -4.26% unadjusted price changes through their 2026-11-06
+close. The 390 x 844 mobile layout had no horizontal overflow or console
+warnings, and the anonymous ledger persisted after refresh. Port 5224 was not
+opened.
+
+The automated regression suite now runs with `npm test`. Eighty-seven
 deterministic tests cover the ledger, editing and deletion, valuation, daily
 snapshots, external-flow classification, chronological stable sorting without
 input mutation, CNY performance, current-summary availability, XIRR, USD TWR, and
@@ -707,8 +718,8 @@ The fast public-release estimate is four workstreams, roughly 6-11 small
 verified commits. Scope can move within that range as anonymous edge cases are
 found:
 
-1. Add IVV/QQQ benchmark comparison and return visualization to the responsive
-   Performance page using the USD TWR snapshots (about 1-2 steps).
+1. Add return visualization to the responsive Performance page using the USD
+   TWR snapshots, and assess dividend-adjusted benchmark data (about 1-2 steps).
 2. Move the personal ledger from localStorage to versioned IndexedDB with safe
    migration and backup/restore verification (about 1-2 steps).
 3. Add generic batch import preview and duplicate detection, prioritizing Atlas
@@ -724,7 +735,7 @@ the first public release. Existing market metadata remains intact.
 
 ## Next task
 
-Add IVV and QQQ benchmark comparison using dated closes aligned to the USD TWR
-snapshot dates. Keep a benchmark unavailable when its historical quote is
-missing. A focused manual ledger review and local JSON backup remain required
+Add a compact historical return visualization on the responsive Performance
+page using the complete USD TWR snapshot series. Keep unavailable intervals
+explicit. A focused manual ledger review and local JSON backup remain required
 before substantial real history.
