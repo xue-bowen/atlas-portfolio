@@ -4,7 +4,7 @@
 
 Latest stable feature checkpoint before this documentation update:
 
-`20cc64b feat: validate legacy ledger migration`
+`4c32397 feat: activate IndexedDB personal ledger`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -245,6 +245,10 @@ browser-local and is never committed to GitHub.
 - Complete USD TWR points also render as a responsive 100-base growth-index
   line with calendar-spaced dates. The chart is shown only after every required
   historical valuation input has loaded successfully.
+- The historical calculation also plots CNY portfolio value alongside cumulative
+  net contributions at the same complete closes. The chart labels CNY amounts
+  and explicitly distinguishes funding-driven value changes from investment
+  return.
 - A versioned IndexedDB personal-ledger store is connected to the UI. It
   distinguishes absent from empty personal
   ledgers, validates the full timeline before writes, and rejects corrupt or
@@ -637,6 +641,12 @@ IndexedDB writes/reads, empty records, and corrupt-record rejection. A full
 browser write and legacy-data migration check remains part of release testing.
 Port 5224 was not opened.
 
+On temporary port 5258, an isolated anonymous preview rendered the CNY value
+and net-contribution lines for three completed close dates. The SVG exposed
+the dates and ending values to assistive technology. At a 375 px mobile viewport,
+the chart fit within the document without horizontal overflow. The temporary
+preview file was removed after verification. Port 5224 was not opened.
+
 The automated regression suite now runs with `npm test`. Ninety-seven
 deterministic tests cover the ledger, editing and deletion, valuation, daily
 snapshots, external-flow classification, chronological stable sorting without
@@ -759,8 +769,8 @@ The fast public-release estimate is four workstreams, roughly 6-11 small
 verified commits. Scope can move within that range as anonymous edge cases are
 found:
 
-1. Add a CNY NAV history line and assess dividend-adjusted benchmark data
-   before treating IVV/QQQ as total-return comparisons (about 1-2 steps).
+1. Assess dividend-adjusted benchmark data before treating IVV/QQQ as
+   total-return comparisons (about 1 step).
 2. Verify the active IndexedDB migration and backup/restore paths in a browser
    with reliable form/file interactions (about 1 step).
 3. Add generic batch import preview and duplicate detection, prioritizing Atlas
@@ -776,7 +786,7 @@ the first public release. Existing market metadata remains intact.
 
 ## Next task
 
-Add a CNY NAV history line from complete daily snapshots, then verify active
-IndexedDB migration and backup/restore in a browser with reliable interactions.
+Verify active IndexedDB migration and backup/restore in a browser with reliable
+interactions, then add generic batch import preview and duplicate detection.
 A focused manual ledger review and local JSON backup remain required before
 substantial real history.

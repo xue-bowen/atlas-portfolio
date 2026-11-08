@@ -7,6 +7,7 @@ import {
   type FormEvent,
 } from "react";
 import "./App.css";
+import { CnyNavChart } from "./components/CnyNavChart";
 import { TransactionEditor } from "./components/TransactionEditor";
 import { UsdTwrChart } from "./components/UsdTwrChart";
 import {
@@ -44,6 +45,7 @@ import {
 } from "./data/securityProfileStorage";
 import { calculateBalances } from "./domain/calculateBalances";
 import { calculateCashValuation } from "./domain/calculateCashValuation";
+import { calculateCnyPerformanceSeries, type CnyPerformancePoint } from "./domain/calculateCnyPerformanceSeries";
 import { calculateDailyPortfolioSnapshots } from "./domain/calculateDailyPortfolioSnapshots";
 import {
   calculateCurrentCnyPerformance,
@@ -203,6 +205,7 @@ type UsdTwrState =
           snapshotCount: number;
           benchmarks: BenchmarkPriceChange[];
           points: UsdTwrPoint[];
+          cnyPoints: CnyPerformancePoint[];
         }
       | { status: "UNAVAILABLE"; reasons: string[] }
     ));
@@ -1248,6 +1251,7 @@ export default function App() {
 
       const snapshots = calculateDailyPortfolioSnapshots(ledger, loaded.inputs);
       const points = calculateUsdTwrSeries(snapshots);
+      const cnyPoints = calculateCnyPerformanceSeries(snapshots);
       const benchmarks = await loadBenchmarkPriceChanges(
         points[0].date,
         points.at(-1)!.date,
@@ -1264,6 +1268,7 @@ export default function App() {
         snapshotCount: points.length,
         benchmarks,
         points,
+        cnyPoints,
       });
     } catch (error) {
       if (usdTwrRequestId.current !== requestId) return;
@@ -3750,11 +3755,11 @@ export default function App() {
         )}
 
         <div className="performance-usd-twr">
-          <h3>USD time-weighted return</h3>
+          <h3>Historical portfolio performance</h3>
           <p>
-            Cumulative investment return in USD, with deposits, withdrawals,
-            and in-kind contributions removed at each completed daily close.
-            The first close sets the 100-point starting index.
+            Calculate CNY portfolio value and cumulative USD investment return
+            at completed daily closes. USD TWR removes deposits, withdrawals,
+            and in-kind contributions; its first close starts at 100.
           </p>
           <button
             type="button"
@@ -3764,14 +3769,17 @@ export default function App() {
             {displayedUsdTwrState.status === "LOADING"
               ? "Calculating…"
               : displayedUsdTwrState.status === "READY"
-                ? "Recalculate USD TWR"
-                : "Calculate USD TWR"}
+                ? "Recalculate history"
+                : "Calculate history"}
           </button>
           {!isPersonalLedger && (
             <p>Start or import a personal ledger to calculate historical return.</p>
           )}
           {displayedUsdTwrState.status === "READY" && (
             <div role="status">
+              <h4>CNY portfolio value history</h4>
+              <CnyNavChart points={displayedUsdTwrState.cnyPoints} />
+              <h4>USD time-weighted return</h4>
               <p className="performance-usd-twr-result">
                 <strong>{percentage.format(displayedUsdTwrState.cumulativeReturn)}</strong>
                 {" cumulative · "}

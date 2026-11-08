@@ -652,6 +652,40 @@
   fill: var(--accent);
 }
 
+.performance-chart-contributions {
+  fill: none;
+  stroke: #64748b;
+  stroke-dasharray: 6 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.performance-nav-chart figcaption {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+}
+
+.performance-chart-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.performance-chart-legend > span {
+  width: 16px;
+  border-top: 3px solid var(--accent);
+}
+
+.performance-chart-legend > .performance-chart-legend-contributions {
+  border-top: 2px dashed #64748b;
+}
+
+.performance-chart-note {
+  flex-basis: 100%;
+}
+
 .performance-twr-chart figcaption {
   margin-top: 8px;
   font-size: 0.85rem;
