@@ -14,6 +14,11 @@ a safe place. The export includes transaction events and security profiles but
 does not include market-data cache entries. **Import JSON backup** replaces the
 local ledger; **Merge transactions** adds reviewed events from JSON or CSV.
 
+An origin is the protocol, host, and port; URL paths are not separate storage
+boundaries. On the default GitHub Pages domain, other project sites under
+`xue-bowen.github.io` share the same browser origin and can access this origin's
+storage. Use a dedicated host if other projects on that domain are not trusted.
+
 The browser makes direct HTTPS requests to third-party market-data services:
 
 | Service | Request data | Purpose |

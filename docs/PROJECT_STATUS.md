@@ -4,7 +4,7 @@
 
 Latest stable feature checkpoint before this documentation update:
 
-`20def6d chore: replace scaffold branding and unused assets`
+`73a0cda docs: prepare open-source setup and privacy guide`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -676,6 +676,13 @@ available after initializing an anonymous personal ledger, and fit within a
 by deterministic tests; this session did not repeat a browser file upload
 because the same file chooser had taken 11 and 37 minutes on the prior two
 isolated tests. Port 5224 was not opened.
+
+The GitHub Pages build uses the `/atlas-portfolio/` base path and a manually
+dispatched workflow only. A local production build served at temporary port
+5266 under that subpath loaded its script, CSS, and favicon. A fresh anonymous
+personal ledger saved a CNY 321 deposit and retained it after refresh; at a
+375 px viewport the document had no horizontal overflow or console errors.
+Port 5224 was not opened. GitHub Pages itself has not been enabled or deployed.
 
 On temporary port 5258, an isolated anonymous preview rendered the CNY value
 and net-contribution lines for three completed close dates. The SVG exposed
