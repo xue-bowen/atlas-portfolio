@@ -64,6 +64,7 @@ import {
 import type { Currency, LedgerEvent } from "./domain/ledger";
 import type { FxRateRequest, MarketDataAssetType } from "./domain/marketData";
 import { removeLedgerEvent } from "./domain/removeLedgerEvent";
+import { previewLedgerMerge, type LedgerMergePreview } from "./domain/previewLedgerMerge";
 import { selectUsdTwrSnapshotDates } from "./domain/selectUsdTwrSnapshotDates";
 
 const usd = new Intl.NumberFormat("en-US", {
@@ -209,6 +210,14 @@ type UsdTwrState =
         }
       | { status: "UNAVAILABLE"; reasons: string[] }
     ));
+
+type PendingLedgerMerge = {
+  fileName: string;
+  incoming: LedgerEvent[];
+  preview: LedgerMergePreview;
+  sourceLedger: LedgerEvent[];
+  ignoredProfileCount: number;
+};
 
 function describeFxStatus(resolution: FxRateResolution): string {
   const baseStatus =
@@ -408,6 +417,8 @@ export default function App() {
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [isMoreNavigationOpen, setIsMoreNavigationOpen] = useState(false);
   const [message, setMessage] = useState("");
+  const [pendingLedgerMerge, setPendingLedgerMerge] = useState<PendingLedgerMerge | null>(null);
+  const [ledgerMergeError, setLedgerMergeError] = useState("");
   const [securityProfileRegistry, setSecurityProfileRegistry] = useState(
     loadSecurityProfileRegistry,
   );
@@ -585,6 +596,9 @@ export default function App() {
   }, [ledger]);
 
   const balances = calculateBalances(ledger);
+  const batchImportBalances = pendingLedgerMerge
+    ? calculateBalances(pendingLedgerMerge.preview.ledger)
+    : null;
   const openPositionSymbols = new Set(
     balances.positions.map((position) => position.symbol.toUpperCase()),
   );
@@ -1815,6 +1829,48 @@ export default function App() {
     } finally {
       fileInput.value = "";
     }
+  }
+
+  async function previewBatchImport(event: ChangeEvent<HTMLInputElement>) {
+    const fileInput = event.currentTarget;
+    const file = fileInput.files?.[0];
+    if (!file) return;
+
+    setPendingLedgerMerge(null);
+    setLedgerMergeError("");
+    try {
+      if (!isPersonalLedger || ledgerLoadState.status !== "READY") {
+        throw new Error("Start a personal ledger before merging transactions.");
+      }
+      const backup = parsePortfolioBackup(await file.text());
+      const preview = previewLedgerMerge(ledger, backup.ledger);
+      setPendingLedgerMerge({
+        fileName: file.name,
+        incoming: backup.ledger,
+        preview,
+        sourceLedger: ledger,
+        ignoredProfileCount: backup.securityProfiles.length,
+      });
+    } catch (error) {
+      setLedgerMergeError(error instanceof Error ? error.message : "Could not preview this import.");
+    } finally {
+      fileInput.value = "";
+    }
+  }
+
+  async function confirmBatchImport() {
+    if (!pendingLedgerMerge) return;
+    if (pendingLedgerMerge.sourceLedger !== ledger) {
+      setPendingLedgerMerge(null);
+      setLedgerMergeError("The ledger changed after this preview. Select the file again.");
+      return;
+    }
+    const merged = previewLedgerMerge(ledger, pendingLedgerMerge.incoming);
+    if (merged.added.length === 0) return;
+    if (!await persistLedgerChanges(merged.ledger)) return;
+    setPendingLedgerMerge(null);
+    setLedgerMergeError("");
+    setMessage(`Merged ${merged.added.length} event(s); skipped ${merged.skippedCount} matching ID(s).`);
   }
 
   function openTransactionEntry() {
@@ -3388,6 +3444,53 @@ export default function App() {
             />
           </label>
         </p>
+        <h3>Merge transactions</h3>
+        <p>
+          Add transactions from an Atlas JSON backup or event array to this
+          personal ledger. Matching event IDs are skipped; a changed event with
+          the same ID or an invalid combined timeline is rejected. Security
+          profiles in the file are not merged. Review the preview before saving.
+        </p>
+        <label>
+          Choose JSON batch{" "}
+          <input
+            type="file"
+            accept="application/json,.json"
+            disabled={!isPersonalLedger || ledgerLoadState.status !== "READY"}
+            onChange={previewBatchImport}
+          />
+        </label>
+        {ledgerMergeError && <p role="alert">{ledgerMergeError}</p>}
+        {pendingLedgerMerge && (
+          <section aria-label="Batch import preview" className="transaction-impact-preview">
+            <h4>Batch import preview</h4>
+            <p>{pendingLedgerMerge.fileName}</p>
+            <dl>
+              <div><dt>New events</dt><dd>{pendingLedgerMerge.preview.added.length}</dd></div>
+              <div><dt>Matching IDs skipped</dt><dd>{pendingLedgerMerge.preview.skippedCount}</dd></div>
+              <div><dt>Ledger after merge</dt><dd>{pendingLedgerMerge.preview.ledger.length} events</dd></div>
+              <div><dt>CNY cash after merge</dt><dd>{cny.format(batchImportBalances!.cnyCash)}</dd></div>
+              <div><dt>USD cash after merge</dt><dd>{usd.format(batchImportBalances!.usdCash)}</dd></div>
+            </dl>
+            {pendingLedgerMerge.ignoredProfileCount > 0 && (
+              <p>{pendingLedgerMerge.ignoredProfileCount} security profile(s) in this file will not be merged.</p>
+            )}
+            {pendingLedgerMerge.preview.added.length > 0 && (
+              <ol>
+                {pendingLedgerMerge.preview.added.slice(0, 10).map((event) => (
+                  <li key={event.id}>{event.occurredAt} · {describeEvent(event)}</li>
+                ))}
+              </ol>
+            )}
+            {pendingLedgerMerge.preview.added.length > 10 && (
+              <p>Showing the first 10 new events.</p>
+            )}
+            <button type="button" disabled={pendingLedgerMerge.preview.added.length === 0} onClick={() => void confirmBatchImport()}>
+              Save merged transactions
+            </button>{" "}
+            <button type="button" onClick={() => setPendingLedgerMerge(null)}>Cancel import</button>
+          </section>
+        )}
       </section>
 
       <section id="cash" className="page-section">

@@ -181,6 +181,10 @@ browser-local and is never committed to GitHub.
   schema-v1 Atlas backups; formats without profiles import an empty registry so
   unrelated local mappings are not silently retained. API keys and market cache
   data are not included in the backup.
+- Personal ledgers can merge an Atlas JSON backup or raw event array after a
+  reviewable preview. Exact repeated event IDs are skipped, conflicting IDs
+  and invalid merged timelines are rejected, and existing security profiles
+  remain untouched. Full JSON backup restore remains a separate replace action.
 - Stable chronological ledger ordering across manual saves, local loads,
   imports, exports, balance calculations, USD cash history, and page display.
   Events sort by date ascending while same-day events retain their original
@@ -654,18 +658,26 @@ balance loaded automatically from the migration; an additional CNY 500 deposit
 then persisted in IndexedDB after refresh, giving CNY 2,968. This verifies the
 upgrade path with actual browser storage. Port 5224 was not opened.
 
+On isolated port 5262, a new anonymous personal ledger previewed two out-of-order
+JSON deposits before saving: zero current cash, two new events, and CNY 600
+projected cash. After merge and refresh, both dated events and the CNY 600 cash
+balance persisted. The temporary file and server were removed. Duplicate-ID,
+conflicting-ID, and invalid-timeline cases are covered by automated tests.
+At a 375 px mobile viewport, the document width stayed within the viewport.
+The browser file chooser was unusually slow in this run. Port 5224 was not opened.
+
 On temporary port 5258, an isolated anonymous preview rendered the CNY value
 and net-contribution lines for three completed close dates. The SVG exposed
 the dates and ending values to assistive technology. At a 375 px mobile viewport,
 the chart fit within the document without horizontal overflow. The temporary
 preview file was removed after verification. Port 5224 was not opened.
 
-The automated regression suite now runs with `npm test`. Ninety-seven
+The automated regression suite now runs with `npm test`. One hundred
 deterministic tests cover the ledger, editing and deletion, valuation, daily
 snapshots, external-flow classification, chronological stable sorting without
-input mutation, CNY performance, current-summary availability, XIRR, USD TWR, and
-invalid-input rejection. The suite, production build, and lint all pass
-together.
+input mutation, CNY performance, current-summary availability, XIRR, USD TWR,
+JSON merge preview, and invalid-input rejection. The suite, production build,
+and lint all pass together.
 
 The npm development dependency audit initially reported two denial-of-service
 advisories inherited through the lint/build toolchain. Exact overrides pin
@@ -784,9 +796,9 @@ found:
 
 1. Assess dividend-adjusted benchmark data before treating IVV/QQQ as
    total-return comparisons (about 1 step).
-2. Add generic batch import preview and duplicate detection, prioritizing Atlas
-   JSON and a documented CSV format; broker-specific adapters can follow after
-   launch (about 1-2 steps).
+2. Add a documented generic CSV batch format and import preview; broker-specific
+   adapters can follow after launch (about 1 step). Atlas JSON merge preview
+   and exact-ID duplicate detection are complete.
 3. Complete license/privacy/setup documentation, anonymous screenshots,
    production checks, and a clean-browser desktop/mobile release test (about
    2-4 steps).
@@ -797,6 +809,6 @@ the first public release. Existing market metadata remains intact.
 
 ## Next task
 
-Add generic batch import preview and duplicate detection.
+Add a documented generic CSV batch import.
 A focused manual ledger review and local JSON backup remain required before
 substantial real history.
