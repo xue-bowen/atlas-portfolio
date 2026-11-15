@@ -4,11 +4,11 @@ Personal multi-currency investment portfolio tracker.
 
 ## Goal
 
-Track CNY funding, USD cash, overseas securities, dividends, transaction costs, and FX-aware portfolio growth.
+Track CNY /HKD funding, USD cash, overseas securities, dividends, transaction costs, and FX-aware portfolio growth.
 
 ## Development status
 
-Phase 0 — defining and testing the accounting engine.
+testing 
 
 ## Privacy
 
