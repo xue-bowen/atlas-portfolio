@@ -4,7 +4,7 @@
 
 Latest stable feature checkpoint before this documentation update:
 
-`4c32397 feat: activate IndexedDB personal ledger`
+`20def6d chore: replace scaffold branding and unused assets`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -12,7 +12,7 @@ Windows local path:
 
 `C:\Users\28301\atlas-portfolio`
 
-Last updated: 2026-11-09
+Last updated: 2026-11-16
 
 The working tree was clean after the latest commit. Personal ledger data is
 browser-local and is never committed to GitHub.
@@ -801,15 +801,30 @@ For each small feature:
 
 ## Remaining path to the first public release
 
-The fast public-release estimate is four workstreams, roughly 6-11 small
-verified commits. Scope can move within that range as anonymous edge cases are
-found:
+The remaining public-release workstreams are:
 
 1. Assess dividend-adjusted benchmark data before treating IVV/QQQ as
    total-return comparisons (about 1 step).
 2. Complete license/privacy/setup documentation, anonymous screenshots,
    production checks, and a clean-browser desktop/mobile release test (about
    2-4 steps).
+
+As of 2026-11-16, the tracked filename history contains source, documentation,
+and anonymous examples only. A pattern scan of 259 historical text blobs found
+no private-key blocks or common GitHub/API token shapes; its only email-like
+match was the repository's `git@github.com` URL. Binary assets and arbitrary
+secret formats are outside that pattern scan. The current unused scaffold
+assets have been removed from the tip, but they remain in earlier Git history.
+Production dependencies have zero reported npm audit vulnerabilities; the full
+development-tool audit currently reports 19 advisories.
+
+Eastmoney's [official terms](https://about.eastmoney.com/home/protocol)
+restrict unauthorized use and redistribution of market data. The current
+browser-only integration does not centrally redistribute a quote feed, but this
+does not by itself establish public-use permission. Verify the terms or replace
+the source before public deployment.
+Frankfurter's [license page](https://frankfurter.dev/license/) says it cannot
+grant rights beyond its underlying rate providers.
 
 Additional market-data fallback, manual quote entry, expanded provenance UI,
 SPX Delta, advanced attribution, and more benchmarks are deferred until after
