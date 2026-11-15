@@ -185,6 +185,10 @@ browser-local and is never committed to GitHub.
   reviewable preview. Exact repeated event IDs are skipped, conflicting IDs
   and invalid merged timelines are rejected, and existing security profiles
   remain untouched. Full JSON backup restore remains a separate replace action.
+- The same merge preview accepts a documented generic UTF-8 CSV format with
+  typed transaction fields, stable IDs, standard quoted notes, and explicit
+  header, numeric, and event-shape validation. Broker-specific files still
+  need mapping to the generic columns before import.
 - Stable chronological ledger ordering across manual saves, local loads,
   imports, exports, balance calculations, USD cash history, and page display.
   Events sort by date ascending while same-day events retain their original
@@ -666,17 +670,24 @@ conflicting-ID, and invalid-timeline cases are covered by automated tests.
 At a 375 px mobile viewport, the document width stayed within the viewport.
 The browser file chooser was unusually slow in this run. Port 5224 was not opened.
 
+On isolated port 5263, the CSV batch control appeared in Settings, became
+available after initializing an anonymous personal ledger, and fit within a
+375 px mobile viewport without horizontal overflow. The CSV parser is covered
+by deterministic tests; this session did not repeat a browser file upload
+because the same file chooser had taken 11 and 37 minutes on the prior two
+isolated tests. Port 5224 was not opened.
+
 On temporary port 5258, an isolated anonymous preview rendered the CNY value
 and net-contribution lines for three completed close dates. The SVG exposed
 the dates and ending values to assistive technology. At a 375 px mobile viewport,
 the chart fit within the document without horizontal overflow. The temporary
 preview file was removed after verification. Port 5224 was not opened.
 
-The automated regression suite now runs with `npm test`. One hundred
+The automated regression suite now runs with `npm test`. One hundred and two
 deterministic tests cover the ledger, editing and deletion, valuation, daily
 snapshots, external-flow classification, chronological stable sorting without
 input mutation, CNY performance, current-summary availability, XIRR, USD TWR,
-JSON merge preview, and invalid-input rejection. The suite, production build,
+JSON/CSV merge preview, and invalid-input rejection. The suite, production build,
 and lint all pass together.
 
 The npm development dependency audit initially reported two denial-of-service
@@ -796,10 +807,7 @@ found:
 
 1. Assess dividend-adjusted benchmark data before treating IVV/QQQ as
    total-return comparisons (about 1 step).
-2. Add a documented generic CSV batch format and import preview; broker-specific
-   adapters can follow after launch (about 1 step). Atlas JSON merge preview
-   and exact-ID duplicate detection are complete.
-3. Complete license/privacy/setup documentation, anonymous screenshots,
+2. Complete license/privacy/setup documentation, anonymous screenshots,
    production checks, and a clean-browser desktop/mobile release test (about
    2-4 steps).
 
@@ -809,6 +817,7 @@ the first public release. Existing market metadata remains intact.
 
 ## Next task
 
-Add a documented generic CSV batch import.
+Review public-use market-data rights, then complete release documentation and
+deployment preparation.
 A focused manual ledger review and local JSON backup remain required before
 substantial real history.

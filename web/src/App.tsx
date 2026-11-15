@@ -15,6 +15,7 @@ import {
   type BenchmarkPriceChange,
 } from "./data/loadBenchmarkPriceChanges";
 import { loadHistoricalValuationInputs } from "./data/loadHistoricalValuationInputs";
+import { parseLedgerCsv } from "./data/parseLedgerCsv";
 import { replaceLedgerEvent } from "./domain/editLedgerEvent";
 import {
   CachedFxRateService,
@@ -1842,7 +1843,10 @@ export default function App() {
       if (!isPersonalLedger || ledgerLoadState.status !== "READY") {
         throw new Error("Start a personal ledger before merging transactions.");
       }
-      const backup = parsePortfolioBackup(await file.text());
+      const isCsv = file.name.toLowerCase().endsWith(".csv");
+      const backup = isCsv
+        ? { ledger: parseLedgerCsv(await file.text()), securityProfiles: [] }
+        : parsePortfolioBackup(await file.text());
       const preview = previewLedgerMerge(ledger, backup.ledger);
       setPendingLedgerMerge({
         fileName: file.name,
@@ -3446,16 +3450,20 @@ export default function App() {
         </p>
         <h3>Merge transactions</h3>
         <p>
-          Add transactions from an Atlas JSON backup or event array to this
-          personal ledger. Matching event IDs are skipped; a changed event with
-          the same ID or an invalid combined timeline is rejected. Security
-          profiles in the file are not merged. Review the preview before saving.
+          Add transactions from an Atlas JSON backup, event array, or{" "}
+          <a href="https://github.com/xue-bowen/atlas-portfolio/blob/main/docs/CSV_IMPORT.md" target="_blank" rel="noreferrer">
+            documented CSV batch
+          </a>{" "}
+          to this personal ledger. Matching event IDs are skipped; a changed
+          event with the same ID or an invalid combined timeline is rejected.
+          Security profiles in the file are not merged. Review the preview
+          before saving.
         </p>
         <label>
-          Choose JSON batch{" "}
+          Choose JSON or CSV batch{" "}
           <input
             type="file"
-            accept="application/json,.json"
+            accept="application/json,.json,text/csv,.csv"
             disabled={!isPersonalLedger || ledgerLoadState.status !== "READY"}
             onChange={previewBatchImport}
           />
