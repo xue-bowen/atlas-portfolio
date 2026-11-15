@@ -347,48 +347,34 @@ export default function App() {
   >({ status: "LOADING" });
   const initialLedgerLoadPromise = useRef<Promise<LedgerLoadResult> | null>(null);
   const ledgerWriteInFlight = useRef(false);
-  const [depositDate, setDepositDate] = useState(() =>
-    new Date().toISOString().slice(0, 10),
-  );
+  const [depositDate, setDepositDate] = useState(currentLocalDate);
   const [depositAmount, setDepositAmount] = useState("");
   const [depositNote, setDepositNote] = useState("");
-  const [withdrawalDate, setWithdrawalDate] = useState(() =>
-    new Date().toISOString().slice(0, 10),
-  );
+  const [withdrawalDate, setWithdrawalDate] = useState(currentLocalDate);
   const [withdrawalAmount, setWithdrawalAmount] = useState("");
   const [withdrawalNote, setWithdrawalNote] = useState("");
-  const [fxDate, setFxDate] = useState(() =>
-    new Date().toISOString().slice(0, 10),
-  );
+  const [fxDate, setFxDate] = useState(currentLocalDate);
   const [fxAmountCny, setFxAmountCny] = useState("");
   const [fxAmountUsd, setFxAmountUsd] = useState("");
   const [fxNote, setFxNote] = useState("");
-  const [buyDate, setBuyDate] = useState(() =>
-    new Date().toISOString().slice(0, 10),
-  );
+  const [buyDate, setBuyDate] = useState(currentLocalDate);
   const [buySymbol, setBuySymbol] = useState("");
   const [buyQuantity, setBuyQuantity] = useState("");
   const [buyPriceUsd, setBuyPriceUsd] = useState("");
   const [buyFeeUsd, setBuyFeeUsd] = useState("0");
   const [buyNote, setBuyNote] = useState("");
-  const [cashbackDate, setCashbackDate] = useState(() =>
-    new Date().toISOString().slice(0, 10),
-  );
+  const [cashbackDate, setCashbackDate] = useState(currentLocalDate);
   const [cashbackSymbol, setCashbackSymbol] = useState("");
   const [cashbackQuantity, setCashbackQuantity] = useState("");
   const [cashbackPriceUsd, setCashbackPriceUsd] = useState("");
   const [cashbackNote, setCashbackNote] = useState("");
-  const [sellDate, setSellDate] = useState(() =>
-    new Date().toISOString().slice(0, 10),
-  );
+  const [sellDate, setSellDate] = useState(currentLocalDate);
   const [sellSymbol, setSellSymbol] = useState("");
   const [sellQuantity, setSellQuantity] = useState("");
   const [sellPriceUsd, setSellPriceUsd] = useState("");
   const [sellFeeUsd, setSellFeeUsd] = useState("0");
   const [sellNote, setSellNote] = useState("");
-  const [dividendDate, setDividendDate] = useState(() =>
-    new Date().toISOString().slice(0, 10),
-  );
+  const [dividendDate, setDividendDate] = useState(currentLocalDate);
   const [dividendSymbol, setDividendSymbol] = useState("");
   const [dividendGrossAmountUsd, setDividendGrossAmountUsd] = useState("");
   const [dividendWithholdingTaxUsd, setDividendWithholdingTaxUsd] =
@@ -397,15 +383,11 @@ export default function App() {
   const [dividendReinvestmentPriceUsd, setDividendReinvestmentPriceUsd] =
     useState("");
   const [dividendNote, setDividendNote] = useState("");
-  const [interestDate, setInterestDate] = useState(() =>
-    new Date().toISOString().slice(0, 10),
-  );
+  const [interestDate, setInterestDate] = useState(currentLocalDate);
   const [interestCurrency, setInterestCurrency] = useState<Currency>("USD");
   const [interestAmount, setInterestAmount] = useState("");
   const [interestNote, setInterestNote] = useState("");
-  const [expenseDate, setExpenseDate] = useState(() =>
-    new Date().toISOString().slice(0, 10),
-  );
+  const [expenseDate, setExpenseDate] = useState(currentLocalDate);
   const [expenseCategory, setExpenseCategory] =
     useState<ExpenseCategory>("ADR_FEE");
   const [expenseAmountUsd, setExpenseAmountUsd] = useState("");
