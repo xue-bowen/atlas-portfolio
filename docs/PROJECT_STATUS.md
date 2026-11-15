@@ -637,9 +637,22 @@ remained within the viewport and the browser reported no console warnings or
 errors. The in-app browser did not deliver clicks or file-chooser events
 reliably, so this session did not establish an end-to-end browser migration or
 save/refresh check. The 97 passing automated tests cover validated migration,
-IndexedDB writes/reads, empty records, and corrupt-record rejection. A full
-browser write and legacy-data migration check remains part of release testing.
+IndexedDB writes/reads, empty records, and corrupt-record rejection. Later
+browser checks on ports 5260 and 5261 completed the outstanding verification.
 Port 5224 was not opened.
+
+On isolated port 5260, an empty personal ledger saved an anonymous CNY 1,234
+deposit and retained it after refresh. A local schema-v2 JSON backup containing
+one anonymous CNY 4,321 deposit was imported; the restored ledger, balance, and
+transaction row all persisted after another refresh. The temporary import file
+and server were removed. Port 5224 was not opened.
+
+On isolated port 5261, the pre-IndexedDB app saved an anonymous CNY 2,468
+deposit into legacy localStorage and retained it after refresh. The server was
+replaced with the current app at the same origin. The personal ledger and
+balance loaded automatically from the migration; an additional CNY 500 deposit
+then persisted in IndexedDB after refresh, giving CNY 2,968. This verifies the
+upgrade path with actual browser storage. Port 5224 was not opened.
 
 On temporary port 5258, an isolated anonymous preview rendered the CNY value
 and net-contribution lines for three completed close dates. The SVG exposed
@@ -771,12 +784,10 @@ found:
 
 1. Assess dividend-adjusted benchmark data before treating IVV/QQQ as
    total-return comparisons (about 1 step).
-2. Verify the active IndexedDB migration and backup/restore paths in a browser
-   with reliable form/file interactions (about 1 step).
-3. Add generic batch import preview and duplicate detection, prioritizing Atlas
+2. Add generic batch import preview and duplicate detection, prioritizing Atlas
    JSON and a documented CSV format; broker-specific adapters can follow after
    launch (about 1-2 steps).
-4. Complete license/privacy/setup documentation, anonymous screenshots,
+3. Complete license/privacy/setup documentation, anonymous screenshots,
    production checks, and a clean-browser desktop/mobile release test (about
    2-4 steps).
 
@@ -786,7 +797,6 @@ the first public release. Existing market metadata remains intact.
 
 ## Next task
 
-Verify active IndexedDB migration and backup/restore in a browser with reliable
-interactions, then add generic batch import preview and duplicate detection.
+Add generic batch import preview and duplicate detection.
 A focused manual ledger review and local JSON backup remain required before
 substantial real history.
