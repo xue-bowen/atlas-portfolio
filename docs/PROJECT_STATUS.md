@@ -4,7 +4,7 @@
 
 Latest stable feature checkpoint before this documentation update:
 
-`73a0cda docs: prepare open-source setup and privacy guide`
+`cf168ff feat: use imported closes for historical valuations`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -246,10 +246,12 @@ browser-local and is never committed to GitHub.
   from every eligible ledger-event date through the latest completed close.
   It shows the return and date range, or dated missing-input reasons. Changing
   the ledger or security profiles hides a stale result until recalculation.
-- The same calculation compares IVV and QQQ unadjusted USD closing-price
-  changes over the portfolio TWR date range. Each benchmark has its own
-  availability result and shows the actual close dates. The UI explicitly
-  distinguishes these price changes from dividend-inclusive portfolio TWR.
+- The same calculation compares IVV and QQQ using user-supplied,
+  dividend-adjusted USD daily closes over the portfolio TWR date range. Each
+  benchmark has its own availability result and shows the actual close dates.
+  A missing adjusted close leaves that benchmark unavailable instead of
+  substituting an unadjusted price change. The browser CSV import control is
+  deferred, so this path is currently exercised through anonymous tests.
 - Complete USD TWR points also render as a responsive 100-base growth-index
   line with calendar-spaced dates. The chart is shown only after every required
   historical valuation input has loaded successfully.
@@ -810,11 +812,14 @@ For each small feature:
 
 The remaining public-release workstreams are:
 
-1. Assess dividend-adjusted benchmark data before treating IVV/QQQ as
-   total-return comparisons (about 1 step).
-2. Complete license/privacy/setup documentation, anonymous screenshots,
-   production checks, and a clean-browser desktop/mobile release test (about
-   2-4 steps).
+1. Make a usable, permission-compatible market-data path available to public
+   users. The local CSV parser, IndexedDB store, and historical valuation path
+   exist, but the user deferred the browser import control while free automatic
+   daily-data sources continue to be evaluated.
+2. Verify complete historical price and FX coverage, current holdings
+   valuation, USD TWR, and IVV/QQQ adjusted comparisons with anonymous data.
+3. Complete the clean-browser desktop/mobile release test and publication
+   checks before opening the private repository or public site.
 
 As of 2026-11-16, the tracked filename history contains source, documentation,
 and anonymous examples only. A pattern scan of 259 historical text blobs found

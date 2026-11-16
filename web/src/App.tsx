@@ -11,9 +11,9 @@ import { CnyNavChart } from "./components/CnyNavChart";
 import { TransactionEditor } from "./components/TransactionEditor";
 import { UsdTwrChart } from "./components/UsdTwrChart";
 import {
-  loadBenchmarkPriceChanges,
-  type BenchmarkPriceChange,
-} from "./data/loadBenchmarkPriceChanges";
+  loadBenchmarkAdjustedReturns,
+  type BenchmarkAdjustedReturn,
+} from "./data/loadBenchmarkAdjustedReturns";
 import { loadHistoricalValuationInputs } from "./data/loadHistoricalValuationInputs";
 import { parseLedgerCsv } from "./data/parseLedgerCsv";
 import { replaceLedgerEvent } from "./domain/editLedgerEvent";
@@ -208,7 +208,7 @@ type UsdTwrState =
           startDate: string;
           endDate: string;
           snapshotCount: number;
-          benchmarks: BenchmarkPriceChange[];
+          benchmarks: BenchmarkAdjustedReturn[];
           points: UsdTwrPoint[];
           cnyPoints: CnyPerformancePoint[];
         }
@@ -1256,10 +1256,10 @@ export default function App() {
       const snapshots = calculateDailyPortfolioSnapshots(ledger, loaded.inputs);
       const points = calculateUsdTwrSeries(snapshots);
       const cnyPoints = calculateCnyPerformanceSeries(snapshots);
-      const benchmarks = await loadBenchmarkPriceChanges(
+      const benchmarks = await loadBenchmarkAdjustedReturns(
         points[0].date,
         points.at(-1)!.date,
-        historicalQuoteSource,
+        importedMarketPriceStore,
       );
       if (usdTwrRequestId.current !== requestId) return;
       setUsdTwrState({
@@ -3889,10 +3889,9 @@ export default function App() {
               <UsdTwrChart points={displayedUsdTwrState.points} />
               <h4>IVV and QQQ comparison</h4>
               <p>
-                Same period, USD closing-price change. Benchmark prices are
-                unadjusted and exclude distributions; portfolio TWR includes
-                recorded dividends, so these are reference prices rather than
-                like-for-like total returns.
+                Same period, USD return from dividend-adjusted daily closes
+                supplied by the user. This assumes the imported adjustment
+                accounts for distributions and splits consistently.
               </p>
               <dl className="performance-benchmarks">
                 {displayedUsdTwrState.benchmarks.map((benchmark) => (
@@ -3900,7 +3899,7 @@ export default function App() {
                     <dt>{benchmark.symbol}</dt>
                     {benchmark.status === "READY" ? (
                       <dd>
-                        <strong>{percentage.format(benchmark.priceChange)}</strong>
+                        <strong>{percentage.format(benchmark.adjustedReturn)}</strong>
                         <span>
                           Closes: {benchmark.startCloseDate} to {benchmark.endCloseDate}
                         </span>

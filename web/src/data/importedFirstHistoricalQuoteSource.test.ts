@@ -7,7 +7,6 @@ import type {
 } from "../domain/marketData";
 import { ImportedFirstHistoricalQuoteSource } from "./importedFirstHistoricalQuoteSource";
 import { IndexedDbImportedMarketPriceStore } from "./importedMarketPriceStore";
-import { loadBenchmarkPriceChanges } from "./loadBenchmarkPriceChanges";
 
 const ivv: SecurityIdentifier = {
   symbol: "IVV", exchange: "NYSE ARCA", assetType: "ETF", currency: "USD",
@@ -71,28 +70,4 @@ describe("ImportedFirstHistoricalQuoteSource", () => {
     await store.close();
   });
 
-  it("feeds locally stored IVV and QQQ closes into the existing benchmark calculation", async () => {
-    const store = new IndexedDbImportedMarketPriceStore(`atlas-anonymous-source-${crypto.randomUUID()}`);
-    await store.putAll([
-      { date: "2026-01-02", security: ivv, closeUsd: 100 },
-      { date: "2026-01-06", security: ivv, closeUsd: 110 },
-      { date: "2026-01-02", security: qqq, closeUsd: 200 },
-      { date: "2026-01-06", security: qqq, closeUsd: 190 },
-    ]);
-    const source = new ImportedFirstHistoricalQuoteSource(store, {
-      async getSecurityQuote() { throw new Error("Online fallback should not be used."); },
-    });
-
-    const result = await loadBenchmarkPriceChanges("2026-01-02", "2026-01-07", source);
-    expect(result).toMatchObject([
-      { status: "READY", symbol: "IVV", startCloseDate: "2026-01-02", endCloseDate: "2026-01-06" },
-      { status: "READY", symbol: "QQQ", startCloseDate: "2026-01-02", endCloseDate: "2026-01-06" },
-    ]);
-    if (result[0].status !== "READY" || result[1].status !== "READY") {
-      throw new Error("Both imported benchmarks should be available.");
-    }
-    expect(result[0].priceChange).toBeCloseTo(0.1);
-    expect(result[1].priceChange).toBeCloseTo(-0.05);
-    await store.close();
-  });
 });

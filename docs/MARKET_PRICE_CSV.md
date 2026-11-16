@@ -20,8 +20,9 @@ transactions, account IDs, API keys, or other personal records in this file.
 The parser and local IndexedDB daily-price store are implemented. Imported
 observations can be looked up by security and the latest trading date on or
 before a requested date, so weekends do not require invented prices. Historical
-portfolio valuation and IVV/QQQ closing-price comparisons now prefer these
-local observations when present and use the existing quote service otherwise.
-The browser import control is deferred. A CSV is not yet usable through the
-app UI, and IVV/QQQ comparisons still show closing-price change rather than
-adjusted total return.
+portfolio valuation prefers these local observations when present and uses the
+existing quote service otherwise. IVV/QQQ comparisons now require positive
+`adjustedCloseUsd` at two distinct closes and calculate the adjusted-close
+ratio; missing adjustments leave that benchmark unavailable. Use one
+consistently adjusted data series for both dates. The browser import control
+is deferred, so a CSV is not yet usable through the app UI.
