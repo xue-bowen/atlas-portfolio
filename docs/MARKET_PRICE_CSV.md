@@ -1,4 +1,4 @@
-# Market-price CSV format (planned import)
+# Market-price CSV format (import in progress)
 
 Atlas will accept a UTF-8 CSV with one US-dollar daily close per row. Rows may
 be out of date order. The first row contains these exact column names:
@@ -17,5 +17,8 @@ source whose adjusted close accounts for distributions and splits. Every
 price must be positive. Repeated date/security rows are rejected. Do not put
 transactions, account IDs, API keys, or other personal records in this file.
 
-The parser is implemented first; the local import control and cache lookup are
-the next development steps. A parsed CSV is not yet usable in the app.
+The parser and local IndexedDB daily-price store are implemented. Imported
+observations can be looked up by security and the latest trading date on or
+before a requested date, so weekends do not require invented prices. The
+browser import control and valuation/benchmark integration are the next
+development steps. A CSV is not yet usable through the app UI.
