@@ -19,6 +19,9 @@ transactions, account IDs, API keys, or other personal records in this file.
 
 The parser and local IndexedDB daily-price store are implemented. Imported
 observations can be looked up by security and the latest trading date on or
-before a requested date, so weekends do not require invented prices. The
-browser import control and valuation/benchmark integration are the next
-development steps. A CSV is not yet usable through the app UI.
+before a requested date, so weekends do not require invented prices. Historical
+portfolio valuation and IVV/QQQ closing-price comparisons now prefer these
+local observations when present and use the existing quote service otherwise.
+The browser import control is deferred. A CSV is not yet usable through the
+app UI, and IVV/QQQ comparisons still show closing-price change rather than
+adjusted total return.

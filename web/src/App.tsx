@@ -30,6 +30,8 @@ import {
   serializePortfolioBackup,
 } from "./data/ledgerStorage";
 import { IndexedDbLedgerStore } from "./data/indexedDbLedgerStore";
+import { IndexedDbImportedMarketPriceStore } from "./data/importedMarketPriceStore";
+import { ImportedFirstHistoricalQuoteSource } from "./data/importedFirstHistoricalQuoteSource";
 import { IndexedDbMarketDataCache } from "./data/marketDataCache";
 import {
   LEDGER_MIGRATION_MARKER_KEY,
@@ -125,6 +127,7 @@ const valuationFxService = new CachedFxRateService(
 );
 
 const holdingsMarketDataCache = new IndexedDbMarketDataCache();
+const importedMarketPriceStore = new IndexedDbImportedMarketPriceStore();
 const personalLedgerStore = new IndexedDbLedgerStore();
 
 type ValuationFxRates = Partial<Record<ValuationFxKey, FxRateResolution>>;
@@ -1225,12 +1228,16 @@ export default function App() {
         holdingsMarketDataCache,
         new EastmoneyUsEodProvider(),
       );
+      const historicalQuoteSource = new ImportedFirstHistoricalQuoteSource(
+        importedMarketPriceStore,
+        quoteService,
+      );
       const loaded = await loadHistoricalValuationInputs(
         ledger,
         dates,
         securityProfiles,
         valuationFxService,
-        quoteService,
+        historicalQuoteSource,
       );
       if (usdTwrRequestId.current !== requestId) return;
 
@@ -1252,7 +1259,7 @@ export default function App() {
       const benchmarks = await loadBenchmarkPriceChanges(
         points[0].date,
         points.at(-1)!.date,
-        quoteService,
+        historicalQuoteSource,
       );
       if (usdTwrRequestId.current !== requestId) return;
       setUsdTwrState({
