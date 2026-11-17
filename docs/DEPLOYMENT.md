@@ -1,5 +1,13 @@
 # GitHub Pages release preparation
 
+**Release hold (2026-11-17):** the owner requires complete market data before
+the repository or site becomes public, and approved technically usable free
+Google/Yahoo sources for non-commercial prototype development. The Yahoo
+adapter and local bridge are implemented, but current live requests return
+HTTP 403. Static GitHub Pages cannot run that bridge; a reachable hosted
+bridge would need `VITE_YAHOO_BRIDGE_URL` at build time. See
+[Yahoo Finance setup](YAHOO_FINANCE.md). The CSV browser control remains deferred.
+
 The website build is static. No ledger or backup file is part of the build:
 the browser starts with anonymous demo data until a user creates a local
 personal ledger. The published project URL will be
@@ -17,8 +25,12 @@ base path, runs tests and lint, then uploads `web/dist` to GitHub Pages.
 
 Before the first public deployment:
 
-1. Confirm the repository contents, Git history, MIT license, and third-party
-   market-data terms are acceptable for public release.
+1. Clear the market-data gate: verify complete current/historical holdings and
+   FX coverage, and dividend/split-adjusted IVV/QQQ comparisons with anonymous
+   live-data checks. Missing or unavailable benchmarks do not clear this gate.
+   Confirm repository contents, Git history, MIT license, dependency audit,
+   and third-party terms are acceptable for public release. Recheck the current
+   terms at release time. The source-code MIT license does not license data.
 2. Make the repository public if the account uses GitHub Free. GitHub Pages
    sites are public even when the repository stays private under a paid plan.
 3. In repository **Settings → Pages**, select **GitHub Actions** as the source.

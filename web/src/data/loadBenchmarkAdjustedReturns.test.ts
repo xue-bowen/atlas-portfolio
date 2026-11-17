@@ -73,4 +73,31 @@ describe("loadBenchmarkAdjustedReturns", () => {
     await expect(loadBenchmarkAdjustedReturns("2026-02-30", "2026-03-01", source)).rejects.toThrow(/ordered calendar dates/);
     await expect(loadBenchmarkAdjustedReturns("2026-03-01", "2026-03-01", source)).rejects.toThrow(/ordered calendar dates/);
   });
+
+  it("replaces both endpoints with the automatic series when local adjustments are incomplete", async () => {
+    const results = await loadBenchmarkAdjustedReturns("2026-01-02", "2026-01-07", {
+      async getLatestOnOrBefore(security, date) {
+        return date === "2026-01-02" ? { security, date, closeUsd: 2, adjustedCloseUsd: 1 } : undefined;
+      },
+    }, {
+      label: "Anonymous automatic series",
+      async getLatestOnOrBefore(security, date) {
+        return { security, date, closeUsd: 100, adjustedCloseUsd: date === "2026-01-02" ? 90 : 99 };
+      },
+    });
+    for (const result of results) {
+      if (result.status !== "READY") throw new Error("Anonymous automatic series should be available.");
+      expect(result.adjustedReturn).toBeCloseTo(0.1);
+      expect(result.source).toBe("Anonymous automatic series");
+    }
+  });
+
+  it("does not request automatic prices when both local adjusted endpoints are available", async () => {
+    const results = await loadBenchmarkAdjustedReturns("2026-01-02", "2026-01-07", {
+      async getLatestOnOrBefore(security, date) {
+        return { security, date, closeUsd: 100, adjustedCloseUsd: 100 };
+      },
+    }, { async getLatestOnOrBefore() { throw new Error("Should not use automatic source."); } });
+    expect(results.every((result) => result.status === "READY")).toBe(true);
+  });
 });

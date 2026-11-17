@@ -39,6 +39,8 @@ import {
   type LedgerLoadResult,
 } from "./data/migrateLegacyLedger";
 import { EastmoneyUsEodProvider } from "./data/providers/eastmoneyUsEodProvider";
+import { YahooFinanceDailyProvider } from "./data/providers/yahooFinanceDailyProvider";
+import { FallbackSecurityQuoteProvider } from "./data/providers/fallbackSecurityQuoteProvider";
 import { FrankfurterFxProvider } from "./data/providers/frankfurterFxProvider";
 import { createTradingViewSymbolUrl } from "./data/tradingViewLink";
 import {
@@ -129,6 +131,18 @@ const valuationFxService = new CachedFxRateService(
 const holdingsMarketDataCache = new IndexedDbMarketDataCache();
 const importedMarketPriceStore = new IndexedDbImportedMarketPriceStore();
 const personalLedgerStore = new IndexedDbLedgerStore();
+
+const yahooBridgeUrl = import.meta.env.VITE_YAHOO_BRIDGE_URL?.trim() ||
+  (import.meta.env.DEV ? "/api/yahoo-chart" : "");
+
+function automaticMarketSources() {
+  const yahoo = yahooBridgeUrl ? new YahooFinanceDailyProvider(yahooBridgeUrl) : undefined;
+  const eastmoney = new EastmoneyUsEodProvider();
+  return {
+    quotes: yahoo ? new FallbackSecurityQuoteProvider(yahoo, eastmoney) : eastmoney,
+    adjustedPrices: yahoo,
+  };
+}
 
 type ValuationFxRates = Partial<Record<ValuationFxKey, FxRateResolution>>;
 
@@ -1081,7 +1095,7 @@ export default function App() {
 
       const quoteService = new CachedSecurityQuoteService(
         holdingsMarketDataCache,
-        new EastmoneyUsEodProvider(),
+        automaticMarketSources().quotes,
       );
 
       const results = await Promise.all(
@@ -1224,9 +1238,10 @@ export default function App() {
     });
 
     try {
+      const sources = automaticMarketSources();
       const quoteService = new CachedSecurityQuoteService(
         holdingsMarketDataCache,
-        new EastmoneyUsEodProvider(),
+        sources.quotes,
       );
       const historicalQuoteSource = new ImportedFirstHistoricalQuoteSource(
         importedMarketPriceStore,
@@ -1260,6 +1275,7 @@ export default function App() {
         points[0].date,
         points.at(-1)!.date,
         importedMarketPriceStore,
+        sources.adjustedPrices,
       );
       if (usdTwrRequestId.current !== requestId) return;
       setUsdTwrState({
@@ -3889,9 +3905,8 @@ export default function App() {
               <UsdTwrChart points={displayedUsdTwrState.points} />
               <h4>IVV and QQQ comparison</h4>
               <p>
-                Same period, USD return from dividend-adjusted daily closes
-                supplied by the user. This assumes the imported adjustment
-                accounts for distributions and splits consistently.
+                Same period, USD return from dividend- and split-adjusted daily
+                closes. Both endpoints use the same data source.
               </p>
               <dl className="performance-benchmarks">
                 {displayedUsdTwrState.benchmarks.map((benchmark) => (
@@ -3903,6 +3918,7 @@ export default function App() {
                         <span>
                           Closes: {benchmark.startCloseDate} to {benchmark.endCloseDate}
                         </span>
+                        <span>{benchmark.source}</span>
                       </dd>
                     ) : (
                       <dd>Unavailable: {benchmark.reason}</dd>
@@ -4126,8 +4142,8 @@ export default function App() {
         <div className="security-quote-source-card">
           <h3>Automatic closing-price source</h3>
           <p>
-            Atlas loads the latest available US daily close from Eastmoney's
-            public market-data service and stores it in the local IndexedDB
+            Atlas loads completed US daily closes from {yahooBridgeUrl ? "Yahoo Finance, with Eastmoney as a fallback" : "Eastmoney"}.
+            Prices are stored in the local IndexedDB
             cache. No API key or manual quote entry is required. Cached prices
             remain available with an explicit stale status if refresh fails.
           </p>

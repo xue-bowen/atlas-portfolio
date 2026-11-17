@@ -2,9 +2,9 @@
 
 ## Current stable checkpoint
 
-Latest stable feature checkpoint before this documentation update:
+Latest stable feature checkpoint before this development iteration:
 
-`cf168ff feat: use imported closes for historical valuations`
+`95594b1 feat: compare IVV and QQQ using adjusted closes`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -12,7 +12,7 @@ Windows local path:
 
 `C:\Users\28301\atlas-portfolio`
 
-Last updated: 2026-11-16
+Last updated: 2026-11-17
 
 The working tree was clean after the latest commit. Personal ledger data is
 browser-local and is never committed to GitHub.
@@ -246,12 +246,22 @@ browser-local and is never committed to GitHub.
   from every eligible ledger-event date through the latest completed close.
   It shows the return and date range, or dated missing-input reasons. Changing
   the ledger or security profiles hides a stale result until recalculation.
-- The same calculation compares IVV and QQQ using user-supplied,
-  dividend-adjusted USD daily closes over the portfolio TWR date range. Each
-  benchmark has its own availability result and shows the actual close dates.
-  A missing adjusted close leaves that benchmark unavailable instead of
-  substituting an unadjusted price change. The browser CSV import control is
-  deferred, so this path is currently exercised through anonymous tests.
+- The same calculation compares IVV and QQQ using dividend/split-adjusted USD
+  daily closes. Complete local adjusted endpoints are preferred; otherwise the
+  configured Yahoo source supplies both endpoints from one series. Each
+  benchmark shows its source, actual close dates, and availability. Missing
+  adjustments never fall back to ordinary price returns. The browser CSV
+  import control remains deferred.
+- Yahoo Finance daily-price adapter and same-origin local Vite bridge for
+  latest/dated holdings quotes and automatic adjusted benchmark observations.
+  One symbol's full daily series is shared within a calculation/refresh batch,
+  including failures so a blocked feed is not retried for every history date.
+  Quotes validate identity, exchange, USD currency, type, daily granularity,
+  ordered dates, completed-session timing, prices, and split events. Ordinary
+  historical closes are reconstructed from Yahoo's split-adjusted Close;
+  benchmark Adj Close is kept separately. Yahoo quote failures fall back to
+  the existing Eastmoney path and cache. Local development enables the bridge;
+  production requires explicit `VITE_YAHOO_BRIDGE_URL` configuration.
 - Complete USD TWR points also render as a responsive 100-base growth-index
   line with calendar-spaced dates. The chart is shown only after every required
   historical valuation input has loaded successfully.
@@ -774,6 +784,11 @@ For each small feature:
   `yahoo-finance2` check on 2026-09-06 reached Yahoo's session/crumb step but was
   rejected with HTTP 403 from the current network, so the failed dependency was
   removed rather than presenting automatic quotes as available.
+  On 2026-11-17 a direct chart adapter and local bridge were implemented after
+  the owner explicitly approved technically usable free sources for the
+  non-commercial prototype. Ordinary chart requests to both Yahoo hosts still
+  return HTTP 403 on the current network; this implementation does not change
+  that access decision. See [Yahoo setup and limits](YAHOO_FINANCE.md).
 - Eastmoney's public US daily JSON endpoint is the current no-key prototype
   source because it is directly reachable from the current environment and
   exposes completed daily bars. It remains behind `SecurityQuoteProvider`, and
@@ -812,10 +827,11 @@ For each small feature:
 
 The remaining public-release workstreams are:
 
-1. Make a usable, permission-compatible market-data path available to public
-   users. The local CSV parser, IndexedDB store, and historical valuation path
-   exist, but the user deferred the browser import control while free automatic
-   daily-data sources continue to be evaluated.
+1. Verify a reachable automatic market-data path with real provider responses.
+   The owner permits Google/Yahoo sources for non-commercial development. The
+   Yahoo adapter and local bridge exist, but live requests currently return
+   HTTP 403. Static Pages cannot host the bridge; a reachable backend still
+   needs deployment preparation. The browser CSV import control stays deferred.
 2. Verify complete historical price and FX coverage, current holdings
    valuation, USD TWR, and IVV/QQQ adjusted comparisons with anonymous data.
 3. Complete the clean-browser desktop/mobile release test and publication
@@ -830,21 +846,44 @@ assets have been removed from the tip, but they remain in earlier Git history.
 Production dependencies have zero reported npm audit vulnerabilities; the full
 development-tool audit currently reports 19 advisories.
 
-Eastmoney's [official terms](https://about.eastmoney.com/home/protocol)
-restrict unauthorized use and redistribution of market data. The current
-browser-only integration does not centrally redistribute a quote feed, but this
-does not by itself establish public-use permission. Verify the terms or replace
-the source before public deployment.
-Frankfurter's [license page](https://frankfurter.dev/license/) says it cannot
-grant rights beyond its underlying rate providers.
+The 2026-11-17 direction is to continue the non-commercial prototype with
+technically usable free sources, including Google/Yahoo Finance. Provider
+terms remain third-party terms, not part of Atlas's MIT license; licensing
+research is not the next implementation task. Google documents historical
+GOOGLEFINANCE results as unavailable through Sheets API/Apps Script, and a
+direct Google Finance request reset during this session. The Yahoo path and
+current network limits are documented in [YAHOO_FINANCE.md](YAHOO_FINANCE.md).
 
-Additional market-data fallback, manual quote entry, expanded provenance UI,
-SPX Delta, advanced attribution, and more benchmarks are deferred until after
-the first public release. Existing market metadata remains intact.
+On isolated port 5273, invented Yahoo chart JSON and fixed anonymous FX rates
+produced USD TWR 0%, IVV +10%, and QQQ -5% for a CNY 1,000 deposit dated
+2026-11-02. The benchmark source and actual close dates were visible. The
+ledger persisted after refresh; desktop 1440 px and mobile 390 px layouts had
+no horizontal overflow, and the browser reported no warnings/errors. These
+are fixture checks, not successful live Yahoo retrieval. The real bridge on
+port 5272 returned HTTP 403 as expected. Temporary servers and the fixture
+script were removed afterward; port 5224 was not opened or modified.
+
+The regression suite now has 130 passing deterministic tests, including the
+new adapter, safe fixed-upstream bridge, split handling, current-session
+exclusion, provider failure/fallback, and consistent benchmark endpoints.
+Production build and lint pass.
+
+Complete market data remains required before public deployment or opening the
+repository. The site and repository were not published in this iteration.
+Extra providers beyond the current Yahoo/Eastmoney path, manual quote entry,
+expanded provenance UI, SPX Delta, advanced attribution, and more benchmarks
+are deferred until after the first public release. Existing market metadata
+remains intact.
 
 ## Next task
 
-Review public-use market-data rights, then complete release documentation and
-deployment preparation.
+Verify a normally reachable Yahoo endpoint/bridge or another technically
+usable free source with actual current/historical prices and IVV/QQQ adjusted
+observations. Do not mistake the implemented local bridge or synthetic tests
+for a successful live-data connection. Then prepare the appropriate hosting
+path: GitHub Pages alone cannot serve the Yahoo backend. Keep the browser CSV
+import control deferred, and complete anonymous release checks before public
+deployment. Ledger-side split/corporate-action support remains a limitation
+for positions spanning those events.
 A focused manual ledger review and local JSON backup remain required before
 substantial real history.

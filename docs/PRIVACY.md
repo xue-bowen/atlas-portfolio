@@ -25,6 +25,7 @@ The browser makes direct HTTPS requests to third-party market-data services:
 | --- | --- | --- |
 | Frankfurter (`api.frankfurter.dev`) | Currency pairs and requested dates | Reference FX rates for valuation |
 | Eastmoney (`push2his.eastmoney.com`) | Mapped security symbols and requested dates | US closing-price lookup |
+| Yahoo Finance bridge (local `/api/yahoo-chart`, or configured host) | Mapped security symbol | Current/historical US daily closes and adjusted benchmark prices; the bridge contacts `query1.finance.yahoo.com` |
 | TradingView (`tradingview.com`) | A symbol in the opened URL, only after clicking a chart link | External market chart |
 
 Those services can see the request and ordinary network metadata such as the
@@ -32,6 +33,13 @@ browser's IP address. A mapped security symbol may reveal an interest in that
 security; the app does not send transaction quantities, account IDs, or a full
 portfolio to these services. Review each service's own privacy terms before
 using its data. Atlas does not control their retention or availability.
+
+Local development enables the Yahoo bridge automatically. A production build
+uses it only when `VITE_YAHOO_BRIDGE_URL` is configured. The bridge forwards
+the symbol with fixed daily-history parameters, without browser cookies,
+transaction amounts, accounts, or ledger files. A configured bridge host also
+receives the request and ordinary network metadata. See
+[Yahoo setup](YAHOO_FINANCE.md) for hosting and current connectivity limits.
 
 The repository and its issue tracker are public only when the owner publishes
 them. Do not put personal investment data, backups, account identifiers, or

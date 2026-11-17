@@ -23,6 +23,9 @@ before a requested date, so weekends do not require invented prices. Historical
 portfolio valuation prefers these local observations when present and uses the
 existing quote service otherwise. IVV/QQQ comparisons now require positive
 `adjustedCloseUsd` at two distinct closes and calculate the adjusted-close
-ratio; missing adjustments leave that benchmark unavailable. Use one
-consistently adjusted data series for both dates. The browser import control
-is deferred, so a CSV is not yet usable through the app UI.
+ratio. If local adjustments do not cover both endpoints, the configured
+[Yahoo daily source](YAHOO_FINANCE.md) can supply both instead. The two sources
+are never mixed within a benchmark ratio. Missing local and automatic
+adjustments leave the benchmark unavailable. Use one consistently adjusted
+data series for both dates. The browser import control is deferred, so a CSV
+is not yet usable through the app UI.

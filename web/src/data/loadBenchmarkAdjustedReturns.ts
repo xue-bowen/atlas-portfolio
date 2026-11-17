@@ -18,6 +18,7 @@ const BENCHMARKS: readonly { symbol: BenchmarkSymbol; security: SecurityIdentifi
 ];
 
 export interface BenchmarkAdjustedPriceSource {
+  readonly label?: string;
   getLatestOnOrBefore(
     security: SecurityIdentifier,
     date: string,
@@ -31,6 +32,7 @@ export type BenchmarkAdjustedReturn =
       adjustedReturn: number;
       startCloseDate: string;
       endCloseDate: string;
+      source: string;
     }
   | { status: "UNAVAILABLE"; symbol: BenchmarkSymbol; reason: string };
 
@@ -57,6 +59,7 @@ export async function loadBenchmarkAdjustedReturns(
   startDate: string,
   endDate: string,
   source: BenchmarkAdjustedPriceSource,
+  automaticSource?: BenchmarkAdjustedPriceSource,
 ): Promise<BenchmarkAdjustedReturn[]> {
   if (!isCalendarDate(startDate) || !isCalendarDate(endDate) || startDate >= endDate) {
     throw new Error("Benchmark comparison requires two ordered calendar dates.");
@@ -64,15 +67,31 @@ export async function loadBenchmarkAdjustedReturns(
 
   return Promise.all(BENCHMARKS.map(async ({ symbol, security }) => {
     try {
-      const [start, end] = await Promise.all([
-        source.getLatestOnOrBefore(security, startDate),
-        source.getLatestOnOrBefore(security, endDate),
+      const loadPair = (selected: BenchmarkAdjustedPriceSource) => Promise.all([
+        selected.getLatestOnOrBefore(security, startDate),
+        selected.getLatestOnOrBefore(security, endDate),
       ]);
+      let selected = source;
+      let pair: Awaited<ReturnType<typeof loadPair>> | undefined;
+      try {
+        pair = await loadPair(source);
+      } catch (error) {
+        if (!automaticSource) throw error;
+      }
+      // Both endpoints must use one adjustment series, never mixed providers.
+      if (automaticSource && (!pair ||
+        !validAdjustedClose(pair[0], security, startDate) ||
+        !validAdjustedClose(pair[1], security, endDate) ||
+        pair[0].date >= pair[1].date)) {
+        selected = automaticSource;
+        pair = await loadPair(automaticSource);
+      }
+      const [start, end] = pair ?? [];
       if (
         !validAdjustedClose(start, security, startDate) ||
         !validAdjustedClose(end, security, endDate)
       ) {
-        throw new Error("Imported dividend-adjusted daily closes are missing for this period.");
+        throw new Error("Dividend-adjusted daily closes are missing for this period.");
       }
       if (start.date >= end.date) {
         throw new Error("The comparison period needs two distinct benchmark closes.");
@@ -88,6 +107,7 @@ export async function loadBenchmarkAdjustedReturns(
         adjustedReturn,
         startCloseDate: start.date,
         endCloseDate: end.date,
+        source: selected.label ?? "Local imported adjusted closes",
       };
     } catch (error) {
       return {
