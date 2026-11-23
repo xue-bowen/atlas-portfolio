@@ -1,6 +1,35 @@
 # Yahoo Finance daily-price adapter
 
-Updated: 2026-11-23.
+Updated: 2026-11-24.
+
+## Current hosted bridge
+
+The owner supplied this deployed public configuration URL:
+
+`https://atlas-yahoo-chart.atlas-portfolio.workers.dev/api/yahoo-chart`
+
+GrokBot's handoff, relayed by the owner, reports complete daily IVV history
+with HTTP 200 and correct CORS when requesting from both the GitHub Pages and
+Sites origins. The deployed service is reported to accept only those origins;
+opening it directly without Origin is expected to fail. The repository Worker
+template additionally permits HTTP loopback previews, so local-source behavior
+must not be assumed for the separately deployed service. Its deployment/source
+version has not been independently reconciled with the repository template.
+
+On 2026-11-24 both Sites and Pages builds succeeded with this endpoint set.
+The private Sites update was published successfully; Yahoo is tried first,
+Eastmoney remains the fallback, and Frankfurter remains the FX service.
+Pages has not been dispatched. An unset build variable still selects the
+static Eastmoney path.
+
+Independent requests from this execution host used allowed Origin headers but
+timed out before receiving HTTP, including an unsandboxed read-only check.
+Browser control was also unavailable. These environment limits neither
+confirm nor refute the reported remote success. The hosted application's
+actual Yahoo source labels, adjusted benchmark results, desktop/mobile
+behavior, and backup/restore still need checking on the newly deployed version
+before opening its audience. Earlier live observations below remain dated
+historical evidence. See [the exact deployment](DEPLOYMENT.md).
 
 The owner approved Google/Yahoo Finance and other technically usable free
 sources for this non-commercial prototype. Continue implementation on that

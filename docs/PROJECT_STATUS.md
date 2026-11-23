@@ -4,7 +4,7 @@
 
 Latest stable feature checkpoint before this development iteration:
 
-`d677fd5 fix: request full Yahoo daily history with epoch bounds`
+`d47b54c feat: add Cloudflare Yahoo daily chart bridge`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -12,7 +12,7 @@ Windows local path:
 
 `C:\Users\28301\atlas-portfolio`
 
-Last updated: 2026-11-23
+Last updated: 2026-11-24
 
 The working tree was clean after the latest commit. Personal ledger data is
 browser-local and is never committed to GitHub.
@@ -983,14 +983,39 @@ remains intact.
 
 ## Next task
 
+The 2026-11-24 owner handoff supplies
+`https://atlas-yahoo-chart.atlas-portfolio.workers.dev/api/yahoo-chart`.
+GrokBot reports full daily IVV HTTP 200 and correct CORS for Pages/Sites, and
+the owner reports the repository variable is set. This supersedes the previous
+pending-account status. No account credentials are stored in this repository.
+
+This session independently passed all 196 tests, lint, normal and Pages builds,
+and a production dependency audit with zero reported vulnerabilities. Both
+builds also passed with the supplied bridge URL. The exact configured Sites
+packet was pushed as source `c27fa4ed2b42c1c3d052ac4228359b8fc741ae74` and deployed
+successfully as `appgdep_6b047681ce2c819180628149e785a16c`, saved version
+`appgprj_6b0411e40de8819185b0bd635313039c~appgver_048bfdc19dcc8191a130d17a34c61281`.
+The packet contains only its hosting manifest and four frontend assets;
+no ledger, example backup, credentials, or source history is published there.
+The Site remains owner-only. Pages has not been dispatched and source remains
+private. Direct Worker connections from this host timed out before HTTP, and
+browser control timed out, so hosted Yahoo behavior is not independently
+verified. See [current deployment notes](DEPLOYMENT.md).
+
+Next, verify the newly deployed private Sites version from a working browser
+and network with anonymous records: Yahoo holdings and adjusted IVV/QQQ
+sources, complete current/historical FX and quotes, fallback, desktop/mobile,
+and export/restore/reload. Keep unavailable checks explicit. Clear this actual
+page gate before changing public access. GrokBot's endpoint check is separate
+from an authenticated end-to-end check of this frontend build.
+
 Use the deployed private trial with the owner's sign-in, collect feedback,
 and resolve only concrete trial issues before opening access to friends.
-Preserve owner-only access until the owner specifies the broader audience.
+Keep the current audience until the requested live release checks pass.
 Keep the market CSV browser control deferred and Yahoo optional for the
 verified static path. Re-run release checks after functional changes and keep
 source publication separate from trial sharing.
-The Worker code is ready for the owner's Cloudflare login/deployment; configure
-the actual URL at build time and run anonymous live checks before enabling it
-in the private trial or clearing the public market-data gate.
+The Worker is deployed and its actual URL is now in the private Sites build;
+the remaining step is live application verification, not account registration.
 A focused manual ledger review and local JSON backup remain required before
 substantial real history.

@@ -15,9 +15,10 @@ The native deployment returned `succeeded` on 2026-11-23. A browser visit
 confirmed the sign-in gate; authenticated hosted-app behavior still needs the
 owner's trial. Local production builds passed the anonymous checks below.
 
-This is a static deployment with Eastmoney prices and Frankfurter FX. It has
-no Yahoo backend or cloud ledger. The release packet contains only the
-hosting manifest, compiled HTML, JS, and CSS. It excludes ledger databases,
+The 2026-11-24 update builds this static site with the external Yahoo Worker
+URL, preserving Eastmoney fallback and Frankfurter FX. It has no cloud ledger.
+The release packet contains only the hosting manifest, compiled HTML, JS,
+CSS, and favicon. It excludes ledger databases,
 exports, example backup files, credentials, and Git history.
 
 To prepare another Sites release from the repository root:
@@ -25,6 +26,24 @@ To prepare another Sites release from the repository root:
 ```bash
 npm run build --prefix web -- --outDir ../dist
 ```
+
+To include the configured Worker in the private Sites build, from the root:
+
+```powershell
+$env:VITE_YAHOO_BRIDGE_URL = 'https://atlas-yahoo-chart.atlas-portfolio.workers.dev/api/yahoo-chart'
+npm run build --prefix web -- --outDir ../dist
+Remove-Item Env:VITE_YAHOO_BRIDGE_URL
+```
+
+The successful 2026-11-24 deployment uses Sites source commit
+`c27fa4ed2b42c1c3d052ac4228359b8fc741ae74`, saved version
+`appgprj_6b0411e40de8819185b0bd635313039c~appgver_048bfdc19dcc8191a130d17a34c61281`,
+and deployment `appgdep_6b047681ce2c819180628149e785a16c`.
+The packet was checked to contain the configured public endpoint and only
+the manifest plus four frontend assets. Native publication returned succeeded;
+authenticated live-page behavior was not verified in this session because
+browser control was unavailable. Access remains owner-only. No public Pages
+workflow or repository visibility change was performed.
 
 The root `dist/` is ignored. Use a fresh isolated staging checkout containing
 only `.openai/hosting.json` and those compiled `dist/` assets. The official
@@ -142,4 +161,16 @@ tests, lint, and TypeScript checks; no second dependency installation is needed.
 On 2026-11-23 Wrangler 4.166.0 dry-run bundled this Worker and its rate-limit
 binding successfully. Wrangler whoami reported no authenticated account, so
 the Worker has not been deployed and no production bridge URL is configured.
-The existing Sites trial remains on its previous static release.
+That is the historical pre-deployment observation; the update below supersedes
+the pending Worker/Sites status.
+
+On 2026-11-24 the owner supplied the deployed endpoint
+`https://atlas-yahoo-chart.atlas-portfolio.workers.dev/api/yahoo-chart` and
+reported successful full daily IVV responses and CORS for both the Pages and
+Sites origins. The owner also reported setting the GitHub repository variable;
+this session could not independently load GitHub settings. The separate Sites
+build now contains that same endpoint and has been deployed privately.
+Requests from this execution host, with allowed Origin headers, timed out
+before any HTTP response both inside and outside the sandbox. This is not
+evidence of an Origin rejection or a failed remote Worker. Hosted browser QA
+and independent live Yahoo verification remain pending before public release.
