@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
-    "build:pages": "tsc -b && vite build --base=/atlas-portfolio/",
-    "lint": "eslint .",
-    "test": "vitest run",
+    "build": "tsc -p ../workers/yahoo-chart/tsconfig.json && tsc -b && vite build",
+    "build:pages": "tsc -p ../workers/yahoo-chart/tsconfig.json && tsc -b && vite build --base=/atlas-portfolio/",
+    "lint": "eslint . && npm run lint:worker",
+    "lint:worker": "cd ../workers/yahoo-chart && eslint --config ../../web/eslint.config.js src",
+    "test": "vitest run --root .. --config web/vite.config.ts",
     "preview": "vite preview"
   },
   "dependencies": {

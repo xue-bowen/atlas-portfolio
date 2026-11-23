@@ -1,0 +1,19 @@
+name = "atlas-yahoo-chart"
+main = "src/index.ts"
+compatibility_date = "2026-11-23"
+workers_dev = true
+send_metrics = false
+
+[observability]
+enabled = false
+
+[vars]
+ALLOWED_ORIGINS = "https://xue-bowen.github.io,https://atlas-portfolio.schneider200con.chatgpt.site"
+# Optional: restrict the available symbols. Omit for arbitrary valid US profiles.
+# SYMBOL_ALLOWLIST = "IVV,QQQ"
+
+[[ratelimits]]
+name = "YAHOO_RATE_LIMIT"
+# Change if another Worker on this Cloudflare account already uses this namespace.
+namespace_id = "1001"
+simple = { limit = 30, period = 60 }

@@ -33,7 +33,7 @@ The browser makes direct HTTPS requests to third-party market-data services:
 | --- | --- | --- |
 | Frankfurter (`api.frankfurter.dev`) | Currency pairs and requested dates | Reference FX rates for valuation |
 | Eastmoney (`push2his.eastmoney.com`) | Mapped security symbols and requested dates/ranges | Ordinary US holdings closes and adjusted IVV/QQQ benchmark history |
-| Yahoo Finance bridge (local `/api/yahoo-chart`, or configured host) | Mapped security symbol | Current/historical US daily closes and adjusted benchmark prices; the bridge contacts `query1.finance.yahoo.com` |
+| Yahoo Finance bridge (local `/api/yahoo-chart`, or configured Cloudflare Worker host) | Mapped security symbol | Current/historical US daily closes and adjusted benchmark prices; the bridge contacts `query1.finance.yahoo.com` |
 | TradingView (`tradingview.com`) | A symbol in the opened URL, only after clicking a chart link | External market chart |
 
 Those services can see the request and ordinary network metadata such as the
@@ -46,7 +46,18 @@ Local development enables the Yahoo bridge automatically. A production build
 uses it only when `VITE_YAHOO_BRIDGE_URL` is configured. The bridge forwards
 the symbol with fixed daily-history parameters, without browser cookies,
 transaction amounts, accounts, or ledger files. A configured bridge host also
-receives the request and ordinary network metadata. See
+receives the symbol, client IP, and ordinary network metadata. The optional
+Cloudflare Worker uses the client IP for a coarse rate limit and caches only
+successful public chart JSON for 15 minutes. It may obtain an anonymous Yahoo
+A3 cookie from `fc.yahoo.com` and a crumb from `query1.finance.yahoo.com` for
+one retry after 401/403. These belong to that bridge request only; they are
+not browser cookies, are never sent to the frontend, and are not persisted in
+the market cache or ledger. No Yahoo account, transaction amount, account
+identifier, or ledger file is forwarded. The bridge does not add application
+request logging; Cloudflare and Yahoo handle ordinary hosting/network metadata
+under their own terms. This is unofficial third-party market data; review
+[Yahoo's terms](https://legal.yahoo.com/us/en/yahoo/terms/otos/index.html).
+The MIT source license does not grant rights to third-party data. See
 [Yahoo setup](YAHOO_FINANCE.md) for hosting and current connectivity limits.
 
 The repository and its issue tracker are public only when the owner publishes

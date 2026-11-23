@@ -12,8 +12,10 @@ browser market-price CSV import control remains deferred.
 Run `npm run dev` from `web`. Yahoo is enabled automatically through the local
 `/api/yahoo-chart?symbol=IVV` bridge. The bridge is also installed in Vite's
 local preview server. It makes a normal server-side request to Yahoo's chart
-endpoint, avoiding the browser's cross-origin restriction. It does not change
-Yahoo's upstream access decisions or perform login/session workarounds.
+endpoint, avoiding the browser's cross-origin restriction. Local preview and
+the Cloudflare Worker share the same upstream request implementation. It uses
+an explicit AtlasPortfolio User-Agent, a 10-second total deadline, and an
+8,000,000-byte streaming response limit. Redirects are not followed.
 
 The adapter requests a full daily series once per symbol per refresh/calculation
 batch. Current and dated holdings quotes use completed closes. Yahoo failures
@@ -49,8 +51,12 @@ with real browser requests on 2026-11-23 and needs no Yahoo backend.
 GitHub Pages hosts static files and cannot run the optional Node Yahoo bridge.
 The private Sites trial also uses this static Eastmoney/Frankfurter path.
 
-For a host that supplies a compatible bridge, set `VITE_YAHOO_BRIDGE_URL` at
-build time to its URL. For a local production-preview check in PowerShell:
+The production bridge is implemented in `workers/yahoo-chart`. Set
+`VITE_YAHOO_BRIDGE_URL` at build time to the deployed Worker's full
+`https://<name>.<account>.workers.dev/api/yahoo-chart` URL. This enables Yahoo
+first and Eastmoney fallback without changing the client request contract.
+An unset or empty variable preserves the existing static path. For a local
+production-preview check in PowerShell:
 
 ```powershell
 $env:VITE_YAHOO_BRIDGE_URL = '/api/yahoo-chart'
@@ -74,14 +80,49 @@ monthly history despite a requested daily interval. The shared URL builder
 fixes the upstream host/path and validates the symbol. Tests assert the epoch
 bounds and reject monthly (`1mo`) as well as weekly series in the adapter.
 
-The owner's 2026-11-23 direction is to keep the first static release on
-Eastmoney and Frankfurter, with Yahoo as a local enhancement. The attached
-Grokbot plan also describes an optional Cloudflare Worker; that is not deployed
-or required by this release. The Pages build can receive a compatible bridge
-URL through repository variable `VITE_YAHOO_BRIDGE_URL`; an unset variable
-preserves the Eastmoney-only production path. No login, crumb/cookie retry,
-or region/rate-limit workaround was added. HTTP 401/403/429 remain explicit
-failures and trigger the existing fallback.
+The owner's follow-up explicitly adopts the attached Grokbot Worker plan.
+The Pages build receives the full bridge URL through repository variable
+`VITE_YAHOO_BRIDGE_URL`; it remains manually dispatched. Worker implementation
+does not by itself enable Yahoo in an already deployed static site.
+
+## Anonymous session retry
+
+After an upstream 401/403, the shared request function can obtain an anonymous
+`A3` cookie from the fixed `https://fc.yahoo.com/` URL (including its normal
+404 response), request a crumb from the fixed Yahoo `v1/test/getcrumb` URL,
+and retry chart once with that pair. Only this invocation holds the cookie
+and crumb; they are never returned to the browser, logged, stored in cache,
+or shared with another request. No Yahoo account or browser cookie is used.
+429 never causes another retry. Persistent authentication/rate errors and
+invalid/oversized responses surface explicitly and trigger Eastmoney fallback.
+This does not guarantee Yahoo availability or override its access decisions.
+
+## Cloudflare Worker controls
+
+- `GET /api/yahoo-chart?symbol=IVV` accepts exactly one validated US symbol.
+  Extra parameters, arbitrary URLs, and duplicate symbols are rejected.
+  Optional `SYMBOL_ALLOWLIST` restricts the symbols further.
+- `ALLOWED_ORIGINS` contains exact allowed origins, including the Pages origin
+  and the private Sites trial in the supplied configuration. HTTP localhost
+  and 127.0.0.1 preview origins may use any port. Missing/disallowed Origin is
+  rejected. CORS is not authentication; the public endpoint also has a limiter.
+- OPTIONS supports GET preflight with Accept. Every permitted-origin response,
+  including errors and cache hits, receives its own CORS headers. No wildcard,
+  browser credentials, or upstream Set-Cookie header is returned.
+- Cache API entries contain successful chart JSON only, keyed by symbol and
+  UTC date for 900 seconds. Origin, crumb, cookies, and changing period2 are
+  excluded. Browser responses use no-store, preventing an extra browser TTL.
+  Errors are never cached; a cache failure still allows a valid upstream result.
+- The supplied `YAHOO_RATE_LIMIT` binding allows approximately 30 GETs per
+  minute per client IP in each Cloudflare location, including cache hits.
+  Exceeded limits return 429; missing/unavailable limiter returns 503. Shared
+  networks may share the limit. This is a coarse guard, not a global quota.
+  Confirm namespace `1001` is not already used by another account workload.
+
+See [Cloudflare's Cache API](https://developers.cloudflare.com/workers/runtime-apis/cache/)
+and [rate-limit binding](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/)
+for runtime behavior. Deployment and the build variable are documented in
+[deployment steps](DEPLOYMENT.md#optional-yahoo-worker).
 
 ## Connectivity observed
 
@@ -120,3 +161,14 @@ validation, while live availability remains dependent on the network and
 upstream access decisions. Complete representative holdings/split checks on
 the static path are now recorded in [release checks](RELEASE_CHECK.md) and
 [split checks](STOCK_SPLITS.md).
+
+The full Worker iteration passed 196 tests, both production builds, lint, and
+Wrangler 4.166.0 dry-run. A real local Worker on port 8795 returned 204 to the
+allowed preview preflight, 403 without ACAO to a disallowed origin, and 400
+with ACAO to an extra-parameter request. Its live IVV request returned an
+explicit upstream 403 with the correct CORS headers. The client on isolated
+port 5281 called that cross-origin Worker; anonymous NVDA quotes and IVV/QQQ
+history successfully fell back to actual Eastmoney responses. Desktop 1440
+and mobile 390 widths had no horizontal overflow. No synthetic market
+responses were used in this browser check. Worker deployment still needs the
+owner's Cloudflare login; these checks do not establish live Yahoo success.

@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 import { describe, expect, it, vi } from "vitest";
 import { createYahooChartMiddleware } from "./yahooChartProxy";
+import { YAHOO_USER_AGENT } from "./yahooChartRequest";
 
 async function withBridge(upstream: typeof fetch, check: (base: string) => Promise<void>) {
   const middleware = createYahooChartMiddleware(upstream);
@@ -34,7 +35,7 @@ describe("local Yahoo daily bridge", () => {
     expect(url.searchParams.get("range")).toBeNull();
     expect(url.searchParams.get("period1")).toBe("0");
     expect(Number(url.searchParams.get("period2"))).toBeGreaterThan(1_700_000_000);
-    expect(options.headers).toEqual({ Accept: "application/json" });
+    expect(options.headers).toEqual({ Accept: "application/json", "User-Agent": YAHOO_USER_AGENT });
   });
 
   it("rejects extra URLs, duplicate symbols, and non-GET requests before contacting Yahoo", async () => {

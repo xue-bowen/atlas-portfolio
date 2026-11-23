@@ -37,8 +37,10 @@ checkout. Preserve the Site ID and owner-only audience on subsequent updates.
 **Release hold (2026-11-23):** the owner requires complete market data before
 the repository or site becomes public, and approved technically usable free
 Google/Yahoo sources for non-commercial prototype development. The Yahoo
-adapter and local bridge are implemented, but current Yahoo requests return
-HTTP 403. Eastmoney ordinary closes and automatic adjusted IVV/QQQ comparisons
+adapter, local bridge, and optional Cloudflare Worker are implemented. Yahoo
+has returned 403 or timed out on this network; availability may change with
+IP, request identity, and upstream decisions. Eastmoney ordinary closes and
+automatic adjusted IVV/QQQ comparisons
 now work in the tested production-browser sample without a backend. The
 representative holdings and export/restore checks also pass on the Pages
 production path; see [repeatable release check](RELEASE_CHECK.md). A Yahoo
@@ -94,3 +96,50 @@ npm run preview -- --base=/atlas-portfolio/ --host 127.0.0.1 --port 5266 --stric
 
 Open `http://127.0.0.1:5266/atlas-portfolio/`. This is a disposable local
 origin and will not access the separate ledger at `127.0.0.1:5224`.
+
+## Optional Yahoo Worker
+
+From `workers/yahoo-chart`, using Wrangler 4.166.0 (the checked version):
+
+```powershell
+npx --yes wrangler@4.166.0 deploy --dry-run
+npx --yes wrangler@4.166.0 login
+npx --yes wrangler@4.166.0 deploy
+```
+
+Configure the ordinary `ALLOWED_ORIGINS` variable in `wrangler.toml` before
+deploying. The supplied origins include Pages and the existing private Sites
+trial. Local HTTP localhost/127.0.0.1 ports are also allowed by the handler.
+Optionally set `SYMBOL_ALLOWLIST`; otherwise any valid US symbol is accepted.
+The `YAHOO_RATE_LIMIT` binding is configured at 30 requests/minute per IP per
+Cloudflare location. Change namespace ID 1001 if it conflicts with another
+Worker on the account. The bridge needs no Yahoo login, key, or secret.
+Wrangler deployment needs the owner's Cloudflare login or an appropriately
+scoped CI `CLOUDFLARE_API_TOKEN`; never put a token in source or browser env.
+
+After Wrangler reports the actual workers.dev URL:
+
+1. Set GitHub repository **Settings → Secrets and variables → Actions →
+   Variables** `VITE_YAHOO_BRIDGE_URL` to its full
+   `https://<name>.<account>.workers.dev/api/yahoo-chart` URL.
+2. Manually dispatch the existing Pages workflow on `main` when the public
+   release hold is cleared. Pushes still do not deploy. For the private Sites
+   trial, supply the same variable to its separate static build and deploy
+   through the existing private Sites process, preserving its audience.
+3. On an isolated origin with anonymous records, check desktop and narrow
+   layouts, actual source labels, completed holdings closes, and both adjusted
+   benchmarks. With the bridge unavailable, verify Eastmoney fallback. Never
+   test the real ledger on port 5224. Mock unit tests are not live Yahoo proof.
+
+Unset the variable and rebuild to use only the existing static price path.
+Publishing Worker code is separate from enabling it in an existing frontend.
+Implementation and a dry run do not establish a deployed Worker URL or live
+Yahoo coverage. See [bridge controls and retry policy](YAHOO_FINANCE.md).
+
+`npm test`, `npm run lint`, and both web build commands also cover the Worker
+tests, lint, and TypeScript checks; no second dependency installation is needed.
+
+On 2026-11-23 Wrangler 4.166.0 dry-run bundled this Worker and its rate-limit
+binding successfully. Wrangler whoami reported no authenticated account, so
+the Worker has not been deployed and no production bridge URL is configured.
+The existing Sites trial remains on its previous static release.

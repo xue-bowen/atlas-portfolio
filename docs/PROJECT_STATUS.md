@@ -4,7 +4,7 @@
 
 Latest stable feature checkpoint before this development iteration:
 
-`f237502 feat: record share splits and launch private trial`
+`d677fd5 fix: request full Yahoo daily history with epoch bounds`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -943,10 +943,31 @@ passing tests; after fixing the Node ESM import extension, all 20 Yahoo/bridge
 tests, the production build, and lint passed again. A direct live request using
 the new bounds timed out after 10 seconds on this network; successful live
 Yahoo access reported by Grokbot is separate user-supplied evidence. The first
-hosted trial continues with Eastmoney/Frankfurter. Optional Cloudflare bridge
-deployment is deferred under the owner's written local-Yahoo-first direction;
+hosted trial continues with Eastmoney/Frankfurter. The subsequent owner request
+explicitly adopts the attached full Cloudflare Worker implementation plan;
 the Pages workflow can receive a bridge URL from a repository variable and
 still runs only on manual dispatch. See [Yahoo implementation notes](YAHOO_FINANCE.md).
+
+The optional Worker now shares the local bridge's upstream implementation:
+explicit daily epoch bounds and Atlas User-Agent, one request-local anonymous
+A3/crumb retry after 401/403, no retry on 429, one 10-second total deadline,
+streaming 8 MB byte limit, and no redirects/browser credential forwarding.
+The Worker adds exact-origin CORS/preflight, optional symbol allowlist,
+15-minute successful-body cache keyed by symbol/UTC date, and the Cloudflare
+per-IP rate-limit binding. Tests, lint, and type checks are part of the web
+commands. Default production builds remain Eastmoney/Frankfurter until a real
+deployed bridge URL is configured and the frontend rebuilt. No Google adapter,
+ledger change, or market-price CSV UI is added by this iteration.
+
+All 196 tests, both production builds, and lint passed. Wrangler 4.166.0 dry-run
+bundled the Worker successfully. Local Worker port 8795 passed allowed CORS
+preflight and invalid-origin/query checks. Yahoo still returned upstream 403;
+the anonymous client on port 5281 fell back to real Eastmoney holdings and
+both adjusted benchmarks. Desktop 1440 and mobile 390 had no horizontal
+overflow, no captured console warnings/errors, and reload retained the five
+events, NVDA mapping, and 19-share position. Wrangler reports no authenticated account, so deployment and the
+production bridge URL remain pending Cloudflare login. The hosted frontend
+has not been redeployed by this backend iteration.
 
 The owner-only [Sites trial](https://atlas-portfolio.schneider200con.chatgpt.site)
 was deployed successfully on 2026-11-23. The isolated release packet contains
@@ -968,5 +989,8 @@ Preserve owner-only access until the owner specifies the broader audience.
 Keep the market CSV browser control deferred and Yahoo optional for the
 verified static path. Re-run release checks after functional changes and keep
 source publication separate from trial sharing.
+The Worker code is ready for the owner's Cloudflare login/deployment; configure
+the actual URL at build time and run anonymous live checks before enabling it
+in the private trial or clearing the public market-data gate.
 A focused manual ledger review and local JSON backup remain required before
 substantial real history.

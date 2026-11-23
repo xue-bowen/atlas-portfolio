@@ -1,5 +1,5 @@
 import type { Connect, Plugin } from "vite";
-import { buildYahooChartUpstreamUrl, isYahooChartSymbol } from "./yahooChartRequest.ts";
+import { fetchYahooChartJson, isYahooChartSymbol, YahooChartRequestError } from "./yahooChartRequest.ts";
 
 /** Fixed upstream and query: this endpoint cannot proxy arbitrary URLs. */
 export function createYahooChartMiddleware(fetcher: typeof fetch = fetch): Connect.NextHandleFunction {
@@ -23,22 +23,12 @@ export function createYahooChartMiddleware(fetcher: typeof fetch = fetch): Conne
       return fail(400, "A single US security symbol is required.");
     }
     try {
-      const upstream = buildYahooChartUpstreamUrl(symbol);
-      const result = await fetcher(upstream, {
-        headers: { Accept: "application/json" }, signal: AbortSignal.timeout(10000),
-      });
-      if (!result.ok) return fail([401, 403, 429].includes(result.status) ? result.status : 502,
-        `Yahoo Finance returned HTTP ${result.status}.`);
-      const body = await result.text();
-      if (body.length > 8_000_000) return fail(502, "Yahoo Finance response exceeds the daily-series limit.");
-      const parsed: unknown = JSON.parse(body);
-      if (typeof parsed !== "object" || parsed === null || !("chart" in parsed)) {
-        return fail(502, "Yahoo Finance did not return chart JSON.");
-      }
+      const body = await fetchYahooChartJson(symbol, fetcher);
       response.statusCode = 200;
-      response.end(JSON.stringify(parsed));
-    } catch {
-      fail(502, "Unable to fetch valid Yahoo Finance daily data.");
+      response.end(body);
+    } catch (error) {
+      fail(error instanceof YahooChartRequestError ? error.status : 502,
+        error instanceof YahooChartRequestError ? error.message : "Unable to fetch valid Yahoo Finance daily data.");
     }
   };
 }
