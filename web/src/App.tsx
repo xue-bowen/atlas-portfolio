@@ -39,6 +39,7 @@ import {
   type LedgerLoadResult,
 } from "./data/migrateLegacyLedger";
 import { EastmoneyUsEodProvider } from "./data/providers/eastmoneyUsEodProvider";
+import { EastmoneyBenchmarkPriceSource } from "./data/providers/eastmoneyBenchmarkPriceSource";
 import { YahooFinanceDailyProvider } from "./data/providers/yahooFinanceDailyProvider";
 import { FallbackSecurityQuoteProvider } from "./data/providers/fallbackSecurityQuoteProvider";
 import { FrankfurterFxProvider } from "./data/providers/frankfurterFxProvider";
@@ -1275,7 +1276,10 @@ export default function App() {
         points[0].date,
         points.at(-1)!.date,
         importedMarketPriceStore,
-        sources.adjustedPrices,
+        [
+          ...(sources.adjustedPrices ? [sources.adjustedPrices] : []),
+          new EastmoneyBenchmarkPriceSource(points[0].date, points.at(-1)!.date),
+        ],
       );
       if (usdTwrRequestId.current !== requestId) return;
       setUsdTwrState({

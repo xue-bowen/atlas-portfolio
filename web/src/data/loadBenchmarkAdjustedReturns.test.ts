@@ -100,4 +100,18 @@ describe("loadBenchmarkAdjustedReturns", () => {
     }, { async getLatestOnOrBefore() { throw new Error("Should not use automatic source."); } });
     expect(results.every((result) => result.status === "READY")).toBe(true);
   });
+
+  it("never mixes partial endpoints across two automatic providers", async () => {
+    const results = await loadBenchmarkAdjustedReturns("2026-01-02", "2026-01-07", {
+      async getLatestOnOrBefore() { return undefined; },
+    }, [
+      { label: "First partial", async getLatestOnOrBefore(security, date) {
+        return date === "2026-01-02" ? { security, date, adjustedCloseUsd: 90 } : undefined;
+      } },
+      { label: "Second partial", async getLatestOnOrBefore(security, date) {
+        return date === "2026-01-07" ? { security, date, adjustedCloseUsd: 99 } : undefined;
+      } },
+    ]);
+    expect(results.every((result) => result.status === "UNAVAILABLE")).toBe(true);
+  });
 });

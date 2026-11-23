@@ -4,7 +4,7 @@
 
 Latest stable feature checkpoint before this development iteration:
 
-`95594b1 feat: compare IVV and QQQ using adjusted closes`
+`f9bb630 feat: add Yahoo daily quotes and adjusted benchmarks`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -12,7 +12,7 @@ Windows local path:
 
 `C:\Users\28301\atlas-portfolio`
 
-Last updated: 2026-11-17
+Last updated: 2026-11-23
 
 The working tree was clean after the latest commit. Personal ledger data is
 browser-local and is never committed to GitHub.
@@ -248,8 +248,8 @@ browser-local and is never committed to GitHub.
   the ledger or security profiles hides a stale result until recalculation.
 - The same calculation compares IVV and QQQ using dividend/split-adjusted USD
   daily closes. Complete local adjusted endpoints are preferred; otherwise the
-  configured Yahoo source supplies both endpoints from one series. Each
-  benchmark shows its source, actual close dates, and availability. Missing
+  configured Yahoo source, then Eastmoney, supply both endpoints from one
+  series. Each benchmark shows its source, actual close dates, and availability. Missing
   adjustments never fall back to ordinary price returns. The browser CSV
   import control remains deferred.
 - Yahoo Finance daily-price adapter and same-origin local Vite bridge for
@@ -262,6 +262,13 @@ browser-local and is never committed to GitHub.
   benchmark Adj Close is kept separately. Yahoo quote failures fall back to
   the existing Eastmoney path and cache. Local development enables the bridge;
   production requires explicit `VITE_YAHOO_BRIDGE_URL` configuration.
+- Automatic Eastmoney forward-adjusted IVV/QQQ benchmark history as a complete
+  pair fallback after local observations and optional Yahoo. One range request
+  per symbol serves both endpoints; identity, market, dates, ordering, positive
+  adjustments, completed-session cutoff, and ending coverage are validated.
+  Adjusted observations are benchmark-only and never replace ordinary holdings
+  closes. The default static production build can use this path without a
+  Yahoo bridge. Live browser requests were verified on 2026-11-23.
 - Complete USD TWR points also render as a responsive 100-base growth-index
   line with calendar-spaced dates. The chart is shown only after every required
   historical valuation input has loaded successfully.
@@ -827,11 +834,11 @@ For each small feature:
 
 The remaining public-release workstreams are:
 
-1. Verify a reachable automatic market-data path with real provider responses.
-   The owner permits Google/Yahoo sources for non-commercial development. The
-   Yahoo adapter and local bridge exist, but live requests currently return
-   HTTP 403. Static Pages cannot host the bridge; a reachable backend still
-   needs deployment preparation. The browser CSV import control stays deferred.
+1. Extend the verified Eastmoney path from the tested anonymous cash-only
+   sample to representative current and closed holdings with historical prices
+   and FX. The static production build now retrieves adjusted IVV/QQQ data
+   directly; Yahoo still returns HTTP 403 and remains optional. The browser
+   CSV import control stays deferred.
 2. Verify complete historical price and FX coverage, current holdings
    valuation, USD TWR, and IVV/QQQ adjusted comparisons with anonymous data.
 3. Complete the clean-browser desktop/mobile release test and publication
@@ -863,10 +870,28 @@ are fixture checks, not successful live Yahoo retrieval. The real bridge on
 port 5272 returned HTTP 403 as expected. Temporary servers and the fixture
 script were removed afterward; port 5224 was not opened or modified.
 
-The regression suite now has 130 passing deterministic tests, including the
-new adapter, safe fixed-upstream bridge, split handling, current-session
-exclusion, provider failure/fallback, and consistent benchmark endpoints.
-Production build and lint pass.
+On isolated port 5274, the normal production build used real Eastmoney and
+Frankfurter responses for an anonymous CNY 1,000 deposit dated 2025-09-02.
+USD TWR was 6.98% through 2026-11-22; IVV and QQQ adjusted reference returns
+were 9.42% and 8.20%, using closes dated 2025-09-02 and 2026-11-20. Both
+benchmark cards named Eastmoney. Desktop 1440 px and mobile 390 px had no
+horizontal overflow or console warnings/errors. Refresh retained the deposit
+and recalculation reproduced the results. No synthetic market responses or
+Yahoo backend were used in this check. The temporary tab and server were
+closed afterward; port 5224 was not opened or modified.
+
+Live September 2025 raw-versus-forward-adjusted samples showed dividend-date
+adjustment changes, including IVV's issuer-published 2025-09-16 distribution.
+The benchmark is a provider-adjusted reference ratio, subject to provider
+precision and adjustment rules. See [performance rules](PERFORMANCE_METRICS.md).
+The verified sample does not establish full coverage of every holding, long
+history, or corporate action.
+
+The regression suite now has 145 passing deterministic tests. It includes the
+Eastmoney adjusted source, same-series multi-provider pair selection, rejection
+of partial/malformed history, completed-session exclusion, and batch request
+deduplication, alongside the previous ledger/Yahoo/bridge coverage. Production
+build and lint pass.
 
 Complete market data remains required before public deployment or opening the
 repository. The site and repository were not published in this iteration.
@@ -877,13 +902,13 @@ remains intact.
 
 ## Next task
 
-Verify a normally reachable Yahoo endpoint/bridge or another technically
-usable free source with actual current/historical prices and IVV/QQQ adjusted
-observations. Do not mistake the implemented local bridge or synthetic tests
-for a successful live-data connection. Then prepare the appropriate hosting
-path: GitHub Pages alone cannot serve the Yahoo backend. Keep the browser CSV
-import control deferred, and complete anonymous release checks before public
-deployment. Ledger-side split/corporate-action support remains a limitation
-for positions spanning those events.
+Verify the now-reachable automatic path with representative anonymous current
+and closed holdings, including dated ordinary closes and FX coverage, rather
+than only the cash-only benchmark sample. Keep the browser CSV control
+deferred. Then complete backup/restore and clean-browser release checks for
+the static hosting path before publishing. Yahoo hosting is optional for the
+verified Eastmoney path. Ledger-side split/corporate-action support remains a
+limitation for positions spanning those events; complete data readiness is
+still required before public deployment.
 A focused manual ledger review and local JSON backup remain required before
 substantial real history.

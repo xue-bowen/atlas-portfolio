@@ -142,6 +142,37 @@ or non-finite chained values invalidate the series. A zero closing NAV can
 represent a total loss or full exit, but no later period can be calculated from
 it without a new positive-NAV anchor.
 
+## IVV/QQQ adjusted benchmark returns
+
+Each benchmark reports `end adjusted close / start adjusted close - 1`, in
+USD, with the actual close dates and selected source. A non-trading date uses
+the latest available earlier close. This is a provider-adjusted reference
+return, subject to the provider's adjustment rules and price precision; it is
+not a claim to exactly reproduce an issuer's published total-return series.
+
+Sources are tried in order: complete local imported adjustments, Yahoo Finance
+when configured, then Eastmoney forward-adjusted daily bars (`fqt=1`). A source
+must supply both valid endpoints. Partial local, Yahoo, and Eastmoney series
+are never combined in one ratio. One Eastmoney request per symbol supplies the
+whole requested period, so both endpoints use the same adjustment basis.
+Current-session bars are excluded until 16:15 New York time. Missing start
+coverage, invalid rows, or an ending series more than 14 calendar days behind
+the requested completed end leave that source unavailable.
+
+Eastmoney benchmark observations carry adjusted values only; they cannot be
+used as ordinary holdings quotes. Holdings continue to use `fqt=0` through the
+existing quote service. Adjusted series are shared only within a calculation
+batch and are fetched again on recalculation, allowing revised adjustments.
+
+On 2026-11-23, live raw-versus-adjusted samples showed changes in the adjustment
+factor on IVV's 2025-09-16 distribution date and QQQ's 2025-09-22 distribution
+date. IVV's date and distribution were cross-checked against the
+[issuer's distribution table](https://www.ishares.com/us/products/239726/ishares-core-sp-500-etf).
+QQQ's date was also visible in
+[Yahoo's published historical table](https://uk.finance.yahoo.com/quote/QQQ/history/).
+These sample checks support dividend adjustment for the tested periods; they
+do not establish complete corporate-action accuracy for every historical date.
+
 ## Recalculation
 
 The ledger remains the source of truth. Prices, rates, and daily snapshots are
@@ -179,5 +210,5 @@ date, a CNY 350 cash deposit at USD/CNY 7, a USD 20 in-kind contribution, and a
 CNY 70 withdrawal net to USD +60. If closing NAV is USD 181, its pre-flow NAV
 is USD 121; the second subperiod return is 10%, and the linked index is 121.
 
-Chart presentation and benchmark alignment remain separate steps. Public-version
-benchmark comparison is limited to IVV and QQQ.
+Public-version benchmark comparison is limited to IVV and QQQ, using the
+source and alignment rules above.

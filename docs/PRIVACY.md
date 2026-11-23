@@ -24,7 +24,7 @@ The browser makes direct HTTPS requests to third-party market-data services:
 | Service | Request data | Purpose |
 | --- | --- | --- |
 | Frankfurter (`api.frankfurter.dev`) | Currency pairs and requested dates | Reference FX rates for valuation |
-| Eastmoney (`push2his.eastmoney.com`) | Mapped security symbols and requested dates | US closing-price lookup |
+| Eastmoney (`push2his.eastmoney.com`) | Mapped security symbols and requested dates/ranges | Ordinary US holdings closes and adjusted IVV/QQQ benchmark history |
 | Yahoo Finance bridge (local `/api/yahoo-chart`, or configured host) | Mapped security symbol | Current/historical US daily closes and adjusted benchmark prices; the bridge contacts `query1.finance.yahoo.com` |
 | TradingView (`tradingview.com`) | A symbol in the opened URL, only after clicking a chart link | External market chart |
 

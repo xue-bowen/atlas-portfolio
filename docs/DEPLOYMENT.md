@@ -1,12 +1,15 @@
 # GitHub Pages release preparation
 
-**Release hold (2026-11-17):** the owner requires complete market data before
+**Release hold (2026-11-23):** the owner requires complete market data before
 the repository or site becomes public, and approved technically usable free
 Google/Yahoo sources for non-commercial prototype development. The Yahoo
-adapter and local bridge are implemented, but current live requests return
-HTTP 403. Static GitHub Pages cannot run that bridge; a reachable hosted
-bridge would need `VITE_YAHOO_BRIDGE_URL` at build time. See
-[Yahoo Finance setup](YAHOO_FINANCE.md). The CSV browser control remains deferred.
+adapter and local bridge are implemented, but current Yahoo requests return
+HTTP 403. Eastmoney ordinary closes and automatic adjusted IVV/QQQ comparisons
+now work in the tested production-browser sample without a backend. A Yahoo
+bridge is therefore optional for that static path; if used, it still needs
+separate hosting and `VITE_YAHOO_BRIDGE_URL` at build time. See
+[source setup](YAHOO_FINANCE.md). Broader holdings/history coverage and release
+checks remain required. The CSV browser control remains deferred.
 
 The website build is static. No ledger or backup file is part of the build:
 the browser starts with anonymous demo data until a user creates a local

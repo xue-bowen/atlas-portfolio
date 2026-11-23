@@ -1,6 +1,6 @@
 # Yahoo Finance daily-price adapter
 
-Updated: 2026-11-17.
+Updated: 2026-11-23.
 
 The owner approved Google/Yahoo Finance and other technically usable free
 sources for this non-commercial prototype. Continue implementation on that
@@ -23,9 +23,12 @@ provider's identity. A manual refresh creates a new batch and retries Yahoo.
 
 Historical CSV observations remain preferred when present. Benchmark
 calculations use both locally imported adjusted endpoints if available;
-otherwise both endpoints come from the same Yahoo series. They never mix an
-imported adjustment with an automatic provider's adjustment. Missing adjusted
-values leave the benchmark unavailable instead of substituting ordinary close.
+otherwise both endpoints come from the same Yahoo series. If Yahoo is absent,
+fails, or lacks either adjusted endpoint, both are retried using Eastmoney's
+forward-adjusted daily series. Sources are never mixed within one ratio.
+Missing adjusted values across all sources leave the benchmark unavailable
+instead of substituting ordinary close. See the
+[benchmark rules and live checks](PERFORMANCE_METRICS.md#ivvqqq-adjusted-benchmark-returns).
 
 Yahoo's split-adjusted Close is converted back to an as-traded historical
 close using the split events for holdings valuation. Adj Close remains
@@ -39,9 +42,11 @@ only earlier sessions are accepted.
 
 ## Production hosting
 
-The default production build does not assume a Yahoo backend exists. It keeps
-the existing Eastmoney path, with local adjusted observations for benchmarks.
-GitHub Pages hosts static files and cannot run the Node bridge.
+The default production build does not assume a Yahoo backend exists. It uses
+Eastmoney ordinary holdings quotes and tries local adjusted observations,
+then Eastmoney adjusted observations, for benchmarks. This path was verified
+with real browser requests on 2026-11-23 and needs no Yahoo backend.
+GitHub Pages hosts static files and cannot run the optional Node Yahoo bridge.
 
 For a host that supplies a compatible bridge, set `VITE_YAHOO_BRIDGE_URL` at
 build time to its URL. For a local production-preview check in PowerShell:
@@ -78,6 +83,12 @@ The chart response structure used here can also be inspected in the
 This is an unofficial Yahoo integration; the source-code MIT license does not
 license third-party data.
 
-The next live-data check needs a normally reachable Yahoo endpoint/bridge,
-then anonymous current holdings, dated closes, and IVV/QQQ adjusted comparisons.
-Do not treat successful fixture tests as completion of that live-data check.
+On 2026-11-23 Yahoo chart requests still returned HTTP 403. Eastmoney ordinary
+and adjusted daily endpoints returned HTTP 200; the adjusted response allowed
+browser requests with `Access-Control-Allow-Origin: *`. A production-browser
+check with an anonymous CNY 1,000 deposit used real historical FX and adjusted
+benchmarks from 2025-09-02 through the 2026-11-20 security close. IVV showed
+9.42% and QQQ 8.20%, with Eastmoney source labels. This was repeated on mobile
+after refresh. The live Yahoo path remains unverified; it is no longer needed
+for this tested automatic benchmark path. Broader holdings/history coverage
+and release checks remain outstanding.
