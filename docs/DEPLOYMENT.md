@@ -5,11 +5,14 @@ the repository or site becomes public, and approved technically usable free
 Google/Yahoo sources for non-commercial prototype development. The Yahoo
 adapter and local bridge are implemented, but current Yahoo requests return
 HTTP 403. Eastmoney ordinary closes and automatic adjusted IVV/QQQ comparisons
-now work in the tested production-browser sample without a backend. A Yahoo
+now work in the tested production-browser sample without a backend. The
+representative holdings and export/restore checks also pass on the Pages
+production path; see [repeatable release check](RELEASE_CHECK.md). A Yahoo
 bridge is therefore optional for that static path; if used, it still needs
 separate hosting and `VITE_YAHOO_BRIDGE_URL` at build time. See
-[source setup](YAHOO_FINANCE.md). Broader holdings/history coverage and release
-checks remain required. The CSV browser control remains deferred.
+[source setup](YAHOO_FINANCE.md). Ledger-side split/corporate-action handling
+and final publication checks remain required. The CSV browser control remains
+deferred.
 
 The website build is static. No ledger or backup file is part of the build:
 the browser starts with anonymous demo data until a user creates a local
@@ -41,7 +44,8 @@ Before the first public deployment:
    from `main`. Confirm the deployment URL reported by the job.
 5. Open the site in a clean desktop browser and a clean phone-sized browser,
    enter only anonymous records, test backup/restore, refresh, and check the
-   console and layout. Do not import a real personal ledger into that test.
+   console and layout. Use [the release fixture and reconciliation rules](RELEASE_CHECK.md).
+   Do not import a real personal ledger into that test.
 
 Local production-path smoke test from `web`:
 

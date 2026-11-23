@@ -4,7 +4,7 @@
 
 Latest stable feature checkpoint before this development iteration:
 
-`f9bb630 feat: add Yahoo daily quotes and adjusted benchmarks`
+`9a14e11 feat: fall back to Eastmoney adjusted benchmarks`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -834,15 +834,14 @@ For each small feature:
 
 The remaining public-release workstreams are:
 
-1. Extend the verified Eastmoney path from the tested anonymous cash-only
-   sample to representative current and closed holdings with historical prices
-   and FX. The static production build now retrieves adjusted IVV/QQQ data
-   directly; Yahoo still returns HTTP 403 and remains optional. The browser
-   CSV import control stays deferred.
-2. Verify complete historical price and FX coverage, current holdings
-   valuation, USD TWR, and IVV/QQQ adjusted comparisons with anonymous data.
-3. Complete the clean-browser desktop/mobile release test and publication
-   checks before opening the private repository or public site.
+1. Complete ledger-side split/corporate-action handling for holdings whose
+   history spans those events, then verify such a portfolio with anonymous
+   records. Ordinary/adjusted automatic prices already have a verified static
+   path; Yahoo remains optional and the browser CSV control stays deferred.
+2. Finish the current source/history/dependency and hosting publication checks.
+   Repeat the anonymous release check after any further functional change.
+3. Clear the complete-market-data gate before opening the private repository
+   or publishing the site; verify the actual deployment on desktop/mobile.
 
 As of 2026-11-16, the tracked filename history contains source, documentation,
 and anonymous examples only. A pattern scan of 259 historical text blobs found
@@ -850,8 +849,8 @@ no private-key blocks or common GitHub/API token shapes; its only email-like
 match was the repository's `git@github.com` URL. Binary assets and arbitrary
 secret formats are outside that pattern scan. The current unused scaffold
 assets have been removed from the tip, but they remain in earlier Git history.
-Production dependencies have zero reported npm audit vulnerabilities; the full
-development-tool audit currently reports 19 advisories.
+Production dependencies had zero reported npm audit vulnerabilities; the full
+development-tool audit reported 19 advisories on 2026-11-16.
 
 The 2026-11-17 direction is to continue the non-commercial prototype with
 technically usable free sources, including Google/Yahoo Finance. Provider
@@ -887,11 +886,31 @@ precision and adjustment rules. See [performance rules](PERFORMANCE_METRICS.md).
 The verified sample does not establish full coverage of every holding, long
 history, or corporate action.
 
-The regression suite now has 145 passing deterministic tests. It includes the
+The previous iteration had 145 passing deterministic tests. It includes the
 Eastmoney adjusted source, same-series multi-provider pair selection, rejection
 of partial/malformed history, completed-session exclusion, and batch request
 deduplication, alongside the previous ledger/Yahoo/bridge coverage. Production
-build and lint pass.
+build and lint passed.
+
+The 2026-11-23 release check extended the live production path to an anonymous
+portfolio with IVV partially sold, MSFT fully closed, and KO still held,
+including a share reward, dividends, fees, USD/CNY conversions, a withdrawal,
+and HKD/USD interest. All 14 historical snapshots had ordinary prices and FX;
+both adjusted benchmarks were available. Current NAV CNY 96,769.02 reconciled
+independently to displayed live prices and FX; USD TWR was 8.27%. The actual
+exported JSON restored all 14 events and 3 profiles on a fresh origin, including
+the closed MSFT mapping, and survived reload/recalculation. Desktop 1440 px
+and phone 390 px passed without page overflow or console warnings/errors.
+See [the fixture, expected balances, and complete live check](RELEASE_CHECK.md).
+
+Ordinary Eastmoney quotes now share the benchmarks' completed-US-session
+ceiling (16:15 New York time). The history calculation also respects it,
+avoiding unfinished-session snapshots in Asian time zones. Old intraday or
+unfinished-request-date Eastmoney cache entries are ignored and re-fetched;
+they cannot reappear as stale fallback. Provider requests have a 15-second
+timeout. The suite now has 158 passing tests, including summer/winter cutoff
+and old-cache regression cases. Both production builds and lint pass, and
+the 2026-11-23 production dependency audit reports zero vulnerabilities.
 
 Complete market data remains required before public deployment or opening the
 repository. The site and repository were not published in this iteration.
@@ -902,13 +921,13 @@ remains intact.
 
 ## Next task
 
-Verify the now-reachable automatic path with representative anonymous current
-and closed holdings, including dated ordinary closes and FX coverage, rather
-than only the cash-only benchmark sample. Keep the browser CSV control
-deferred. Then complete backup/restore and clean-browser release checks for
-the static hosting path before publishing. Yahoo hosting is optional for the
-verified Eastmoney path. Ledger-side split/corporate-action support remains a
-limitation for positions spanning those events; complete data readiness is
-still required before public deployment.
+Add the smallest complete ledger-side share-split flow, preserving total cost
+while changing quantity and average cost from the effective date. It needs
+timeline validation, backup compatibility, and anonymous historical valuation
+checks across the split. Other corporate actions remain explicit limits.
+Keep the market CSV browser control deferred. Then finish publication checks
+and repeat the production-path release check before publishing; Yahoo hosting
+is optional for the verified Eastmoney path. Complete data readiness remains
+required before public deployment.
 A focused manual ledger review and local JSON backup remain required before
 substantial real history.

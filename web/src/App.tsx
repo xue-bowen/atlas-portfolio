@@ -72,6 +72,7 @@ import type { FxRateRequest, MarketDataAssetType } from "./domain/marketData";
 import { removeLedgerEvent } from "./domain/removeLedgerEvent";
 import { previewLedgerMerge, type LedgerMergePreview } from "./domain/previewLedgerMerge";
 import { selectUsdTwrSnapshotDates } from "./domain/selectUsdTwrSnapshotDates";
+import { completedUsCloseDate } from "./domain/completedUsCloseDate";
 
 const usd = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -1219,7 +1220,8 @@ export default function App() {
   }
 
   async function calculateHistoricalUsdTwr() {
-    const dates = selectUsdTwrSnapshotDates(ledger, previousLocalDate());
+    const endingDate = [previousLocalDate(), completedUsCloseDate()].sort()[0];
+    const dates = selectUsdTwrSnapshotDates(ledger, endingDate);
     if (dates.length < 2) {
       setUsdTwrState({
         status: "UNAVAILABLE",

@@ -6,6 +6,7 @@ import {
   type SecurityQuoteProvider,
   type SecurityQuoteRequest,
 } from "../../domain/marketData";
+import { completedUsCloseDate } from "../../domain/completedUsCloseDate";
 
 const EASTMONEY_US_DAILY_URL =
   "https://push2his.eastmoney.com/api/qt/stock/kline/get";
@@ -130,12 +131,21 @@ export class EastmoneyUsEodProvider implements SecurityQuoteProvider {
       );
     }
 
+    const completedDate = completedUsCloseDate(this.now());
+    if (request.date && request.date > completedDate) {
+      throw new MarketDataProviderError(
+        this.id,
+        "NOT_SUPPORTED",
+        "The requested US daily close is not complete yet.",
+      );
+    }
+    const endingDate = request.date ?? completedDate;
     const parameters = new URLSearchParams({
       secid: `${marketId}.${symbol}`,
       klt: "101",
       fqt: "0",
       lmt: request.date ? "1" : "10",
-      end: request.date?.replaceAll("-", "") ?? "20500101",
+      end: endingDate.replaceAll("-", ""),
       fields1: "f1,f2,f3,f4,f5,f6",
       fields2: "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61",
     });
@@ -144,7 +154,7 @@ export class EastmoneyUsEodProvider implements SecurityQuoteProvider {
     try {
       response = await this.fetchFunction(
         `${EASTMONEY_US_DAILY_URL}?${parameters.toString()}`,
-        { headers: { Accept: "application/json" } },
+        { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(15000) },
       );
     } catch {
       throw new MarketDataProviderError(
@@ -196,7 +206,7 @@ export class EastmoneyUsEodProvider implements SecurityQuoteProvider {
     if (
       !marketDate ||
       !isCalendarDate(marketDate) ||
-      (request.date !== undefined && marketDate > request.date) ||
+      marketDate > endingDate ||
       !Number.isFinite(price) ||
       price <= 0
     ) {

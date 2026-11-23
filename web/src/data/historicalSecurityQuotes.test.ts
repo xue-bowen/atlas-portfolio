@@ -94,6 +94,39 @@ describe("dated security closing prices", () => {
     expect(result.isDelayed).toBe(true);
   });
 
+  it.each([
+    ["2026-01-06T21:14:59Z", "20260105", "2026-01-05"],
+    ["2026-01-06T21:15:00Z", "20260106", "2026-01-06"],
+  ])("caps latest ordinary closes at the completed session at %s", async (clock, end, date) => {
+    const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(String(input));
+      expect(url.searchParams.get("end")).toBe(end);
+      expect(url.searchParams.get("fqt")).toBe("0");
+      expect(init?.signal).toBeInstanceOf(AbortSignal);
+      return new Response(JSON.stringify({ rc: 0, data: {
+        code: "IVV", market: 107, name: "Anonymous ETF", klines: [`${date},100,101`],
+      } }));
+    });
+    const provider = new EastmoneyUsEodProvider(fetcher, () => new Date(clock));
+    expect((await provider.getSecurityQuote({ security })).marketTimestamp).toBe(`${date}T00:00:00.000Z`);
+  });
+
+  it("rejects an unfinished requested date before it can become a permanent historical cache entry", async () => {
+    const fetcher = vi.fn();
+    const provider = new EastmoneyUsEodProvider(fetcher, () => new Date("2026-01-06T21:10:00Z"));
+    await expect(provider.getSecurityQuote({ security, date: "2026-01-06" }))
+      .rejects.toMatchObject({ code: "NOT_SUPPORTED" });
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it("rejects an unfinished daily bar even if the source ignores the ending date", async () => {
+    const fetcher = vi.fn(async () => new Response(JSON.stringify({ rc: 0, data: {
+      code: "IVV", market: 107, name: "Anonymous ETF", klines: ["2026-01-06,100,101"],
+    } })));
+    const provider = new EastmoneyUsEodProvider(fetcher, () => new Date("2026-01-06T20:00:00Z"));
+    await expect(provider.getSecurityQuote({ security })).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
+  });
+
   it("rejects an invalid historical date or a future-dated provider bar", async () => {
     const fetcher = vi.fn(async () =>
       new Response(
@@ -141,6 +174,37 @@ describe("dated security closing prices", () => {
     expect(latest.status).toBe("PROVIDER_FRESH");
     expect(requests).toEqual(["2026-01-11", undefined]);
     expect(cache.records.size).toBe(2);
+  });
+
+  it.each(["2026-01-05", "2026-01-06"])("re-fetches old unfinished-date cache entries containing a %s bar", async (barDate) => {
+    const cache = new MemoryCache();
+    const key = createSecurityQuoteCacheKey(security, "2026-01-06");
+    await cache.put({ key, expiresAt: "9999-12-31T23:59:59.999Z", value: {
+      ...quote(barDate, 100), provider: "eastmoney-us-eod", fetchedAt: "2026-01-06T21:10:00Z",
+    } });
+    const provider: SecurityQuoteProvider = {
+      id: "eastmoney-us-eod",
+      getSecurityQuote: vi.fn(async () => ({
+        ...quote("2026-01-06", 101), provider: "eastmoney-us-eod", fetchedAt: "2026-01-07T00:00:00Z",
+      })),
+    };
+    const service = new CachedSecurityQuoteService(cache, provider, { now: () => new Date("2026-01-07T00:00:00Z") });
+    const result = await service.getSecurityQuote({ security, date: "2026-01-06" });
+    expect(result.status).toBe("PROVIDER_FRESH");
+    expect(result.quote.price).toBe(101);
+    expect(provider.getSecurityQuote).toHaveBeenCalledTimes(1);
+  });
+
+  it("never returns an old intraday bar as stale fallback when the source fails", async () => {
+    const cache = new MemoryCache();
+    await cache.put({ key: createSecurityQuoteCacheKey(security), expiresAt: "9999-12-31T23:59:59.999Z", value: {
+      ...quote("2026-01-06", 100), provider: "eastmoney-us-eod", fetchedAt: "2026-01-06T20:00:00Z",
+    } });
+    const provider: SecurityQuoteProvider = {
+      id: "eastmoney-us-eod", async getSecurityQuote() { throw new Error("Anonymous outage"); },
+    };
+    const service = new CachedSecurityQuoteService(cache, provider);
+    await expect(service.getSecurityQuote({ security })).rejects.toThrow("Anonymous outage");
   });
 
   it("does not cache a mismatched or future-dated provider result", async () => {

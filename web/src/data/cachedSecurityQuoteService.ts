@@ -11,6 +11,7 @@ import {
   type MarketDataCacheHit,
   type MarketDataCacheRecord,
 } from "./marketDataCache";
+import { completedUsCloseDate } from "../domain/completedUsCloseDate";
 
 export const DEFAULT_SECURITY_QUOTE_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
 const PERMANENT_HISTORICAL_QUOTE_EXPIRY = "9999-12-31T23:59:59.999Z";
@@ -62,6 +63,17 @@ function normalized(value: string): string {
   return value.trim().toUpperCase();
 }
 
+function wasCompletedWhenFetched(quote: SecurityQuote, request: SecurityQuoteRequest): boolean {
+  if (quote.provider !== "eastmoney-us-eod") return true;
+  const fetchedAt = new Date(quote.fetchedAt);
+  if (!Number.isFinite(fetchedAt.getTime())) return false;
+  const completedDate = completedUsCloseDate(fetchedAt);
+  // Older app versions could cache an intraday bar, or permanently associate
+  // yesterday's close with an unfinished requested date. Re-fetch those rows.
+  return quote.marketTimestamp.slice(0, 10) <= completedDate &&
+    (request.date === undefined || request.date <= completedDate);
+}
+
 function matchingCachedSecurityQuote(
   hit: MarketDataCacheHit | undefined,
   request: SecurityQuoteRequest,
@@ -79,7 +91,8 @@ function matchingCachedSecurityQuote(
     !isCalendarDate(hit.value.marketTimestamp.slice(0, 10)) ||
     !Number.isFinite(Date.parse(hit.value.marketTimestamp)) ||
     (request.date !== undefined &&
-      hit.value.marketTimestamp.slice(0, 10) > request.date)
+      hit.value.marketTimestamp.slice(0, 10) > request.date) ||
+    !wasCompletedWhenFetched(hit.value, request)
   ) {
     return undefined;
   }
@@ -205,7 +218,8 @@ export class CachedSecurityQuoteService {
         !isCalendarDate(providerQuote.marketTimestamp.slice(0, 10)) ||
         !Number.isFinite(Date.parse(providerQuote.marketTimestamp)) ||
         (request.date !== undefined &&
-          providerQuote.marketTimestamp.slice(0, 10) > request.date)
+          providerQuote.marketTimestamp.slice(0, 10) > request.date) ||
+        !wasCompletedWhenFetched(providerQuote, request)
       ) {
         throw new MarketDataProviderError(
           this.provider.id,

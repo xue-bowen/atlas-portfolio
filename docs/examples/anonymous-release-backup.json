@@ -1,0 +1,174 @@
+{
+  "securityProfiles": [
+    {
+      "positionSymbol": "IVV",
+      "security": {
+        "currency": "USD",
+        "exchange": "NYSE ARCA",
+        "symbol": "IVV",
+        "assetType": "ETF"
+      }
+    },
+    {
+      "positionSymbol": "MSFT",
+      "security": {
+        "currency": "USD",
+        "exchange": "NASDAQ",
+        "symbol": "MSFT",
+        "assetType": "STOCK"
+      }
+    },
+    {
+      "positionSymbol": "KO",
+      "security": {
+        "currency": "USD",
+        "exchange": "NYSE",
+        "symbol": "KO",
+        "assetType": "STOCK"
+      }
+    }
+  ],
+  "ledger": [
+    {
+      "accountId": "anonymous-release",
+      "amountCny": 100000,
+      "note": "Fictional release-check transaction; not personal data or an actual execution price.",
+      "type": "CNY_DEPOSIT",
+      "id": "release-001",
+      "occurredAt": "2025-09-02"
+    },
+    {
+      "accountId": "anonymous-release",
+      "amountCny": 70000,
+      "note": "Fictional release-check transaction; not personal data or an actual execution price.",
+      "type": "FX_TO_USD",
+      "amountUsd": 10000,
+      "id": "release-002",
+      "occurredAt": "2025-09-03"
+    },
+    {
+      "occurredAt": "2025-09-04",
+      "id": "release-003",
+      "quantity": 5,
+      "accountId": "anonymous-release",
+      "type": "BUY",
+      "feeUsd": 1,
+      "priceUsd": 600,
+      "note": "Fictional release-check transaction; not personal data or an actual execution price.",
+      "symbol": "IVV"
+    },
+    {
+      "occurredAt": "2025-09-04",
+      "id": "release-004",
+      "quantity": 4,
+      "accountId": "anonymous-release",
+      "type": "BUY",
+      "feeUsd": 1,
+      "priceUsd": 500,
+      "note": "Fictional release-check transaction; not personal data or an actual execution price.",
+      "symbol": "MSFT"
+    },
+    {
+      "occurredAt": "2025-09-05",
+      "id": "release-005",
+      "quantity": 10,
+      "accountId": "anonymous-release",
+      "type": "BUY",
+      "feeUsd": 1,
+      "priceUsd": 70,
+      "note": "Fictional release-check transaction; not personal data or an actual execution price.",
+      "symbol": "KO"
+    },
+    {
+      "occurredAt": "2025-09-17",
+      "id": "release-006",
+      "withholdingTaxUsd": 1.5,
+      "accountId": "anonymous-release",
+      "type": "DIVIDEND",
+      "note": "Fictional release-check transaction; not personal data or an actual execution price.",
+      "grossAmountUsd": 10,
+      "symbol": "IVV"
+    },
+    {
+      "accountId": "anonymous-release",
+      "currency": "HKD",
+      "note": "Fictional release-check transaction; not personal data or an actual execution price.",
+      "type": "INTEREST",
+      "id": "release-007",
+      "amount": 2,
+      "occurredAt": "2025-09-18"
+    },
+    {
+      "occurredAt": "2025-09-19",
+      "id": "release-008",
+      "quantity": 2,
+      "accountId": "anonymous-release",
+      "type": "SELL",
+      "feeUsd": 1,
+      "priceUsd": 620,
+      "note": "Fictional release-check transaction; not personal data or an actual execution price.",
+      "symbol": "IVV"
+    },
+    {
+      "occurredAt": "2025-09-22",
+      "id": "release-009",
+      "quantity": 4,
+      "accountId": "anonymous-release",
+      "type": "SELL",
+      "feeUsd": 1,
+      "priceUsd": 510,
+      "note": "Fictional release-check transaction; not personal data or an actual execution price.",
+      "symbol": "MSFT"
+    },
+    {
+      "accountId": "anonymous-release",
+      "category": "OTHER",
+      "note": "Fictional release-check transaction; not personal data or an actual execution price.",
+      "type": "FEE",
+      "amountUsd": 2,
+      "id": "release-010",
+      "occurredAt": "2025-09-23"
+    },
+    {
+      "accountId": "anonymous-release",
+      "amountCny": 3500,
+      "note": "Fictional release-check transaction; not personal data or an actual execution price.",
+      "type": "FX_TO_CNY",
+      "amountUsd": 500,
+      "id": "release-011",
+      "occurredAt": "2025-09-24"
+    },
+    {
+      "accountId": "anonymous-release",
+      "amountCny": 5000,
+      "note": "Fictional release-check transaction; not personal data or an actual execution price.",
+      "type": "CNY_WITHDRAWAL",
+      "id": "release-012",
+      "occurredAt": "2025-09-25"
+    },
+    {
+      "accountId": "anonymous-release",
+      "currency": "USD",
+      "note": "Fictional release-check transaction; not personal data or an actual execution price.",
+      "type": "INTEREST",
+      "id": "release-013",
+      "amount": 5,
+      "occurredAt": "2025-09-26"
+    },
+    {
+      "occurredAt": "2025-09-29",
+      "id": "release-014",
+      "quantity": 1,
+      "accountId": "anonymous-release",
+      "type": "IN_KIND_CONTRIBUTION",
+      "source": "CASHBACK_REWARD",
+      "currency": "USD",
+      "priceUsd": 70,
+      "note": "Fictional release-check transaction; not personal data or an actual execution price.",
+      "symbol": "KO"
+    }
+  ],
+  "app": "atlas-portfolio",
+  "exportedAt": "2026-11-23T00:00:00.000Z",
+  "schemaVersion": 2
+}

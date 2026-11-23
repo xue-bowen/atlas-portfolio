@@ -7,12 +7,9 @@ import type {
   BenchmarkAdjustedObservation,
   BenchmarkAdjustedPriceSource,
 } from "../loadBenchmarkAdjustedReturns";
+import { completedUsCloseDate } from "../../domain/completedUsCloseDate";
 
 const ENDPOINT = "https://push2his.eastmoney.com/api/qt/stock/kline/get";
-const usTime = new Intl.DateTimeFormat("en-CA", {
-  timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit",
-  hour: "2-digit", minute: "2-digit", hourCycle: "h23",
-});
 
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -22,15 +19,6 @@ function daysBefore(date: string, days: number): string {
   const day = new Date(`${date}T12:00:00Z`);
   day.setUTCDate(day.getUTCDate() - days);
   return day.toISOString().slice(0, 10);
-}
-
-function completedUsDate(now: Date): string {
-  const parts = Object.fromEntries(usTime.formatToParts(now).map(({ type, value }) => [type, value]));
-  const date = `${parts.year}-${parts.month}-${parts.day}`;
-  // Conservative for early-close days too: never use the still-trading daily
-  // bar. At 16:15 New York time the normal session and delay have elapsed.
-  return Number(parts.hour) * 60 + Number(parts.minute) >= 16 * 60 + 15
-    ? date : daysBefore(date, 1);
 }
 
 /** Benchmark-only forward-adjusted prices; never supplied as holdings quotes. */
@@ -63,7 +51,7 @@ export class EastmoneyBenchmarkPriceSource implements BenchmarkAdjustedPriceSour
 
   private async download(security: SecurityIdentifier, market: number): Promise<BenchmarkAdjustedObservation[]> {
     const begin = daysBefore(this.startDate, 14);
-    const end = [this.endDate, completedUsDate(this.now())].sort()[0];
+    const end = [this.endDate, completedUsCloseDate(this.now())].sort()[0];
     if (begin > end) return [];
     const parameters = new URLSearchParams({
       secid: `${market}.${security.symbol.trim().toUpperCase()}`,
