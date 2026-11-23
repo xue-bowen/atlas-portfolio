@@ -31,6 +31,9 @@ describe("local Yahoo daily bridge", () => {
     expect(url.pathname).toBe("/v8/finance/chart/IVV");
     expect(url.searchParams.get("interval")).toBe("1d");
     expect(url.searchParams.get("events")).toBe("div,splits");
+    expect(url.searchParams.get("range")).toBeNull();
+    expect(url.searchParams.get("period1")).toBe("0");
+    expect(Number(url.searchParams.get("period2"))).toBeGreaterThan(1_700_000_000);
     expect(options.headers).toEqual({ Accept: "application/json" });
   });
 

@@ -114,12 +114,14 @@ describe("Yahoo Finance daily prices", () => {
   it("rejects non-daily data and malformed or duplicate split events", async () => {
     const weekly = anonymousSeries();
     Object.assign(weekly.chart.result[0].meta, { dataGranularity: "1wk" });
+    const monthly = anonymousSeries();
+    Object.assign(monthly.chart.result[0].meta, { dataGranularity: "1mo" });
     const invalidSplit = anonymousSeries();
     invalidSplit.chart.result[0].events.splits = { invalid: { date: 1e20, numerator: 2, denominator: 1 } };
     const duplicateSplit = anonymousSeries();
     const split = { date: seconds("2026-01-06T14:30:00Z"), numerator: 2, denominator: 1 };
     duplicateSplit.chart.result[0].events.splits = { first: split, second: split };
-    for (const body of [weekly, invalidSplit, duplicateSplit]) {
+    for (const body of [weekly, monthly, invalidSplit, duplicateSplit]) {
       const provider = new YahooFinanceDailyProvider("/api/yahoo-chart", async () => new Response(JSON.stringify(body)), now);
       await expect(provider.getSecurityQuote({ security: ivv })).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
     }

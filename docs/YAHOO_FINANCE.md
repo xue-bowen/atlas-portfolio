@@ -32,9 +32,9 @@ instead of substituting ordinary close. See the
 
 Yahoo's split-adjusted Close is converted back to an as-traded historical
 close using the split events for holdings valuation. Adj Close remains
-adjusted for the IVV/QQQ return ratio. The current ledger still does not model
-corporate-action share changes: a position spanning a split needs ledger-side
-corporate-action support before its complete portfolio history is validated.
+adjusted for the IVV/QQQ return ratio. Record the corresponding ledger split
+through Add transaction; [split support](STOCK_SPLITS.md) changes quantities
+without inventing income or cash. Price downloads do not create ledger events.
 The adapter checks security identity, exchange, USD currency, asset type,
 ordered trading dates, and positive prices. Today's session is excluded until
 15 minutes after its reported regular-session end; without that metadata,
@@ -47,6 +47,7 @@ Eastmoney ordinary holdings quotes and tries local adjusted observations,
 then Eastmoney adjusted observations, for benchmarks. This path was verified
 with real browser requests on 2026-11-23 and needs no Yahoo backend.
 GitHub Pages hosts static files and cannot run the optional Node Yahoo bridge.
+The private Sites trial also uses this static Eastmoney/Frankfurter path.
 
 For a host that supplies a compatible bridge, set `VITE_YAHOO_BRIDGE_URL` at
 build time to its URL. For a local production-preview check in PowerShell:
@@ -64,6 +65,23 @@ origin. Its public URL is build configuration, not an API key. The bridge
 accepts GET and a single validated security symbol; the upstream host, daily
 interval, and requested data types are fixed. It forwards no browser cookies,
 credentials, ledger records, quantities, or account identifiers.
+
+## Explicit daily history bounds
+
+The bridge now uses `period1=0`, `period2=floor(Date.now()/1000)`, `interval=1d`,
+and `events=div,splits`. `range=max` was removed: Yahoo can silently return
+monthly history despite a requested daily interval. The shared URL builder
+fixes the upstream host/path and validates the symbol. Tests assert the epoch
+bounds and reject monthly (`1mo`) as well as weekly series in the adapter.
+
+The owner's 2026-11-23 direction is to keep the first static release on
+Eastmoney and Frankfurter, with Yahoo as a local enhancement. The attached
+Grokbot plan also describes an optional Cloudflare Worker; that is not deployed
+or required by this release. The Pages build can receive a compatible bridge
+URL through repository variable `VITE_YAHOO_BRIDGE_URL`; an unset variable
+preserves the Eastmoney-only production path. No login, crumb/cookie retry,
+or region/rate-limit workaround was added. HTTP 401/403/429 remain explicit
+failures and trigger the existing fallback.
 
 ## Connectivity observed
 
@@ -90,5 +108,15 @@ check with an anonymous CNY 1,000 deposit used real historical FX and adjusted
 benchmarks from 2025-09-02 through the 2026-11-20 security close. IVV showed
 9.42% and QQQ 8.20%, with Eastmoney source labels. This was repeated on mobile
 after refresh. The live Yahoo path remains unverified; it is no longer needed
-for this tested automatic benchmark path. Broader holdings/history coverage
-and release checks remain outstanding.
+for this tested automatic benchmark path. Subsequent representative holdings
+and split checks are recorded below.
+
+Those HTTP 403 observations describe earlier requests, not a permanent Yahoo
+outage. Grokbot reported a successful full daily IVV response on its network;
+that report is user-supplied evidence, not an Atlas live verification. After
+the epoch-bound fix, this session's direct IVV request timed out after 10
+seconds. Successful tests establish the corrected request and granularity
+validation, while live availability remains dependent on the network and
+upstream access decisions. Complete representative holdings/split checks on
+the static path are now recorded in [release checks](RELEASE_CHECK.md) and
+[split checks](STOCK_SPLITS.md).

@@ -4,7 +4,7 @@
 
 Latest stable feature checkpoint before this development iteration:
 
-`f13f892 fix: use completed US closes for portfolio valuation`
+`f237502 feat: record share splits and launch private trial`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -934,6 +934,19 @@ History returned USD TWR 3.30%, IVV 33.20%, and QQQ 33.04%. Desktop 1440 px and
 phone 390 px passed without page overflow or console errors; the mobile split
 preview also kept total cost fixed. See [split rules and live evidence](STOCK_SPLITS.md).
 The split iteration has 172 passing tests, production builds, and lint.
+
+The Grokbot handoff identified `range=max` in the Yahoo bridge as a daily-series
+bug. It is now replaced with a shared fixed-host URL builder using `period1=0`
+and the current `period2` Unix seconds. Tests assert the exact daily parameters
+and reject monthly as well as weekly provider series. The suite reached 174
+passing tests; after fixing the Node ESM import extension, all 20 Yahoo/bridge
+tests, the production build, and lint passed again. A direct live request using
+the new bounds timed out after 10 seconds on this network; successful live
+Yahoo access reported by Grokbot is separate user-supplied evidence. The first
+hosted trial continues with Eastmoney/Frankfurter. Optional Cloudflare bridge
+deployment is deferred under the owner's written local-Yahoo-first direction;
+the Pages workflow can receive a bridge URL from a repository variable and
+still runs only on manual dispatch. See [Yahoo implementation notes](YAHOO_FINANCE.md).
 
 The owner-only [Sites trial](https://atlas-portfolio.schneider200con.chatgpt.site)
 was deployed successfully on 2026-11-23. The isolated release packet contains

@@ -1,4 +1,5 @@
 import type { Connect, Plugin } from "vite";
+import { buildYahooChartUpstreamUrl, isYahooChartSymbol } from "./yahooChartRequest.ts";
 
 /** Fixed upstream and query: this endpoint cannot proxy arbitrary URLs. */
 export function createYahooChartMiddleware(fetcher: typeof fetch = fetch): Connect.NextHandleFunction {
@@ -16,16 +17,13 @@ export function createYahooChartMiddleware(fetcher: typeof fetch = fetch): Conne
       return fail(405, "Only GET is supported.");
     }
     const symbol = url.searchParams.get("symbol") ?? "";
-    if (!/^[A-Z][A-Z0-9-]{0,19}$/.test(symbol) ||
+    if (!isYahooChartSymbol(symbol) ||
       [...url.searchParams.keys()].some((key) => key !== "symbol") ||
       url.searchParams.getAll("symbol").length !== 1) {
       return fail(400, "A single US security symbol is required.");
     }
     try {
-      const upstream = new URL(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}`);
-      upstream.search = new URLSearchParams({
-        range: "max", interval: "1d", events: "div,splits",
-      }).toString();
+      const upstream = buildYahooChartUpstreamUrl(symbol);
       const result = await fetcher(upstream, {
         headers: { Accept: "application/json" }, signal: AbortSignal.timeout(10000),
       });
