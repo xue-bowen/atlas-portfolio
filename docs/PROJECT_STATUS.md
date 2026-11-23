@@ -4,7 +4,7 @@
 
 Latest stable feature checkpoint before this development iteration:
 
-`9a14e11 feat: fall back to Eastmoney adjusted benchmarks`
+`f13f892 fix: use completed US closes for portfolio valuation`
 
 Repository: `git@github.com:xue-bowen/atlas-portfolio.git` (private)
 
@@ -834,14 +834,17 @@ For each small feature:
 
 The remaining public-release workstreams are:
 
-1. Complete ledger-side split/corporate-action handling for holdings whose
-   history spans those events, then verify such a portfolio with anonymous
-   records. Ordinary/adjusted automatic prices already have a verified static
-   path; Yahoo remains optional and the browser CSV control stays deferred.
-2. Finish the current source/history/dependency and hosting publication checks.
-   Repeat the anonymous release check after any further functional change.
-3. Clear the complete-market-data gate before opening the private repository
-   or publishing the site; verify the actual deployment on desktop/mobile.
+1. Gather owner feedback from the deployed private trial. Browser verification
+   at the hosted URL currently reaches the platform sign-in gate; the owner
+   must sign in for the authenticated trial. Local production-root and Pages
+   paths have passed anonymous live-price and backup checks.
+2. Confirm the intended friend/public access audience and finish public-release
+   checks. Repeat anonymous checks after further functional changes. Source
+   opening is a separate decision; GitHub stays private for the trial.
+3. Keep the complete-market-data condition for public access. The verified
+   scope covers ordinary US holdings, dated FX, manual forward/reverse splits,
+   and IVV/QQQ adjusted comparisons. Other corporate actions remain explicit
+   limits, rather than being silently treated as splits or fabricated prices.
 
 As of 2026-11-16, the tracked filename history contains source, documentation,
 and anonymous examples only. A pattern scan of 259 historical text blobs found
@@ -912,8 +915,33 @@ timeout. The suite now has 158 passing tests, including summer/winter cutoff
 and old-cache regression cases. Both production builds and lint pass, and
 the 2026-11-23 production dependency audit reports zero vulnerabilities.
 
-Complete market data remains required before public deployment or opening the
-repository. The site and repository were not published in this iteration.
+Manual `STOCK_SPLIT` events now support positive whole-number forward/reverse
+ratios, preserve event-date total cost and cash, and recalculate later sales.
+The unified add/preview flow inserts splits before same-day trades; imports,
+edits, and deletions validate the entire timeline. New backups use schema 3,
+while raw arrays and schema 1/2 remain accepted. IndexedDB containers stay
+unchanged and existing ledgers are not reset. Fractional shares are retained;
+cash in lieu and other corporate actions are outside this flow.
+
+On port 5277, a missing NVDA 10-for-1 split dated 2024-06-10 was added through
+the UI to fictional trades. Actual ordinary closes changed from USD 1,208.88
+to USD 121.79 while the held shares changed correctly. NAV moved from CNY
+102,515.10 to 102,670.80 instead of showing a false 90% loss. After the later
+one-share sale: 19 shares, remaining cost USD 2,281.90, realized P&L USD 8.90,
+and unchanged cash/fees. The actual schema-3 export restored all five events
+and the profile on fresh root-path port 5278; reload retained the result.
+History returned USD TWR 3.30%, IVV 33.20%, and QQQ 33.04%. Desktop 1440 px and
+phone 390 px passed without page overflow or console errors; the mobile split
+preview also kept total cost fixed. See [split rules and live evidence](STOCK_SPLITS.md).
+The split iteration has 172 passing tests, production builds, and lint.
+
+The owner-only [Sites trial](https://atlas-portfolio.schneider200con.chatgpt.site)
+was deployed successfully on 2026-11-23. The isolated release packet contains
+compiled static assets and its manifest only, never local ledgers or backups.
+The hosted sign-in gate was confirmed; an authenticated hosted-app check needs
+the owner's sign-in. [Deployment details](DEPLOYMENT.md) record Site identity
+and the exact saved version. The repository remains private. Complete market
+data is still required before public audience access or source opening.
 Extra providers beyond the current Yahoo/Eastmoney path, manual quote entry,
 expanded provenance UI, SPX Delta, advanced attribution, and more benchmarks
 are deferred until after the first public release. Existing market metadata
@@ -921,13 +949,11 @@ remains intact.
 
 ## Next task
 
-Add the smallest complete ledger-side share-split flow, preserving total cost
-while changing quantity and average cost from the effective date. It needs
-timeline validation, backup compatibility, and anonymous historical valuation
-checks across the split. Other corporate actions remain explicit limits.
-Keep the market CSV browser control deferred. Then finish publication checks
-and repeat the production-path release check before publishing; Yahoo hosting
-is optional for the verified Eastmoney path. Complete data readiness remains
-required before public deployment.
+Use the deployed private trial with the owner's sign-in, collect feedback,
+and resolve only concrete trial issues before opening access to friends.
+Preserve owner-only access until the owner specifies the broader audience.
+Keep the market CSV browser control deferred and Yahoo optional for the
+verified static path. Re-run release checks after functional changes and keep
+source publication separate from trial sharing.
 A focused manual ledger review and local JSON backup remain required before
 substantial real history.

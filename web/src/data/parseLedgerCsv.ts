@@ -5,12 +5,12 @@ import { parseCsvRows } from "./parseCsvRows";
 const columns = new Set([
   "id", "occurredAt", "accountId", "type", "amountCny", "amountUsd",
   "symbol", "quantity", "priceUsd", "feeUsd", "grossAmountUsd",
-  "withholdingTaxUsd", "currency", "amount", "category", "source", "note",
+  "withholdingTaxUsd", "currency", "amount", "category", "source", "note", "newShares", "oldShares",
 ]);
 const requiredColumns = ["id", "occurredAt", "accountId", "type"];
 const numericColumns = new Set([
   "amountCny", "amountUsd", "quantity", "priceUsd", "feeUsd",
-  "grossAmountUsd", "withholdingTaxUsd", "amount",
+  "grossAmountUsd", "withholdingTaxUsd", "amount", "newShares", "oldShares",
 ]);
 
 export function parseLedgerCsv(source: string): LedgerEvent[] {

@@ -79,6 +79,7 @@ function getUsdCashMovement(
     case "CNY_DEPOSIT":
     case "CNY_WITHDRAWAL":
     case "IN_KIND_CONTRIBUTION":
+    case "STOCK_SPLIT":
       return undefined;
   }
 }

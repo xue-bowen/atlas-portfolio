@@ -4,13 +4,14 @@ import type { PositionSecurityMapping } from "../domain/calculateHoldingsValuati
 import { sortLedgerEventsChronologically } from "../domain/sortLedgerEvents";
 import { validateLedgerTimeline } from "../domain/validateLedgerTimeline";
 import { parseSecurityProfiles } from "./securityProfileStorage";
+import { isValidStockSplitRatio } from "../domain/stockSplit";
 
 export const LEGACY_LEDGER_STORAGE_KEY = "atlas-portfolio-ledger";
 export const LEGACY_PERSONAL_LEDGER_KEY = "atlas-portfolio-personal-ledger-initialized";
 const STORAGE_KEY = LEGACY_LEDGER_STORAGE_KEY;
 const PERSONAL_LEDGER_KEY = LEGACY_PERSONAL_LEDGER_KEY;
 const BACKUP_APP_NAME = "atlas-portfolio";
-const BACKUP_SCHEMA_VERSION = 2;
+const BACKUP_SCHEMA_VERSION = 3;
 
 interface PortfolioBackup {
   app: typeof BACKUP_APP_NAME;
@@ -82,6 +83,10 @@ function isLedgerEvent(value: unknown): value is LedgerEvent {
         isNonNegativeNumber(value.feeUsd)
       );
 
+    case "STOCK_SPLIT":
+      return isString(value.symbol) && value.symbol.trim().length > 0 &&
+        isValidStockSplitRatio(value.newShares, value.oldShares);
+
     case "IN_KIND_CONTRIBUTION":
       return (
         value.source === "CASHBACK_REWARD" &&
@@ -136,7 +141,7 @@ function parseBackupData(
       return { ledger: parsedBackup.ledger, securityProfiles: [] };
     }
 
-    if (parsedBackup.schemaVersion === BACKUP_SCHEMA_VERSION) {
+    if (parsedBackup.schemaVersion === 2 || parsedBackup.schemaVersion === BACKUP_SCHEMA_VERSION) {
       return {
         ledger: parsedBackup.ledger,
         securityProfiles: parseSecurityProfiles(parsedBackup.securityProfiles),

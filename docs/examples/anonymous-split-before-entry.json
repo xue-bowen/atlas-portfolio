@@ -1,0 +1,57 @@
+{
+  "app": "atlas-portfolio",
+  "schemaVersion": 2,
+  "exportedAt": "2026-11-23T00:00:00Z",
+  "ledger": [
+    {
+      "id": "split-release-deposit",
+      "occurredAt": "2024-06-06",
+      "type": "CNY_DEPOSIT",
+      "amountCny": 100000,
+      "note": "Fictional release-check transaction; never personal data or an actual execution price.",
+      "accountId": "anonymous-split-release"
+    },
+    {
+      "id": "split-release-fx",
+      "occurredAt": "2024-06-06",
+      "type": "FX_TO_USD",
+      "amountCny": 70000,
+      "amountUsd": 10000,
+      "note": "Fictional release-check transaction; never personal data or an actual execution price.",
+      "accountId": "anonymous-split-release"
+    },
+    {
+      "id": "split-release-buy",
+      "symbol": "NVDA",
+      "occurredAt": "2024-06-07",
+      "type": "BUY",
+      "feeUsd": 2,
+      "quantity": 2,
+      "note": "Fictional release-check transaction; never personal data or an actual execution price.",
+      "priceUsd": 1200,
+      "accountId": "anonymous-split-release"
+    },
+    {
+      "id": "split-release-sale",
+      "symbol": "NVDA",
+      "occurredAt": "2024-06-11",
+      "type": "SELL",
+      "feeUsd": 1,
+      "quantity": 1,
+      "note": "Fictional release-check transaction; never personal data or an actual execution price.",
+      "priceUsd": 130,
+      "accountId": "anonymous-split-release"
+    }
+  ],
+  "securityProfiles": [
+    {
+      "security": {
+        "symbol": "NVDA",
+        "currency": "USD",
+        "assetType": "STOCK",
+        "exchange": "NASDAQ"
+      },
+      "positionSymbol": "NVDA"
+    }
+  ]
+}

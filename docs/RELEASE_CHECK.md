@@ -89,9 +89,9 @@ Frankfurter responses, with no fixture network override or Yahoo bridge.
 
 This verifies a representative multi-currency portfolio and the static path.
 It does not establish coverage of every ticker, corporate action, long date
-range, geography, or future provider availability. Share splits and other
-ledger-side corporate actions still need support before portfolios spanning
-those events can be represented correctly.
+range, geography, or future provider availability. Manual share splits now
+have a separate [live check and backup fixture](STOCK_SPLITS.md). Other
+corporate actions remain outside that flow.
 
 ## Completed-close rule
 

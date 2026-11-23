@@ -1,5 +1,7 @@
 import type { LedgerEvent } from "./ledger";
 import { sortLedgerEventsChronologically } from "./sortLedgerEvents";
+import { isValidStockSplitRatio } from "./stockSplit";
+import { isCalendarDate } from "./marketData";
 
 export interface PositionBalance {
   symbol: string;
@@ -31,10 +33,15 @@ export function calculateBalances(
   let totalFeesUsd = 0;
 
   const positions = new Map<string, PositionBalance>();
+  const tradedDates = new Set<string>();
+  const splitDates = new Set<string>();
 
   const orderedEvents = sortLedgerEventsChronologically(events);
 
   for (const event of orderedEvents) {
+    if (event.type === "BUY" || event.type === "SELL" || event.type === "IN_KIND_CONTRIBUTION") {
+      tradedDates.add(`${event.occurredAt}:${event.symbol}`);
+    }
     switch (event.type) {
       case "CNY_DEPOSIT":
         cnyCash += event.amountCny;
@@ -82,6 +89,27 @@ export function calculateBalances(
         position.quantity += event.quantity;
         position.costUsd += contributionValueUsd;
         positions.set(event.symbol, position);
+        break;
+      }
+
+      case "STOCK_SPLIT": {
+        if (!isCalendarDate(event.occurredAt)) throw new Error("Enter a valid split effective date.");
+        if (!isValidStockSplitRatio(event.newShares, event.oldShares)) {
+          throw new Error("Split ratio requires different positive whole numbers of new and old shares.");
+        }
+        const key = `${event.occurredAt}:${event.symbol}`;
+        if (tradedDates.has(key)) throw new Error("A split must precede trades for that symbol on its effective date.");
+        if (splitDates.has(key)) throw new Error("Only one split per symbol and effective date is supported.");
+        splitDates.add(key);
+        const position = positions.get(event.symbol);
+        if (!position || position.quantity <= 0) {
+          throw new Error(`Cannot split ${event.symbol} on ${event.occurredAt}: no position held.`);
+        }
+        const quantity = position.quantity * (event.newShares / event.oldShares);
+        if (!Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(position.costUsd / quantity)) {
+          throw new Error("Split ratio produces an unsupported share quantity or average cost.");
+        }
+        position.quantity = quantity;
         break;
       }
 

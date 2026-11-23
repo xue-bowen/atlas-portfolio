@@ -1,5 +1,6 @@
 import type { LedgerEvent } from "./ledger";
 import { validateLedgerTimeline } from "./validateLedgerTimeline";
+import { isValidStockSplitRatio } from "./stockSplit";
 
 export interface EditField {
   key: string;
@@ -50,6 +51,11 @@ export function getLedgerEditFields(event: LedgerEvent): EditField[] {
       return [symbol, quantity, price, fee];
     case "IN_KIND_CONTRIBUTION":
       return [symbol, quantity, price];
+    case "STOCK_SPLIT":
+      return [symbol,
+        { key: "newShares", label: "New shares", kind: "number" },
+        { key: "oldShares", label: "Old shares", kind: "number" },
+      ];
     case "DIVIDEND":
       return [
         symbol,
@@ -140,6 +146,9 @@ export function buildLedgerEdit(
     Number(updated.withholdingTaxUsd) > Number(updated.grossAmountUsd)
   ) {
     throw new Error("Withholding tax cannot exceed the gross dividend.");
+  }
+  if (original.type === "STOCK_SPLIT" && !isValidStockSplitRatio(updated.newShares, updated.oldShares)) {
+    throw new Error("Split ratio requires different positive whole numbers of new and old shares.");
   }
   // Only fields defined for this event type are editable; identity and metadata survive.
   return updated as unknown as LedgerEvent;

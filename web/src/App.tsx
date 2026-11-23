@@ -9,6 +9,7 @@ import {
 import "./App.css";
 import { CnyNavChart } from "./components/CnyNavChart";
 import { TransactionEditor } from "./components/TransactionEditor";
+import { StockSplitForm } from "./components/StockSplitForm";
 import { UsdTwrChart } from "./components/UsdTwrChart";
 import {
   loadBenchmarkAdjustedReturns,
@@ -73,6 +74,7 @@ import { removeLedgerEvent } from "./domain/removeLedgerEvent";
 import { previewLedgerMerge, type LedgerMergePreview } from "./domain/previewLedgerMerge";
 import { selectUsdTwrSnapshotDates } from "./domain/selectUsdTwrSnapshotDates";
 import { completedUsCloseDate } from "./domain/completedUsCloseDate";
+import { addStockSplitEvent } from "./domain/addStockSplitEvent";
 
 const usd = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -151,6 +153,7 @@ type ValuationFxRates = Partial<Record<ValuationFxKey, FxRateResolution>>;
 type ExpenseCategory = "ADR_FEE" | "OTHER";
 
 type TransactionEntryType =
+  | "STOCK_SPLIT"
   | "BUY"
   | "SELL"
   | "CNY_DEPOSIT"
@@ -167,6 +170,7 @@ const transactionEntryOptions: Array<{
 }> = [
   { type: "BUY", label: "Buy security" },
   { type: "SELL", label: "Sell security" },
+  { type: "STOCK_SPLIT", label: "Stock split / reverse split" },
   {
     type: "CNY_DEPOSIT",
     label: "CNY deposit",
@@ -335,6 +339,8 @@ function describeEvent(event: LedgerEvent): string {
       return `Buy ${event.quantity} ${event.symbol} @ $${event.priceUsd.toFixed(2)}`;
     case "SELL":
       return `Sell ${event.quantity} ${event.symbol} @ $${event.priceUsd.toFixed(2)}`;
+    case "STOCK_SPLIT":
+      return `Split ${event.symbol}: ${event.newShares} new for ${event.oldShares} old shares`;
     case "IN_KIND_CONTRIBUTION":
       return `Payment cashback: ${event.quantity} ${event.symbol} @ $${event.priceUsd.toFixed(2)}`;
     case "DIVIDEND":
@@ -2039,6 +2045,18 @@ export default function App() {
                   ))}
                 </select>
               </label>
+
+              {selectedTransactionType === "STOCK_SPLIT" && (
+                <StockSplitForm
+                  ledger={ledger}
+                  initialDate={currentLocalDate()}
+                  onSave={async (event) => {
+                    if (!await persistLedgerChanges(addStockSplitEvent(ledger, event))) return false;
+                    setMessage("Stock split saved. Holdings, costs and historical performance will use the updated ledger.");
+                    return true;
+                  }}
+                />
+              )}
 
               {selectedTransactionType === "BUY" && (
                 <form className="unified-transaction-form" onSubmit={addBuy}>
@@ -4153,6 +4171,8 @@ export default function App() {
             cache. No API key or manual quote entry is required. Cached prices
             remain available with an explicit stale status if refresh fails.
           </p>
+          <p>Record stock splits through Add transaction before calculating history.
+            Share counts come from your ledger; price updates do not add split records.</p>
         </div>
 
         {balances.positions.length === 0 ? (

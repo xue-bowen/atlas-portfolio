@@ -6,6 +6,14 @@ stored in IndexedDB; security profiles and the one-time migration marker use
 localStorage. Market-data cache records use a separate IndexedDB database.
 The app does not send a complete ledger or JSON/CSV import file to its host.
 
+The private trial is served through Sites at
+`https://atlas-portfolio.schneider200con.chatgpt.site`. Sites requires platform
+sign-in for this owner-only deployment; this does not add cloud ledger storage
+to Atlas. The host receives page/asset requests and ordinary network metadata,
+while portfolio data remains in that browser's storage. GitHub source remains
+private. Moving from a local origin to this host starts a separate ledger;
+transfer a backup yourself only when you intend to use that origin.
+
 Each browser origin has separate storage. A locally run version and a future
 hosted version will therefore start with separate ledgers. Clearing site data,
 using a private browsing window, or moving devices can remove access to the

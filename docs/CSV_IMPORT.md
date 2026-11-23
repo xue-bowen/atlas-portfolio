@@ -20,6 +20,7 @@ IDs. Rows may arrive out of date order, but same-day rows retain file order.
 | `CNY_DEPOSIT`, `CNY_WITHDRAWAL` | `amountCny` |
 | `FX_TO_USD`, `FX_TO_CNY` | `amountCny`, `amountUsd` |
 | `BUY`, `SELL` | `symbol`, `quantity`, `priceUsd`, `feeUsd` |
+| `STOCK_SPLIT` | `symbol`, `newShares`, `oldShares` (different positive whole numbers) |
 | `DIVIDEND` | `symbol`, `grossAmountUsd`, `withholdingTaxUsd` |
 | `INTEREST` | `currency` (`CNY`, `HKD`, or `USD`), `amount` |
 | `FEE` | `amountUsd`, `category` (`COMMISSION`, `ADR_FEE`, or `OTHER`) |
@@ -28,8 +29,10 @@ IDs. Rows may arrive out of date order, but same-day rows retain file order.
 `note` is optional for every type. These are all supported column names:
 `id`, `occurredAt`, `accountId`, `type`, `amountCny`, `amountUsd`, `symbol`,
 `quantity`, `priceUsd`, `feeUsd`, `grossAmountUsd`, `withholdingTaxUsd`,
-`currency`, `amount`, `category`, `source`, `note`. Atlas also accepts the
+`currency`, `amount`, `category`, `source`, `note`, `newShares`, `oldShares`. Atlas also accepts the
 legacy `INTEREST` form with `amountUsd` instead of `currency` and `amount`.
+Split rows must precede the security's trades on the effective date; the
+position must already be held. See [split rules and examples](STOCK_SPLITS.md).
 
 Anonymous example:
 
