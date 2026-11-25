@@ -1,4 +1,5 @@
 # Atlas Portfolio
+Designed to manage investment dynamic profit and losses regarding FX changes, dividends, and others across different investment platforms This is a substantial build - a personal investment tracker with multi-currency support and FX-aware P&L calculations, plus transaction history.
 
 Atlas Portfolio 是一个浏览器本地运行的多币种投资组合账本。它记录人民币入金、换汇、美元证券交易、股息和费用，并计算持仓成本、已实现损益、人民币组合价值、XIRR、美元 TWR，以及在具备调整后收盘价时与 IVV、QQQ 的回报比较。
 
